@@ -1,8 +1,10 @@
-{ mkShell
+{ mkShell, lib, stdenv
 
 , pkg-config
 , scdoc
 , zig
+
+, libX11
 }: mkShell rec {
   name = "ghostty";
 
@@ -13,5 +15,7 @@
   ];
 
   buildInputs = [
+  ] ++ lib.optionals stdenv.isLinux [
+    libX11
   ];
 }
