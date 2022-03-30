@@ -1,4 +1,5 @@
 const std = @import("std");
+const glfw = @import("vendor/mach/glfw/build.zig");
 const Builder = std.build.Builder;
 const LibExeObjStep = std.build.LibExeObjStep;
 
@@ -10,10 +11,8 @@ pub fn build(b: *std.build.Builder) void {
     exe.setTarget(target);
     exe.setBuildMode(mode);
     exe.install();
-    exe.linkLibC();
-    exe.linkSystemLibrary("glfw3");
-    // exe.linkSystemLibrary("X11");
-    // exe.linkSystemLibrary("xcb");
+    exe.addPackagePath("glfw", "vendor/mach/glfw/src/main.zig");
+    glfw.link(b, exe, .{});
 
     const run_cmd = exe.run();
     run_cmd.step.dependOn(b.getInstallStep());

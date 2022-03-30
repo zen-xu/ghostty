@@ -1,20 +1,16 @@
 const std = @import("std");
-const glfw = @import("glfw/glfw.zig");
+const glfw = @import("glfw");
 
 pub fn main() !void {
-    // Iniialize GLFW
-    if (glfw.c.glfwInit() != glfw.c.GLFW_TRUE) return glfw.errors.getError();
-    defer glfw.c.glfwTerminate();
+    try glfw.init(.{});
+    defer glfw.terminate();
 
-    // Create our initial window
-    const window = glfw.c.glfwCreateWindow(640, 480, "My Title", null, null) orelse
-        return glfw.errors.getError();
-    defer glfw.c.glfwDestroyWindow(window);
+    // Create our window
+    const window = try glfw.Window.create(640, 480, "Hello, mach-glfw!", null, null, .{});
+    defer window.destroy();
 
-    // Setup OpenGL
-    glfw.c.glfwMakeContextCurrent(window);
-
-    while (glfw.c.glfwWindowShouldClose(window) == glfw.c.GLFW_FALSE) {
-        glfw.c.glfwWaitEvents();
+    // Wait for the user to close the window.
+    while (!window.shouldClose()) {
+        try glfw.pollEvents();
     }
 }

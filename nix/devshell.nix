@@ -5,9 +5,8 @@
 , scdoc
 , zig
 
-, glfw
+, libGL
 , libX11
-, vulkan-headers
 }: mkShell rec {
   name = "ghostty";
 
@@ -20,8 +19,8 @@
 
   buildInputs = [
   ] ++ lib.optionals stdenv.isLinux [
-    glfw
     libX11
-    vulkan-headers
   ];
+
+  LD_LIBRARY_PATH="${libGL}/lib";
 }
