@@ -3,6 +3,7 @@
 , gdb
 , pkg-config
 , scdoc
+, vulkan-loader
 , vttest
 , zig
 
@@ -26,5 +27,5 @@
     libX11
   ];
 
-  LD_LIBRARY_PATH = "${libGL}/lib";
+  LD_LIBRARY_PATH = "${vulkan-loader}/lib:${libGL}/lib";
 }

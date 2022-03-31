@@ -13,6 +13,8 @@ pub fn build(b: *std.build.Builder) void {
     exe.setTarget(target);
     exe.setBuildMode(mode);
     exe.install();
+    exe.addPackagePath("gpu", "vendor/mach/gpu/src/main.zig");
+    exe.addPackagePath("dawn", "vendor/mach/gpu-dawn/src/dawn/c.zig");
     exe.addPackagePath("glfw", "vendor/mach/glfw/src/main.zig");
     glfw.link(b, exe, .{});
     gpu_dawn.link(b, exe, if (target.getCpuArch() == .aarch64) .{
