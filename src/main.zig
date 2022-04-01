@@ -1,7 +1,7 @@
 const std = @import("std");
 const glfw = @import("glfw");
-const c = @import("c.zig");
 const gl = @import("opengl.zig");
+const c = gl.c;
 
 pub fn main() !void {
     try glfw.init(.{});
