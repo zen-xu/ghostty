@@ -36,20 +36,13 @@ pub fn main() !void {
     defer fs.destroy();
 
     // Shader program
-    const program = c.glCreateProgram();
-    c.glAttachShader(program, vs.handle);
-    c.glAttachShader(program, fs.handle);
-    c.glLinkProgram(program);
-    var success: c_int = undefined;
-    c.glGetProgramiv(program, c.GL_LINK_STATUS, &success);
-    if (success != c.GL_TRUE) {
-        var msg: [512]u8 = undefined;
-        c.glGetProgramInfoLog(program, 512, null, &msg);
-        std.log.err("program fail: {s}\n", .{std.mem.sliceTo(&msg, 0)});
-        return;
-    }
-    c.glDeleteShader(vs.handle);
-    c.glDeleteShader(fs.handle);
+    const program = try gl.Program.create();
+    defer program.destroy();
+    try program.attachShader(vs);
+    try program.attachShader(fs);
+    try program.link();
+    vs.destroy();
+    fs.destroy();
 
     // Create our bufer or vertices
     const vertices = [_]f32{
@@ -90,7 +83,7 @@ pub fn main() !void {
         c.glClearColor(0.2, 0.3, 0.3, 1.0);
         c.glClear(c.GL_COLOR_BUFFER_BIT);
 
-        c.glUseProgram(program);
+        c.glUseProgram(program.id);
         c.glBindVertexArray(vao);
         c.glDrawArrays(c.GL_TRIANGLES, 0, 3);
 
