@@ -1,21 +1,30 @@
 const std = @import("std");
-const c = @import("c.zig");
+const glfw = @import("glfw");
+const c = @cImport({
+    @cInclude("epoxy/gl.h");
+});
 
 pub fn main() !void {
-    // Set the window as resizable. This is particularly important for
-    // tiling window managers such as i3 since if they are not resizable they
-    // usually default to floating and we do not want to float by default!
-    c.SetConfigFlags(c.FLAG_WINDOW_RESIZABLE | c.FLAG_VSYNC_HINT);
+    try glfw.init(.{});
+    defer glfw.terminate();
 
     // Create our window
-    c.InitWindow(640, 480, "ghostty");
-    c.SetTargetFPS(60);
-    defer c.CloseWindow();
+    const window = try glfw.Window.create(640, 480, "ghostty", null, null, .{});
+    defer window.destroy();
 
-    // Draw
-    while (!c.WindowShouldClose()) {
-        c.BeginDrawing();
-        c.ClearBackground(c.BLACK);
-        c.EndDrawing();
+    // Setup OpenGL
+    try glfw.makeContextCurrent(window);
+    try glfw.swapInterval(1);
+
+    // Setup basic OpenGL settings
+    c.glClearColor(0.0, 0.0, 0.0, 0.0);
+
+    // Wait for the user to close the window.
+    while (!window.shouldClose()) {
+        const pos = try window.getCursorPos();
+        std.log.info("CURSOR: {}", .{pos});
+
+        try window.swapBuffers();
+        try glfw.waitEvents();
     }
 }

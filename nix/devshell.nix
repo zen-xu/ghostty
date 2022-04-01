@@ -7,6 +7,7 @@
 , vttest
 , zig
 
+, libepoxy
 , libGL
 , libX11
 , libXcursor
@@ -29,7 +30,9 @@
   buildInputs = [
     # TODO: non-linux
   ] ++ lib.optionals stdenv.isLinux [
+    libepoxy
     libGL
+
     libX11
     libXcursor
     libXext
