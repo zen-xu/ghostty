@@ -9,6 +9,11 @@
 
 , libGL
 , libX11
+, libXcursor
+, libXext
+, libXi
+, libXinerama
+, libXrandr
 }: mkShell rec {
   name = "ghostty";
 
@@ -24,7 +29,13 @@
   buildInputs = [
     # TODO: non-linux
   ] ++ lib.optionals stdenv.isLinux [
+    libGL
     libX11
+    libXcursor
+    libXext
+    libXi
+    libXinerama
+    libXrandr
   ];
 
   LD_LIBRARY_PATH = "${vulkan-loader}/lib:${libGL}/lib";

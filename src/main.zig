@@ -1,19 +1,10 @@
 const std = @import("std");
-const dawn = @import("dawn");
-const glfw = @import("glfw");
-const gpu = @import("gpu");
-
-const setup = @import("setup.zig");
+const c = @import("c.zig");
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    var allocator = gpa.allocator();
+    c.InitWindow(640, 480, "ghostty");
+    c.SetTargetFPS(60);
+    defer c.CloseWindow();
 
-    const s = try setup.setup(allocator);
-    defer glfw.terminate();
-
-    // Wait for the user to close the window.
-    while (!s.window.shouldClose()) {
-        try glfw.pollEvents();
-    }
+    while (!c.WindowShouldClose()) {}
 }
