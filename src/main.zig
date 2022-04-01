@@ -1,8 +1,7 @@
 const std = @import("std");
 const glfw = @import("glfw");
-const c = @cImport({
-    @cInclude("epoxy/gl.h");
-});
+const c = @import("c.zig");
+const gl = @import("opengl.zig");
 
 pub fn main() !void {
     try glfw.init(.{});
@@ -28,44 +27,20 @@ pub fn main() !void {
     }).callback);
 
     // Create our vertex shader
-    const vs = c.glCreateShader(c.GL_VERTEX_SHADER);
-    c.glShaderSource(
-        vs,
-        1,
-        &@ptrCast([*c]const u8, vs_source),
-        null,
-    );
-    c.glCompileShader(vs);
-    var success: c_int = undefined;
-    c.glGetShaderiv(vs, c.GL_COMPILE_STATUS, &success);
-    if (success != c.GL_TRUE) {
-        var msg: [512]u8 = undefined;
-        c.glGetShaderInfoLog(vs, 512, null, &msg);
-        std.log.err("Fail: {s}\n", .{std.mem.sliceTo(&msg, 0)});
-        return;
-    }
+    const vs = try gl.Shader.create(gl.c.GL_VERTEX_SHADER);
+    try vs.setSourceAndCompile(vs_source);
+    defer vs.destroy();
 
-    const fs = c.glCreateShader(c.GL_FRAGMENT_SHADER);
-    c.glShaderSource(
-        fs,
-        1,
-        &@ptrCast([*c]const u8, fs_source),
-        null,
-    );
-    c.glCompileShader(fs);
-    c.glGetShaderiv(fs, c.GL_COMPILE_STATUS, &success);
-    if (success != c.GL_TRUE) {
-        var msg: [512]u8 = undefined;
-        c.glGetShaderInfoLog(fs, 512, null, &msg);
-        std.log.err("FS fail: {s}\n", .{std.mem.sliceTo(&msg, 0)});
-        return;
-    }
+    const fs = try gl.Shader.create(gl.c.GL_FRAGMENT_SHADER);
+    try fs.setSourceAndCompile(fs_source);
+    defer fs.destroy();
 
     // Shader program
     const program = c.glCreateProgram();
-    c.glAttachShader(program, vs);
-    c.glAttachShader(program, fs);
+    c.glAttachShader(program, vs.handle);
+    c.glAttachShader(program, fs.handle);
     c.glLinkProgram(program);
+    var success: c_int = undefined;
     c.glGetProgramiv(program, c.GL_LINK_STATUS, &success);
     if (success != c.GL_TRUE) {
         var msg: [512]u8 = undefined;
@@ -73,8 +48,8 @@ pub fn main() !void {
         std.log.err("program fail: {s}\n", .{std.mem.sliceTo(&msg, 0)});
         return;
     }
-    c.glDeleteShader(vs);
-    c.glDeleteShader(fs);
+    c.glDeleteShader(vs.handle);
+    c.glDeleteShader(fs.handle);
 
     // Create our bufer or vertices
     const vertices = [_]f32{

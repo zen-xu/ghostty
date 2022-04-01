@@ -1,3 +1,3 @@
 pub usingnamespace @cImport({
-    @cInclude("raylib.h");
+    @cInclude("epoxy/gl.h");
 });
