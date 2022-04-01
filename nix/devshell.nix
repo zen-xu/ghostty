@@ -1,6 +1,7 @@
 { mkShell, lib, stdenv
 
 , gdb
+, glxinfo
 , pkg-config
 , scdoc
 , vulkan-loader
@@ -24,6 +25,7 @@
     scdoc
     zig
 
+    glxinfo
     vttest
   ];
 
