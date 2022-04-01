@@ -10,7 +10,7 @@ const errors = @import("errors.zig");
 
 id: c.GLuint,
 
-pub fn create() !Program {
+pub inline fn create() !Program {
     const id = c.glCreateProgram();
     if (id == 0) try errors.mustError();
 
@@ -18,12 +18,12 @@ pub fn create() !Program {
     return Program{ .id = id };
 }
 
-pub fn attachShader(p: Program, s: Shader) !void {
+pub inline fn attachShader(p: Program, s: Shader) !void {
     c.glAttachShader(p.id, s.id);
     try errors.getError();
 }
 
-pub fn link(p: Program) !void {
+pub inline fn link(p: Program) !void {
     c.glLinkProgram(p.id);
 
     // Check if linking succeeded
@@ -41,19 +41,23 @@ pub fn link(p: Program) !void {
     return error.CompileFailed;
 }
 
+pub inline fn use(p: Program) !void {
+    c.glUseProgram(p.id);
+}
+
 /// getInfoLog returns the info log for this program. This attempts to
 /// keep the log fully stack allocated and is therefore limited to a max
 /// amount of elements.
 //
 // NOTE(mitchellh): we can add a dynamic version that uses an allocator
 // if we ever need it.
-pub fn getInfoLog(s: Program) [512]u8 {
+pub inline fn getInfoLog(s: Program) [512]u8 {
     var msg: [512]u8 = undefined;
     c.glGetProgramInfoLog(s.id, msg.len, null, &msg);
     return msg;
 }
 
-pub fn destroy(p: Program) void {
+pub inline fn destroy(p: Program) void {
     assert(p.id != 0);
     c.glDeleteProgram(p.id);
     log.debug("program destroyed id={}", .{p.id});

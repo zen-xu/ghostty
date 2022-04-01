@@ -50,11 +50,11 @@ pub fn main() !void {
         0.5, -0.5, 0.0, // right
         0.0, 0.5, 0.0, // top
     };
-    var vao: c_uint = undefined;
+    const vao = try gl.VertexArray.create();
+    defer vao.destroy();
     var vbo: c_uint = undefined;
-    c.glGenVertexArrays(1, &vao);
     c.glGenBuffers(1, &vbo);
-    c.glBindVertexArray(vao);
+    try vao.bind();
 
     c.glBindBuffer(c.GL_ARRAY_BUFFER, vbo);
     c.glBufferData(
@@ -83,8 +83,8 @@ pub fn main() !void {
         c.glClearColor(0.2, 0.3, 0.3, 1.0);
         c.glClear(c.GL_COLOR_BUFFER_BIT);
 
-        c.glUseProgram(program.id);
-        c.glBindVertexArray(vao);
+        try program.use();
+        try vao.bind();
         c.glDrawArrays(c.GL_TRIANGLES, 0, 3);
 
         // const pos = try window.getCursorPos();
