@@ -1,3 +1,6 @@
 [submodule "vendor/mach"]
 	path = vendor/mach
 	url = https://github.com/hexops/mach.git
+[submodule "vendor/raylib"]
+	path = vendor/raylib
+	url = https://github.com/raysan5/raylib.git
