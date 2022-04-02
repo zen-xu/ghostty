@@ -56,7 +56,7 @@ pub fn main() !void {
     defer vbo.destroy();
     try vao.bind();
     try vbo.bind(c.GL_ARRAY_BUFFER);
-    try vbo.setData(c.GL_ARRAY_BUFFER, vertices[0..], c.GL_STATIC_DRAW);
+    try vbo.setData(c.GL_ARRAY_BUFFER, vertices, c.GL_STATIC_DRAW);
 
     c.glVertexAttribPointer(
         0,

@@ -1,5 +1,6 @@
 const Buffer = @This();
 
+const std = @import("std");
 const c = @import("c.zig");
 const errors = @import("errors.zig");
 
@@ -25,29 +26,43 @@ pub inline fn bind(v: Buffer, target: c.GLenum) !void {
 pub inline fn setData(
     v: Buffer,
     target: c.GLenum,
-    data: []const f32,
+    data: anytype,
     usage: c.GLenum,
 ) !void {
     // Maybe one day in debug mode we can validate that this buffer
     // is currently bound.
     _ = v;
 
-    // Determine the per-element size. This is all comptime-computed.
-    const dataInfo = @typeInfo(@TypeOf(data));
-    const size: usize = switch (dataInfo) {
-        .Pointer => |ptr| switch (ptr.size) {
-            .Slice => @sizeOf(ptr.child),
-            else => unreachable,
+    // Determine the size and pointer to the given data.
+    const info: struct {
+        size: isize,
+        ptr: *const anyopaque,
+    } = switch (@typeInfo(@TypeOf(data))) {
+        .Array => |ary| .{
+            .size = @sizeOf(ary.child) * ary.len,
+            .ptr = &data,
         },
-        else => unreachable,
+        .Pointer => |ptr| switch (ptr.size) {
+            .One => .{
+                .size = @sizeOf(ptr.child) * data.len,
+                .ptr = data,
+            },
+            .Slice => .{
+                .size = @sizeOf(ptr.child) * data.len,
+                .ptr = data.ptr,
+            },
+            else => {
+                std.log.err("invalid buffer data pointer size: {}", .{ptr.size});
+                unreachable;
+            },
+        },
+        else => {
+            std.log.err("invalid buffer data type: {s}", .{@tagName(@typeInfo(@TypeOf(data)))});
+            unreachable;
+        },
     };
 
-    c.glBufferData(
-        target,
-        @intCast(isize, size * data.len),
-        data.ptr,
-        usage,
-    );
+    c.glBufferData(target, info.size, info.ptr, usage);
     try errors.getError();
 }
 
