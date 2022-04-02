@@ -7,21 +7,6 @@ pub fn main() !void {
     try glfw.init(.{});
     defer glfw.terminate();
 
-    // Load our image
-    var imgwidth: c_int = 0;
-    var imgheight: c_int = 0;
-    var imgchannels: c_int = 0;
-    const data = stb.c.stbi_load_from_memory(
-        texsrc,
-        texsrc.len,
-        &imgwidth,
-        &imgheight,
-        &imgchannels,
-        0,
-    );
-    if (data == null) return error.TexFail;
-    stb.c.stbi_image_free(data);
-
     // Create our window
     const window = try glfw.Window.create(640, 480, "ghostty", null, null, .{
         .context_version_major = 3,
@@ -40,6 +25,43 @@ pub fn main() !void {
             gl.c.glViewport(0, 0, width, height);
         }
     }).callback);
+
+    // Load our image
+    var imgwidth: c_int = 0;
+    var imgheight: c_int = 0;
+    var imgchannels: c_int = 0;
+    const data = stb.c.stbi_load_from_memory(
+        texsrc,
+        texsrc.len,
+        &imgwidth,
+        &imgheight,
+        &imgchannels,
+        0,
+    );
+    if (data == null) return error.TexFail;
+    defer stb.c.stbi_image_free(data);
+
+    // Setup a texture
+    const tex = try gl.Texture.create();
+    defer tex.destroy();
+    var texbind = try tex.bind(gl.c.GL_TEXTURE_2D);
+    defer texbind.unbind();
+    gl.c.glTexParameteri(gl.c.GL_TEXTURE_2D, gl.c.GL_TEXTURE_WRAP_S, gl.c.GL_REPEAT);
+    gl.c.glTexParameteri(gl.c.GL_TEXTURE_2D, gl.c.GL_TEXTURE_WRAP_T, gl.c.GL_REPEAT);
+    gl.c.glTexParameteri(gl.c.GL_TEXTURE_2D, gl.c.GL_TEXTURE_MIN_FILTER, gl.c.GL_LINEAR);
+    gl.c.glTexParameteri(gl.c.GL_TEXTURE_2D, gl.c.GL_TEXTURE_MAG_FILTER, gl.c.GL_LINEAR);
+    gl.c.glTexImage2D(
+        gl.c.GL_TEXTURE_2D,
+        0,
+        gl.c.GL_RGB,
+        imgwidth,
+        imgheight,
+        0,
+        gl.c.GL_RGB,
+        gl.c.GL_UNSIGNED_BYTE,
+        data,
+    );
+    gl.c.glGenerateMipmap(gl.c.GL_TEXTURE_2D);
 
     // Create our vertex shader
     const vs = try gl.Shader.create(gl.c.GL_VERTEX_SHADER);
@@ -61,9 +83,9 @@ pub fn main() !void {
 
     // Create our bufer or vertices
     const vertices = [_]f32{
-        -0.5, -0.5, 0.0, // left
-        0.5, -0.5, 0.0, // right
-        0.0, 0.5, 0.0, // top
+        -0.5, -0.5, 0.0, 0.0, 0.0, // left
+        0.5, -0.5, 0.0, 1.0, 0.0, // right
+        0.0, 0.5, 0.0, 0.5, 1.0, // top
     };
     const vao = try gl.VertexArray.create();
     defer vao.destroy();
@@ -72,8 +94,17 @@ pub fn main() !void {
     try vao.bind();
     var binding = try vbo.bind(gl.c.GL_ARRAY_BUFFER);
     try binding.setData(&vertices, gl.c.GL_STATIC_DRAW);
-    try binding.vertexAttribPointer(0, 3, gl.c.GL_FLOAT, false, 3 * @sizeOf(f32), null);
+    try binding.vertexAttribPointer(0, 3, gl.c.GL_FLOAT, false, 5 * @sizeOf(f32), null);
     try binding.enableVertexAttribArray(0);
+    try binding.vertexAttribPointer(
+        1,
+        2,
+        gl.c.GL_FLOAT,
+        false,
+        5 * @sizeOf(f32),
+        @intToPtr(*const anyopaque, 3 * @sizeOf(f32)),
+    );
+    try binding.enableVertexAttribArray(1);
 
     binding.unbind();
     try gl.VertexArray.unbind();
@@ -85,8 +116,8 @@ pub fn main() !void {
         gl.c.glClear(gl.c.GL_COLOR_BUFFER_BIT);
 
         try program.use();
-        try program.setUniform("vertexColor", @Vector(4, f32){ 0.0, 1.0, 0.0, 1.0 });
 
+        gl.c.glBindTexture(gl.c.GL_TEXTURE_2D, tex.id);
         try vao.bind();
         gl.c.glDrawArrays(gl.c.GL_TRIANGLES, 0, 3);
 
@@ -103,10 +134,14 @@ const texsrc = @embedFile("tex.png");
 const vs_source =
     \\#version 330 core
     \\layout (location = 0) in vec3 aPos;
+    \\layout (location = 1) in vec2 aTexCoord;
+    \\
+    \\out vec2 TexCoord;
     \\
     \\void main()
     \\{
     \\    gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+    \\    TexCoord = aTexCoord;
     \\}
 ;
 
@@ -114,10 +149,12 @@ const fs_source =
     \\#version 330 core
     \\out vec4 FragColor;
     \\
-    \\uniform vec4 vertexColor;
+    \\in vec2 TexCoord;
+    \\
+    \\uniform sampler2D ourTexture;
     \\
     \\void main()
     \\{
-    \\    FragColor = vertexColor;
+    \\    FragColor = texture(ourTexture, TexCoord);
     \\}
 ;
