@@ -45,6 +45,22 @@ pub inline fn use(p: Program) !void {
     c.glUseProgram(p.id);
 }
 
+/// Requires the program is currently in use.
+pub inline fn setUniform(p: Program, n: [:0]const u8, value: anytype) !void {
+    const loc = c.glGetUniformLocation(p.id, n);
+    if (loc < 0) {
+        return error.UniformNameInvalid;
+    }
+    try errors.getError();
+
+    // Perform the correct call depending on the type of the value.
+    switch (@TypeOf(value)) {
+        @Vector(4, f32) => c.glUniform4f(loc, value[0], value[1], value[2], value[3]),
+        else => unreachable,
+    }
+    try errors.getError();
+}
+
 /// getInfoLog returns the info log for this program. This attempts to
 /// keep the log fully stack allocated and is therefore limited to a max
 /// amount of elements.

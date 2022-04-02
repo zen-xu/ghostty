@@ -70,6 +70,8 @@ pub fn main() !void {
         c.glClear(c.GL_COLOR_BUFFER_BIT);
 
         try program.use();
+        try program.setUniform("vertexColor", @Vector(4, f32){ 0.0, 1.0, 0.0, 1.0 });
+
         try vao.bind();
         c.glDrawArrays(c.GL_TRIANGLES, 0, 3);
 
@@ -95,8 +97,10 @@ const fs_source =
     \\#version 330 core
     \\out vec4 FragColor;
     \\
+    \\uniform vec4 vertexColor;
+    \\
     \\void main()
     \\{
-    \\    FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
+    \\    FragColor = vertexColor;
     \\}
 ;
