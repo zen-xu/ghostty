@@ -52,17 +52,11 @@ pub fn main() !void {
     };
     const vao = try gl.VertexArray.create();
     defer vao.destroy();
-    var vbo: c_uint = undefined;
-    c.glGenBuffers(1, &vbo);
+    const vbo = try gl.Buffer.create();
+    defer vbo.destroy();
     try vao.bind();
-
-    c.glBindBuffer(c.GL_ARRAY_BUFFER, vbo);
-    c.glBufferData(
-        c.GL_ARRAY_BUFFER,
-        @as(isize, @sizeOf(@TypeOf(vertices))),
-        &vertices,
-        c.GL_STATIC_DRAW,
-    );
+    try vbo.bind(c.GL_ARRAY_BUFFER);
+    try vbo.setData(c.GL_ARRAY_BUFFER, vertices[0..], c.GL_STATIC_DRAW);
 
     c.glVertexAttribPointer(
         0,
@@ -74,8 +68,8 @@ pub fn main() !void {
     );
     c.glEnableVertexAttribArray(0);
 
-    c.glBindBuffer(c.GL_ARRAY_BUFFER, 0);
-    c.glBindVertexArray(0);
+    try gl.Buffer.unbind(c.GL_ARRAY_BUFFER);
+    try gl.VertexArray.unbind();
 
     // Wait for the user to close the window.
     while (!window.shouldClose()) {

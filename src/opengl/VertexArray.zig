@@ -11,6 +11,11 @@ pub inline fn create() !VertexArray {
     return VertexArray{ .id = vao };
 }
 
+// Unbind any active vertex array.
+pub inline fn unbind() !void {
+    c.glBindVertexArray(0);
+}
+
 /// glBindVertexArray
 pub inline fn bind(v: VertexArray) !void {
     c.glBindVertexArray(v.id);
