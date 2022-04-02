@@ -55,8 +55,8 @@ pub fn main() !void {
     const vbo = try gl.Buffer.create();
     defer vbo.destroy();
     try vao.bind();
-    try vbo.bind(c.GL_ARRAY_BUFFER);
-    try vbo.setData(c.GL_ARRAY_BUFFER, vertices, c.GL_STATIC_DRAW);
+    var binding = try vbo.bind(c.GL_ARRAY_BUFFER);
+    try binding.setData(&vertices, c.GL_STATIC_DRAW);
 
     c.glVertexAttribPointer(
         0,
@@ -68,7 +68,7 @@ pub fn main() !void {
     );
     c.glEnableVertexAttribArray(0);
 
-    try gl.Buffer.unbind(c.GL_ARRAY_BUFFER);
+    binding.unbind();
     try gl.VertexArray.unbind();
 
     // Wait for the user to close the window.
