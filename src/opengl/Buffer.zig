@@ -52,11 +52,26 @@ pub const Binding = struct {
         try errors.getError();
     }
 
+    pub inline fn enableVertexAttribArray(_: Binding, idx: c.GLuint) !void {
+        c.glEnableVertexAttribArray(idx);
+    }
+
+    pub inline fn vertexAttribPointer(
+        _: Binding,
+        idx: c.GLuint,
+        size: c.GLint,
+        typ: c.GLenum,
+        normalized: bool,
+        stride: c.GLsizei,
+        ptr: ?*const anyopaque,
+    ) !void {
+        const normalized_c: c.GLboolean = if (normalized) c.GL_TRUE else c.GL_FALSE;
+        c.glVertexAttribPointer(idx, size, typ, normalized_c, stride, ptr);
+        try errors.getError();
+    }
+
     pub inline fn unbind(b: *Binding) void {
         c.glBindBuffer(b.target, 0);
-
-        // By setting this to undefined, this ensures that any future calls
-        // error in safe build modes.
         b.* = undefined;
     }
 };

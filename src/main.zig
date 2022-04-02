@@ -57,16 +57,8 @@ pub fn main() !void {
     try vao.bind();
     var binding = try vbo.bind(c.GL_ARRAY_BUFFER);
     try binding.setData(&vertices, c.GL_STATIC_DRAW);
-
-    c.glVertexAttribPointer(
-        0,
-        3,
-        c.GL_FLOAT,
-        c.GL_FALSE,
-        3 * @sizeOf(f32),
-        null,
-    );
-    c.glEnableVertexAttribArray(0);
+    try binding.vertexAttribPointer(0, 3, c.GL_FLOAT, false, 3 * @sizeOf(f32), null);
+    try binding.enableVertexAttribArray(0);
 
     binding.unbind();
     try gl.VertexArray.unbind();
