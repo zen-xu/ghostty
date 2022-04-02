@@ -1,11 +1,26 @@
 const std = @import("std");
 const glfw = @import("glfw");
 const gl = @import("opengl.zig");
-const c = gl.c;
+const stb = @import("stb.zig");
 
 pub fn main() !void {
     try glfw.init(.{});
     defer glfw.terminate();
+
+    // Load our image
+    var imgwidth: c_int = 0;
+    var imgheight: c_int = 0;
+    var imgchannels: c_int = 0;
+    const data = stb.c.stbi_load_from_memory(
+        texsrc,
+        texsrc.len,
+        &imgwidth,
+        &imgheight,
+        &imgchannels,
+        0,
+    );
+    if (data == null) return error.TexFail;
+    stb.c.stbi_image_free(data);
 
     // Create our window
     const window = try glfw.Window.create(640, 480, "ghostty", null, null, .{
@@ -22,7 +37,7 @@ pub fn main() !void {
     window.setSizeCallback((struct {
         fn callback(_: glfw.Window, width: i32, height: i32) void {
             std.log.info("set viewport {} {}", .{ width, height });
-            c.glViewport(0, 0, width, height);
+            gl.c.glViewport(0, 0, width, height);
         }
     }).callback);
 
@@ -55,9 +70,9 @@ pub fn main() !void {
     const vbo = try gl.Buffer.create();
     defer vbo.destroy();
     try vao.bind();
-    var binding = try vbo.bind(c.GL_ARRAY_BUFFER);
-    try binding.setData(&vertices, c.GL_STATIC_DRAW);
-    try binding.vertexAttribPointer(0, 3, c.GL_FLOAT, false, 3 * @sizeOf(f32), null);
+    var binding = try vbo.bind(gl.c.GL_ARRAY_BUFFER);
+    try binding.setData(&vertices, gl.c.GL_STATIC_DRAW);
+    try binding.vertexAttribPointer(0, 3, gl.c.GL_FLOAT, false, 3 * @sizeOf(f32), null);
     try binding.enableVertexAttribArray(0);
 
     binding.unbind();
@@ -66,14 +81,14 @@ pub fn main() !void {
     // Wait for the user to close the window.
     while (!window.shouldClose()) {
         // Setup basic OpenGL settings
-        c.glClearColor(0.2, 0.3, 0.3, 1.0);
-        c.glClear(c.GL_COLOR_BUFFER_BIT);
+        gl.c.glClearColor(0.2, 0.3, 0.3, 1.0);
+        gl.c.glClear(gl.c.GL_COLOR_BUFFER_BIT);
 
         try program.use();
         try program.setUniform("vertexColor", @Vector(4, f32){ 0.0, 1.0, 0.0, 1.0 });
 
         try vao.bind();
-        c.glDrawArrays(c.GL_TRIANGLES, 0, 3);
+        gl.c.glDrawArrays(gl.c.GL_TRIANGLES, 0, 3);
 
         // const pos = try window.getCursorPos();
         // std.log.info("CURSOR: {}", .{pos});
@@ -82,6 +97,8 @@ pub fn main() !void {
         try glfw.waitEvents();
     }
 }
+
+const texsrc = @embedFile("tex.png");
 
 const vs_source =
     \\#version 330 core

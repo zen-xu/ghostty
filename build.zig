@@ -11,6 +11,8 @@ pub fn build(b: *std.build.Builder) void {
     exe.setTarget(target);
     exe.setBuildMode(mode);
     exe.install();
+    exe.addIncludeDir("vendor/stb");
+    exe.addCSourceFile("src/stb/stb.c", &.{});
     exe.addPackagePath("glfw", "vendor/mach/glfw/src/main.zig");
     glfw.link(b, exe, .{});
 
