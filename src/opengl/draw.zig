@@ -13,3 +13,7 @@ pub fn drawArrays(mode: c.GLenum, first: c.GLint, count: c.GLsizei) !void {
     c.glDrawArrays(mode, first, count);
     try errors.getError();
 }
+
+pub fn viewport(x: c.GLint, y: c.GLint, width: c.GLsizei, height: c.GLsizei) !void {
+    c.glViewport(x, y, width, height);
+}

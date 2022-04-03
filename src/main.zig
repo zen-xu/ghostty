@@ -22,7 +22,7 @@ pub fn main() !void {
     window.setSizeCallback((struct {
         fn callback(_: glfw.Window, width: i32, height: i32) void {
             std.log.info("set viewport {} {}", .{ width, height });
-            gl.c.glViewport(0, 0, width, height);
+            try gl.viewport(0, 0, width, height);
         }
     }).callback);
 
@@ -46,12 +46,11 @@ pub fn main() !void {
     defer tex.destroy();
     var texbind = try tex.bind(gl.c.GL_TEXTURE_2D);
     defer texbind.unbind();
-    gl.c.glTexParameteri(gl.c.GL_TEXTURE_2D, gl.c.GL_TEXTURE_WRAP_S, gl.c.GL_REPEAT);
-    gl.c.glTexParameteri(gl.c.GL_TEXTURE_2D, gl.c.GL_TEXTURE_WRAP_T, gl.c.GL_REPEAT);
-    gl.c.glTexParameteri(gl.c.GL_TEXTURE_2D, gl.c.GL_TEXTURE_MIN_FILTER, gl.c.GL_LINEAR);
-    gl.c.glTexParameteri(gl.c.GL_TEXTURE_2D, gl.c.GL_TEXTURE_MAG_FILTER, gl.c.GL_LINEAR);
-    gl.c.glTexImage2D(
-        gl.c.GL_TEXTURE_2D,
+    try texbind.parameter(gl.c.GL_TEXTURE_WRAP_S, gl.c.GL_REPEAT);
+    try texbind.parameter(gl.c.GL_TEXTURE_WRAP_T, gl.c.GL_REPEAT);
+    try texbind.parameter(gl.c.GL_TEXTURE_MIN_FILTER, gl.c.GL_LINEAR);
+    try texbind.parameter(gl.c.GL_TEXTURE_MAG_FILTER, gl.c.GL_LINEAR);
+    try texbind.image2D(
         0,
         gl.c.GL_RGB,
         imgwidth,
@@ -61,7 +60,7 @@ pub fn main() !void {
         gl.c.GL_UNSIGNED_BYTE,
         data,
     );
-    gl.c.glGenerateMipmap(gl.c.GL_TEXTURE_2D);
+    texbind.generateMipmap();
 
     // Create our vertex shader
     const vs = try gl.Shader.create(gl.c.GL_VERTEX_SHADER);

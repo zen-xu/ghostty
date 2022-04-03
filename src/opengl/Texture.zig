@@ -13,6 +13,41 @@ pub const Binding = struct {
         c.glBindTexture(b.target, 0);
         b.* = undefined;
     }
+
+    pub fn generateMipmap(b: Binding) void {
+        c.glGenerateMipmap(b.target);
+    }
+
+    pub fn parameter(b: Binding, name: c.GLenum, value: anytype) !void {
+        switch (@TypeOf(value)) {
+            c.GLint => c.glTexParameteri(b.target, name, value),
+            else => unreachable,
+        }
+    }
+
+    pub fn image2D(
+        b: Binding,
+        level: c.GLint,
+        internal_format: c.GLint,
+        width: c.GLsizei,
+        height: c.GLsizei,
+        border: c.GLint,
+        format: c.GLenum,
+        typ: c.GLenum,
+        data: *const anyopaque,
+    ) !void {
+        c.glTexImage2D(
+            b.target,
+            level,
+            internal_format,
+            width,
+            height,
+            border,
+            format,
+            typ,
+            data,
+        );
+    }
 };
 
 /// Create a single texture.
