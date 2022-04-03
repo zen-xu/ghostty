@@ -83,9 +83,9 @@ pub fn main() !void {
 
     // Create our bufer or vertices
     const vertices = [_]f32{
-        -0.5, -0.5, 0.0, 0.0, 0.0, // left
-        0.5, -0.5, 0.0, 1.0, 0.0, // right
-        0.0, 0.5, 0.0, 0.5, 1.0, // top
+        -0.8, -0.8, 0.0, 0.0, 0.0, // left
+        0.8, -0.8, 0.0, 1.0, 0.0, // right
+        0.0, 0.8, 0.0, 0.5, 1.0, // top
     };
     const vao = try gl.VertexArray.create();
     defer vao.destroy();
@@ -112,14 +112,14 @@ pub fn main() !void {
     // Wait for the user to close the window.
     while (!window.shouldClose()) {
         // Setup basic OpenGL settings
-        gl.c.glClearColor(0.2, 0.3, 0.3, 1.0);
-        gl.c.glClear(gl.c.GL_COLOR_BUFFER_BIT);
+        gl.clearColor(0.2, 0.3, 0.3, 1.0);
+        gl.clear(gl.c.GL_COLOR_BUFFER_BIT);
 
         try program.use();
 
-        gl.c.glBindTexture(gl.c.GL_TEXTURE_2D, tex.id);
+        _ = try tex.bind(gl.c.GL_TEXTURE_2D);
         try vao.bind();
-        gl.c.glDrawArrays(gl.c.GL_TRIANGLES, 0, 3);
+        try gl.drawArrays(gl.c.GL_TRIANGLES, 0, 3);
 
         // const pos = try window.getCursorPos();
         // std.log.info("CURSOR: {}", .{pos});

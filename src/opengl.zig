@@ -17,3 +17,4 @@ pub const Program = @import("opengl/Program.zig");
 pub const Shader = @import("opengl/Shader.zig");
 pub const Texture = @import("opengl/Texture.zig");
 pub const VertexArray = @import("opengl/VertexArray.zig");
+pub usingnamespace @import("opengl/draw.zig");
