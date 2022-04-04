@@ -15,10 +15,15 @@ pub fn build(b: *std.build.Builder) !void {
     exe.addPackagePath("glfw", "vendor/mach/glfw/src/main.zig");
     glfw.link(b, exe, .{});
 
+    exe.linkSystemLibrary("epoxy");
+
     const ftlib = try ft.create(b, target, mode, .{});
     ftlib.link(exe);
-
-    exe.linkSystemLibrary("epoxy");
+    // to link to system:
+    // exe.linkSystemLibrary("freetype2");
+    // exe.linkSystemLibrary("libpng");
+    // exe.linkSystemLibrary("bzip2");
+    // ftlib.addIncludeDirs(exe);
 
     // stb if we need it
     // exe.addIncludeDir("vendor/stb");

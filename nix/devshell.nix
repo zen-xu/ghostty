@@ -8,8 +8,11 @@
 , vttest
 , zig
 
+, bzip2
 , fontconfig
+, freetype
 , libepoxy
+, libpng
 , libGL
 , libX11
 , libXcursor
@@ -33,9 +36,13 @@
   buildInputs = [
     # TODO: non-linux
   ] ++ lib.optionals stdenv.isLinux [
-    fontconfig
     libepoxy
     libGL
+
+    fontconfig
+    freetype
+    libpng
+    bzip2
 
     libX11
     libXcursor

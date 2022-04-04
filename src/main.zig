@@ -1,18 +1,19 @@
 const std = @import("std");
 const glfw = @import("glfw");
-const gl = @import("opengl.zig");
-const stb = @import("stb.zig");
-const fonts = @import("fonts.zig");
 
 const App = @import("App.zig");
 
 pub fn main() !void {
+    var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
+    const gpa = general_purpose_allocator.allocator();
+    defer _ = general_purpose_allocator.deinit();
+
     // List our fonts
     try glfw.init(.{});
     defer glfw.terminate();
 
     // Run our app
-    var app = try App.init();
+    var app = try App.init(gpa);
     defer app.deinit();
     try app.run();
 }

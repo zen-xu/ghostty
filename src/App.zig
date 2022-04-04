@@ -4,8 +4,9 @@
 const App = @This();
 
 const std = @import("std");
-const gl = @import("opengl.zig");
 const glfw = @import("glfw");
+const gl = @import("opengl.zig");
+const TextRenderer = @import("TextRenderer.zig");
 
 const log = std.log;
 
@@ -17,7 +18,11 @@ vao: gl.VertexArray,
 /// Initialize the main app instance. This creates the main window, sets
 /// up the renderer state, compiles the shaders, etc. This is the primary
 /// "startup" logic.
-pub fn init() !App {
+pub fn init(alloc: std.mem.Allocator) !App {
+    // Setup our text renderer
+    var texter = try TextRenderer.init(alloc);
+    defer texter.deinit();
+
     // Create our window
     const window = try glfw.Window.create(640, 480, "ghostty", null, null, .{
         .context_version_major = 3,
@@ -38,6 +43,10 @@ pub fn init() !App {
             try gl.viewport(0, 0, width, height);
         }
     }).callback);
+
+    // Blending for text
+    gl.c.glEnable(gl.c.GL_BLEND);
+    gl.c.glBlendFunc(gl.c.GL_SRC_ALPHA, gl.c.GL_ONE_MINUS_SRC_ALPHA);
 
     // Compile our shaders
     const vs = try gl.Shader.create(gl.c.GL_VERTEX_SHADER);
