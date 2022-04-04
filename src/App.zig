@@ -33,6 +33,13 @@ pub fn init(alloc: std.mem.Allocator) !App {
     try glfw.makeContextCurrent(window);
     try glfw.swapInterval(1);
 
+    // Load OpenGL bindings
+    if (gl.c.gladLoadGL(
+        @ptrCast(fn ([*c]const u8) callconv(.C) ?fn () callconv(.C) void, glfw.getProcAddress),
+    ) == 0) {
+        return error.OpenGLInitFailed;
+    }
+
     // Blending for text
     gl.c.glEnable(gl.c.GL_CULL_FACE);
     gl.c.glEnable(gl.c.GL_BLEND);

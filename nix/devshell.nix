@@ -11,7 +11,6 @@
 , bzip2
 , fontconfig
 , freetype
-, libepoxy
 , libpng
 , libGL
 , libX11
@@ -36,7 +35,6 @@
   buildInputs = [
     # TODO: non-linux
   ] ++ lib.optionals stdenv.isLinux [
-    libepoxy
     libGL
 
     fontconfig

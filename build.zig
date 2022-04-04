@@ -19,7 +19,9 @@ pub fn build(b: *std.build.Builder) !void {
     glfw.link(b, exe, .{});
     try ftgl.link(exe, b, target, mode, .{});
 
-    exe.linkSystemLibrary("epoxy");
+    // GLAD
+    exe.addIncludeDir("glad/include/");
+    exe.addCSourceFile("glad/src/gl.c", &.{});
 
     const ftlib = try ft.create(b, target, mode, .{});
     ftlib.link(exe);
