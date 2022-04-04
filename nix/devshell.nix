@@ -8,6 +8,7 @@
 , vttest
 , zig
 
+, fontconfig
 , libepoxy
 , libGL
 , libX11
@@ -32,6 +33,7 @@
   buildInputs = [
     # TODO: non-linux
   ] ++ lib.optionals stdenv.isLinux [
+    fontconfig
     libepoxy
     libGL
 

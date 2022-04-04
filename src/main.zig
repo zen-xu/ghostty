@@ -2,8 +2,12 @@ const std = @import("std");
 const glfw = @import("glfw");
 const gl = @import("opengl.zig");
 const stb = @import("stb.zig");
+const fonts = @import("fonts.zig");
 
 pub fn main() !void {
+    // List our fonts
+    try fonts.list();
+
     try glfw.init(.{});
     defer glfw.terminate();
 

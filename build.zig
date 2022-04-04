@@ -21,6 +21,7 @@ pub fn build(b: *std.build.Builder) !void {
     ftlib.link(exe);
 
     exe.linkSystemLibrary("epoxy");
+    exe.linkSystemLibrary("fontconfig");
 
     const run_cmd = exe.run();
     run_cmd.step.dependOn(b.getInstallStep());
