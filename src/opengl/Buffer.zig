@@ -6,21 +6,41 @@ const errors = @import("errors.zig");
 
 id: c.GLuint,
 
+/// Enum for possible binding targets.
+pub const Target = enum(c_uint) {
+    ArrayBuffer = c.GL_ARRAY_BUFFER,
+    _,
+};
+
+/// Enum for possible buffer usages.
+pub const Usage = enum(c_uint) {
+    StreamDraw = c.GL_STREAM_DRAW,
+    StreamRead = c.GL_STREAM_READ,
+    StreamCopy = c.GL_STREAM_COPY,
+    StaticDraw = c.GL_STATIC_DRAW,
+    StaticRead = c.GL_STATIC_READ,
+    StaticCopy = c.GL_STATIC_COPY,
+    DynamicDraw = c.GL_DYNAMIC_DRAW,
+    DynamicRead = c.GL_DYNAMIC_READ,
+    DynamicCopy = c.GL_DYNAMIC_COPY,
+    _,
+};
+
 /// Binding is a bound buffer. By using this for functions that operate
 /// on bound buffers, you can easily defer unbinding and in safety-enabled
 /// modes verify that unbound buffers are never accessed.
 pub const Binding = struct {
-    target: c.GLenum,
+    target: Target,
 
     /// Sets the data of this bound buffer. The data can be any array-like
     /// type. The size of the data is automatically determined based on the type.
     pub inline fn setData(
         b: Binding,
         data: anytype,
-        usage: c.GLenum,
+        usage: Usage,
     ) !void {
         const info = dataInfo(data);
-        c.glBufferData(b.target, info.size, info.ptr, usage);
+        c.glBufferData(@enumToInt(b.target), info.size, info.ptr, @enumToInt(usage));
         try errors.getError();
     }
 
@@ -32,19 +52,19 @@ pub const Binding = struct {
         data: anytype,
     ) !void {
         const info = dataInfo(data);
-        c.glBufferSubData(b.target, @intCast(c_long, offset), info.size, info.ptr);
+        c.glBufferSubData(@enumToInt(b.target), @intCast(c_long, offset), info.size, info.ptr);
         try errors.getError();
     }
 
     /// Sets the buffer data with a null buffer that is expected to be
     /// filled in the future using subData. This requires the type just so
     /// we can setup the data size.
-    pub inline fn setDataType(
+    pub inline fn setDataNull(
         b: Binding,
         comptime T: type,
-        usage: c.GLenum,
+        usage: Usage,
     ) !void {
-        c.glBufferData(b.target, @sizeOf(T), null, usage);
+        c.glBufferData(@enumToInt(b.target), @sizeOf(T), null, @enumToInt(usage));
         try errors.getError();
     }
 
@@ -97,7 +117,7 @@ pub const Binding = struct {
     }
 
     pub inline fn unbind(b: *Binding) void {
-        c.glBindBuffer(b.target, 0);
+        c.glBindBuffer(@enumToInt(b.target), 0);
         b.* = undefined;
     }
 };
@@ -110,8 +130,8 @@ pub inline fn create() !Buffer {
 }
 
 /// glBindBuffer
-pub inline fn bind(v: Buffer, target: c.GLenum) !Binding {
-    c.glBindBuffer(target, v.id);
+pub inline fn bind(v: Buffer, target: Target) !Binding {
+    c.glBindBuffer(@enumToInt(target), v.id);
     return Binding{ .target = target };
 }
 

@@ -55,22 +55,22 @@ pub fn init(alloc: std.mem.Allocator) !TextRenderer {
 
         // Generate the texture
         const tex = try gl.Texture.create();
-        var binding = try tex.bind(gl.c.GL_TEXTURE_2D);
+        var binding = try tex.bind(.@"2D");
         defer binding.unbind();
         try binding.image2D(
             0,
-            gl.c.GL_RED,
+            .Red,
             @intCast(c_int, face.*.glyph.*.bitmap.width),
             @intCast(c_int, face.*.glyph.*.bitmap.rows),
             0,
-            gl.c.GL_RED,
-            gl.c.GL_UNSIGNED_BYTE,
+            .Red,
+            .UnsignedByte,
             face.*.glyph.*.bitmap.buffer,
         );
-        try binding.parameter(gl.c.GL_TEXTURE_WRAP_S, gl.c.GL_CLAMP_TO_EDGE);
-        try binding.parameter(gl.c.GL_TEXTURE_WRAP_T, gl.c.GL_CLAMP_TO_EDGE);
-        try binding.parameter(gl.c.GL_TEXTURE_MIN_FILTER, gl.c.GL_LINEAR);
-        try binding.parameter(gl.c.GL_TEXTURE_MAG_FILTER, gl.c.GL_LINEAR);
+        try binding.parameter(.WrapS, gl.c.GL_CLAMP_TO_EDGE);
+        try binding.parameter(.WrapT, gl.c.GL_CLAMP_TO_EDGE);
+        try binding.parameter(.MinFilter, gl.c.GL_LINEAR);
+        try binding.parameter(.MagFilter, gl.c.GL_LINEAR);
 
         // Store the character
         chars.appendAssumeCapacity(.{
@@ -91,8 +91,8 @@ pub fn init(alloc: std.mem.Allocator) !TextRenderer {
     const vao = try gl.VertexArray.create();
     const vbo = try gl.Buffer.create();
     try vao.bind();
-    var binding = try vbo.bind(gl.c.GL_ARRAY_BUFFER);
-    try binding.setDataType([6 * 4]f32, gl.c.GL_DYNAMIC_DRAW);
+    var binding = try vbo.bind(.ArrayBuffer);
+    try binding.setDataNull([6 * 4]f32, .DynamicDraw);
     try binding.enableVertexAttribArray(0);
     try binding.vertexAttribPointer(0, 4, gl.c.GL_FLOAT, false, 4 * @sizeOf(f32), null);
     binding.unbind();
@@ -179,9 +179,9 @@ pub fn render(
             .{ xpos + w, ypos + h, 1.0, 0.0 },
         };
 
-        var texbind = try char.tex.bind(gl.c.GL_TEXTURE_2D);
+        var texbind = try char.tex.bind(.@"2D");
         defer texbind.unbind();
-        var bind = try self.vbo.bind(gl.c.GL_ARRAY_BUFFER);
+        var bind = try self.vbo.bind(.ArrayBuffer);
         try bind.setSubData(0, vert);
         bind.unbind();
 
