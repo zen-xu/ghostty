@@ -3,6 +3,7 @@ const Builder = std.build.Builder;
 const LibExeObjStep = std.build.LibExeObjStep;
 const glfw = @import("vendor/mach/glfw/build.zig");
 const ft = @import("src/freetype/build.zig");
+const cglm = @import("src/cglm.zig");
 
 pub fn build(b: *std.build.Builder) !void {
     const target = b.standardTargetOptions(.{});
@@ -16,6 +17,8 @@ pub fn build(b: *std.build.Builder) !void {
     glfw.link(b, exe, .{});
 
     exe.linkSystemLibrary("epoxy");
+
+    try cglm.build(b, exe, target, mode, .{});
 
     const ftlib = try ft.create(b, target, mode, .{});
     ftlib.link(exe);
