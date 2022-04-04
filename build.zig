@@ -12,8 +12,6 @@ pub fn build(b: *std.build.Builder) !void {
     exe.setTarget(target);
     exe.setBuildMode(mode);
     exe.install();
-    exe.addIncludeDir("vendor/stb");
-    exe.addCSourceFile("src/stb/stb.c", &.{});
     exe.addPackagePath("glfw", "vendor/mach/glfw/src/main.zig");
     glfw.link(b, exe, .{});
 
@@ -21,7 +19,10 @@ pub fn build(b: *std.build.Builder) !void {
     ftlib.link(exe);
 
     exe.linkSystemLibrary("epoxy");
-    exe.linkSystemLibrary("fontconfig");
+
+    // stb if we need it
+    // exe.addIncludeDir("vendor/stb");
+    // exe.addCSourceFile("src/stb/stb.c", &.{});
 
     const run_cmd = exe.run();
     run_cmd.step.dependOn(b.getInstallStep());
