@@ -12,6 +12,7 @@ chars: CharList,
 vao: gl.VertexArray = undefined,
 vbo: gl.Buffer = undefined,
 program: gl.Program = undefined,
+projection: gb.gbMat4 = undefined,
 
 const CharList = std.ArrayListUnmanaged(Char);
 const Char = struct {
@@ -114,11 +115,7 @@ pub fn init(alloc: std.mem.Allocator) !TextRenderer {
         @embedFile("../shaders/text.f.glsl"),
     );
 
-    // Our project
-    var proj: gb.gbMat4 = undefined;
-    gb.gb_mat4_ortho2d(&proj, 0, 640, 0, 480);
-
-    return TextRenderer{
+    var res = TextRenderer{
         .alloc = alloc,
         .ft = ft,
         .face = face,
@@ -126,7 +123,14 @@ pub fn init(alloc: std.mem.Allocator) !TextRenderer {
         .program = program,
         .vao = vao,
         .vbo = vbo,
+        .projection = undefined,
     };
+
+    // Update the initialize size so we have some projection. We
+    // expect this will get updated almost immediately.
+    try res.setScreenSize(3000, 1666);
+
+    return res;
 }
 
 pub fn deinit(self: *TextRenderer) void {
@@ -139,6 +143,19 @@ pub fn deinit(self: *TextRenderer) void {
         std.log.err("freetype library deinitialization failed", .{});
 
     self.* = undefined;
+}
+
+pub fn setScreenSize(self: *TextRenderer, w: i32, h: i32) !void {
+    gb.gb_mat4_ortho2d(
+        &self.projection,
+        0,
+        @intToFloat(f32, w),
+        0,
+        @intToFloat(f32, h),
+    );
+
+    try self.program.use();
+    try self.program.setUniform("projection", self.projection);
 }
 
 pub fn render(

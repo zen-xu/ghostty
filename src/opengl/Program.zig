@@ -4,6 +4,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 const log = std.log.scoped(.opengl);
 
+const gb = @import("../gb_math.zig");
 const c = @import("c.zig");
 const Shader = @import("Shader.zig");
 const errors = @import("errors.zig");
@@ -76,6 +77,12 @@ pub inline fn setUniform(p: Program, n: [:0]const u8, value: anytype) !void {
     switch (@TypeOf(value)) {
         @Vector(3, f32) => c.glUniform3f(loc, value[0], value[1], value[2]),
         @Vector(4, f32) => c.glUniform4f(loc, value[0], value[1], value[2], value[3]),
+        gb.gbMat4 => c.glUniformMatrix4fv(
+            loc,
+            1,
+            c.GL_FALSE,
+            @ptrCast([*c]const f32, &value),
+        ),
         else => unreachable,
     }
     try errors.getError();
