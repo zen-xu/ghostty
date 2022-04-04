@@ -7,7 +7,6 @@ pub const Library = struct {
     /// statically link this library into the given step
     pub fn link(self: Library, other: *std.build.LibExeObjStep) void {
         self.addIncludeDirs(other);
-        other.addIncludeDir(include_dir);
         other.linkLibrary(self.step);
     }
 
@@ -19,6 +18,7 @@ pub const Library = struct {
 
         // We need to add this directory to the include path for the final
         // app so that we can access "freetype-zig.h".
+        other.addIncludeDir(include_dir);
         other.addIncludeDir(std.fs.path.dirname(@src().file) orelse unreachable);
     }
 };
