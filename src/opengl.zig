@@ -12,9 +12,11 @@
 //! comptime help. I'm deferring this until later but have some fun ideas.
 
 pub const c = @import("opengl/c.zig");
+pub const glad = @import("opengl/glad.zig");
+pub usingnamespace @import("opengl/draw.zig");
+
 pub const Buffer = @import("opengl/Buffer.zig");
 pub const Program = @import("opengl/Program.zig");
 pub const Shader = @import("opengl/Shader.zig");
 pub const Texture = @import("opengl/Texture.zig");
 pub const VertexArray = @import("opengl/VertexArray.zig");
-pub usingnamespace @import("opengl/draw.zig");
