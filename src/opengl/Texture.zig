@@ -6,6 +6,10 @@ const errors = @import("errors.zig");
 
 id: c.GLuint,
 
+pub inline fn active(target: c.GLenum) !void {
+    c.glActiveTexture(target);
+}
+
 pub const Binding = struct {
     target: c.GLenum,
 

@@ -19,11 +19,40 @@ pub const Binding = struct {
         data: anytype,
         usage: c.GLenum,
     ) !void {
-        // Determine the size and pointer to the given data.
-        const info: struct {
-            size: isize,
-            ptr: *const anyopaque,
-        } = switch (@typeInfo(@TypeOf(data))) {
+        const info = dataInfo(data);
+        c.glBufferData(b.target, info.size, info.ptr, usage);
+        try errors.getError();
+    }
+
+    /// Sets the data of this bound buffer. The data can be any array-like
+    /// type. The size of the data is automatically determined based on the type.
+    pub inline fn setSubData(
+        b: Binding,
+        offset: usize,
+        data: anytype,
+    ) !void {
+        const info = dataInfo(data);
+        c.glBufferSubData(b.target, @intCast(c_long, offset), info.size, info.ptr);
+        try errors.getError();
+    }
+
+    /// Sets the buffer data with a null buffer that is expected to be
+    /// filled in the future using subData. This requires the type just so
+    /// we can setup the data size.
+    pub inline fn setDataType(
+        b: Binding,
+        comptime T: type,
+        usage: c.GLenum,
+    ) !void {
+        c.glBufferData(b.target, @sizeOf(T), null, usage);
+        try errors.getError();
+    }
+
+    fn dataInfo(data: anytype) struct {
+        size: isize,
+        ptr: *const anyopaque,
+    } {
+        return switch (@typeInfo(@TypeOf(data))) {
             .Array => |ary| .{
                 .size = @sizeOf(ary.child) * ary.len,
                 .ptr = &data,
@@ -47,9 +76,6 @@ pub const Binding = struct {
                 unreachable;
             },
         };
-
-        c.glBufferData(b.target, info.size, info.ptr, usage);
-        try errors.getError();
     }
 
     pub inline fn enableVertexAttribArray(_: Binding, idx: c.GLuint) !void {

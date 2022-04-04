@@ -12,17 +12,12 @@ const log = std.log;
 
 window: glfw.Window,
 
-glprog: gl.Program,
-vao: gl.VertexArray,
+text: TextRenderer,
 
 /// Initialize the main app instance. This creates the main window, sets
 /// up the renderer state, compiles the shaders, etc. This is the primary
 /// "startup" logic.
 pub fn init(alloc: std.mem.Allocator) !App {
-    // Setup our text renderer
-    var texter = try TextRenderer.init(alloc);
-    defer texter.deinit();
-
     // Create our window
     const window = try glfw.Window.create(640, 480, "ghostty", null, null, .{
         .context_version_major = 3,
@@ -45,54 +40,22 @@ pub fn init(alloc: std.mem.Allocator) !App {
     }).callback);
 
     // Blending for text
+    gl.c.glEnable(gl.c.GL_CULL_FACE);
     gl.c.glEnable(gl.c.GL_BLEND);
     gl.c.glBlendFunc(gl.c.GL_SRC_ALPHA, gl.c.GL_ONE_MINUS_SRC_ALPHA);
 
-    // Compile our shaders
-    const vs = try gl.Shader.create(gl.c.GL_VERTEX_SHADER);
-    try vs.setSourceAndCompile(vs_source);
-    errdefer vs.destroy();
-
-    const fs = try gl.Shader.create(gl.c.GL_FRAGMENT_SHADER);
-    try fs.setSourceAndCompile(fs_source);
-    errdefer fs.destroy();
-
-    // Link our shader program
-    const program = try gl.Program.create();
-    errdefer program.destroy();
-    try program.attachShader(vs);
-    try program.attachShader(fs);
-    try program.link();
-    vs.destroy();
-    fs.destroy();
-
-    // Create our bufer or vertices
-    const vertices = [_]f32{
-        -0.5, -0.5, 0.0, // left
-        0.5, -0.5, 0.0, // right
-        0.0, 0.5, 0.0, // top
-    };
-    const vao = try gl.VertexArray.create();
-    //defer vao.destroy();
-    const vbo = try gl.Buffer.create();
-    //defer vbo.destroy();
-    try vao.bind();
-    var binding = try vbo.bind(gl.c.GL_ARRAY_BUFFER);
-    try binding.setData(&vertices, gl.c.GL_STATIC_DRAW);
-    try binding.vertexAttribPointer(0, 3, gl.c.GL_FLOAT, false, 3 * @sizeOf(f32), null);
-    try binding.enableVertexAttribArray(0);
-    binding.unbind();
-    try gl.VertexArray.unbind();
+    // Setup our text renderer
+    var texter = try TextRenderer.init(alloc);
+    errdefer texter.deinit();
 
     return App{
         .window = window,
-        .glprog = program,
-
-        .vao = vao,
+        .text = texter,
     };
 }
 
 pub fn deinit(self: *App) void {
+    self.text.deinit();
     self.window.destroy();
     self.* = undefined;
 }
@@ -103,9 +66,7 @@ pub fn run(self: App) !void {
         gl.clearColor(0.2, 0.3, 0.3, 1.0);
         gl.clear(gl.c.GL_COLOR_BUFFER_BIT);
 
-        try self.glprog.use();
-        try self.vao.bind();
-        try gl.drawArrays(gl.c.GL_TRIANGLES, 0, 3);
+        try self.text.render("hello", 25.0, 25.0, 1.0, .{ 0.5, 0.8, 0.2 });
 
         try self.window.swapBuffers();
         try glfw.waitEvents();

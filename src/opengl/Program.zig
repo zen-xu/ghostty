@@ -18,6 +18,25 @@ pub inline fn create() !Program {
     return Program{ .id = id };
 }
 
+/// Create a program from a vertex and fragment shader source. This will
+/// compile and link the vertex and fragment shader.
+pub inline fn createVF(vsrc: [:0]const u8, fsrc: [:0]const u8) !Program {
+    const vs = try Shader.create(c.GL_VERTEX_SHADER);
+    try vs.setSourceAndCompile(vsrc);
+    defer vs.destroy();
+
+    const fs = try Shader.create(c.GL_FRAGMENT_SHADER);
+    try fs.setSourceAndCompile(fsrc);
+    defer fs.destroy();
+
+    const p = try create();
+    try p.attachShader(vs);
+    try p.attachShader(fs);
+    try p.link();
+
+    return p;
+}
+
 pub inline fn attachShader(p: Program, s: Shader) !void {
     c.glAttachShader(p.id, s.id);
     try errors.getError();
@@ -55,6 +74,7 @@ pub inline fn setUniform(p: Program, n: [:0]const u8, value: anytype) !void {
 
     // Perform the correct call depending on the type of the value.
     switch (@TypeOf(value)) {
+        @Vector(3, f32) => c.glUniform3f(loc, value[0], value[1], value[2]),
         @Vector(4, f32) => c.glUniform4f(loc, value[0], value[1], value[2], value[3]),
         else => unreachable,
     }
