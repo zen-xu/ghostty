@@ -53,17 +53,6 @@ pub fn init(alloc: std.mem.Allocator) !TextRenderer {
             return error.GlyphLoadFailed;
         }
 
-        if (face.*.glyph.*.bitmap.buffer == null) {
-            // Unrenderable characters
-            chars.appendAssumeCapacity(.{
-                .tex = undefined,
-                .size = undefined,
-                .bearing = undefined,
-                .advance = undefined,
-            });
-            continue;
-        }
-
         // Generate the texture
         const tex = try gl.Texture.create();
         var binding = try tex.bind(gl.c.GL_TEXTURE_2D);
@@ -177,7 +166,7 @@ pub fn render(
         const char = self.chars.items[c];
 
         const xpos = curx + (char.bearing[0] * scale);
-        const ypos = y + (char.bearing[1] * scale);
+        const ypos = y - ((char.size[1] - char.bearing[1]) * scale);
         const w = char.size[0] * scale;
         const h = char.size[1] * scale;
 

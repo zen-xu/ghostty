@@ -67,7 +67,7 @@ pub fn run(self: App) !void {
         gl.clearColor(0.2, 0.3, 0.3, 1.0);
         gl.clear(gl.c.GL_COLOR_BUFFER_BIT);
 
-        try self.text.render("hello", 25.0, 25.0, 1.0, .{ 0.5, 0.8, 0.2 });
+        try self.text.render("sh $ /bin/bash -c \"echo hello\"", 25.0, 25.0, 1.0, .{ 0.5, 0.8, 0.2 });
 
         try self.window.swapBuffers();
         try glfw.waitEvents();

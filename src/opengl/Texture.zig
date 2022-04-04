@@ -38,7 +38,7 @@ pub const Binding = struct {
         border: c.GLint,
         format: c.GLenum,
         typ: c.GLenum,
-        data: *const anyopaque,
+        data: ?*const anyopaque,
     ) !void {
         c.glTexImage2D(
             b.target,
