@@ -73,8 +73,8 @@ pub const Binding = struct {
         ptr: *const anyopaque,
     } {
         return switch (@typeInfo(@TypeOf(data))) {
-            .Array => |ary| .{
-                .size = @sizeOf(ary.child) * ary.len,
+            .Array => .{
+                .size = @sizeOf(@TypeOf(data)),
                 .ptr = &data,
             },
             .Pointer => |ptr| switch (ptr.size) {
