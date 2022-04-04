@@ -23,11 +23,14 @@ pub fn link(
 
     var flags = std.ArrayList([]const u8).init(b.allocator);
     defer flags.deinit();
-    // try flags.appendSlice(&.{});
+    try flags.appendSlice(&.{
+        "-DGL_WITH_GLAD",
+    });
 
     // C files
     ret.addCSourceFiles(srcs, flags.items);
     ret.addIncludeDir(root());
+    ret.addIncludeDir(thisDir() ++ "../../glad/include");
     ret.linkLibC();
 
     // For config.h
