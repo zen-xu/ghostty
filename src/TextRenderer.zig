@@ -42,7 +42,7 @@ pub fn init(alloc: std.mem.Allocator) !TextRenderer {
     _ = ftc.FT_Set_Pixel_Sizes(face, 0, 48);
 
     // disable byte-alignment restriction
-    gl.c.glPixelStorei(gl.c.GL_UNPACK_ALIGNMENT, 1);
+    try gl.pixelStore(gl.c.GL_UNPACK_ALIGNMENT, 1);
 
     // Pre-render all the ASCII characters
     var chars = try CharList.initCapacity(alloc, 128);
@@ -160,7 +160,6 @@ pub fn render(
     try gl.Texture.active(gl.c.GL_TEXTURE0);
     try self.vao.bind();
 
-    std.log.info("---", .{});
     var curx: f32 = x;
     for (text) |c| {
         const char = self.chars.items[c];
@@ -169,14 +168,6 @@ pub fn render(
         const ypos = y - ((char.size[1] - char.bearing[1]) * scale);
         const w = char.size[0] * scale;
         const h = char.size[1] * scale;
-
-        std.log.info("CHARACTER INFO ch={} xpos={} ypos={} w={} h={}", .{
-            c,
-            xpos,
-            ypos,
-            w,
-            h,
-        });
 
         const vert = [6][4]f32{
             .{ xpos, ypos + h, 0.0, 0.0 },
