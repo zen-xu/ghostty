@@ -32,12 +32,6 @@ pub fn init(alloc: std.mem.Allocator) !App {
     // renderer at some point.
     try glfw.makeContextCurrent(window);
     try glfw.swapInterval(1);
-    window.setSizeCallback((struct {
-        fn callback(_: glfw.Window, width: i32, height: i32) void {
-            log.info("set viewport {} {}", .{ width, height });
-            try gl.viewport(0, 0, width, height);
-        }
-    }).callback);
 
     // Blending for text
     gl.c.glEnable(gl.c.GL_CULL_FACE);
@@ -47,6 +41,13 @@ pub fn init(alloc: std.mem.Allocator) !App {
     // Setup our text renderer
     var texter = try TextRenderer.init(alloc);
     errdefer texter.deinit();
+
+    window.setSizeCallback((struct {
+        fn callback(_: glfw.Window, width: i32, height: i32) void {
+            log.info("set viewport {} {}", .{ width, height });
+            try gl.viewport(0, 0, width, height);
+        }
+    }).callback);
 
     return App{
         .window = window,

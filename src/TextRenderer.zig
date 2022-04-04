@@ -3,6 +3,7 @@ const TextRenderer = @This();
 const std = @import("std");
 const ftc = @import("freetype/c.zig");
 const gl = @import("opengl.zig");
+const gb = @import("gb_math.zig");
 
 alloc: std.mem.Allocator,
 ft: ftc.FT_Library,
@@ -112,6 +113,10 @@ pub fn init(alloc: std.mem.Allocator) !TextRenderer {
         @embedFile("../shaders/text.v.glsl"),
         @embedFile("../shaders/text.f.glsl"),
     );
+
+    // Our project
+    var proj: gb.gbMat4 = undefined;
+    gb.gb_mat4_ortho2d(&proj, 0, 640, 0, 480);
 
     return TextRenderer{
         .alloc = alloc,
