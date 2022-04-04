@@ -34,11 +34,17 @@ pub fn init(alloc: std.mem.Allocator) !App {
     try glfw.swapInterval(1);
 
     // Load OpenGL bindings
-    if (gl.c.gladLoadGL(
-        @ptrCast(fn ([*c]const u8) callconv(.C) ?fn () callconv(.C) void, glfw.getProcAddress),
-    ) == 0) {
+    const version = gl.c.gladLoadGL(@ptrCast(
+        fn ([*c]const u8) callconv(.C) ?fn () callconv(.C) void,
+        glfw.getProcAddress,
+    ));
+    if (version == 0) {
         return error.OpenGLInitFailed;
     }
+    log.info("loaded OpenGL {}.{}", .{
+        gl.c.GLAD_VERSION_MAJOR(@intCast(c_uint, version)),
+        gl.c.GLAD_VERSION_MINOR(@intCast(c_uint, version)),
+    });
 
     // Blending for text
     gl.c.glEnable(gl.c.GL_CULL_FACE);
