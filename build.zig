@@ -20,8 +20,8 @@ pub fn build(b: *std.build.Builder) !void {
     try ftgl.link(exe, b, target, mode, .{});
 
     // GLAD
-    exe.addIncludeDir("glad/include/");
-    exe.addCSourceFile("glad/src/gl.c", &.{});
+    exe.addIncludeDir("vendor/glad/include/");
+    exe.addCSourceFile("vendor/glad/src/gl.c", &.{});
 
     const ftlib = try ft.create(b, target, mode, .{});
     ftlib.link(exe);

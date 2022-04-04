@@ -30,7 +30,7 @@ pub fn link(
     // C files
     ret.addCSourceFiles(srcs, flags.items);
     ret.addIncludeDir(root());
-    ret.addIncludeDir(thisDir() ++ "../../glad/include");
+    ret.addIncludeDir(thisDir() ++ "../../vendor/glad/include");
     ret.linkLibC();
 
     // For config.h
