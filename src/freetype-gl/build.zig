@@ -37,7 +37,6 @@ pub fn link(
     ret.addIncludeDir(thisDir());
 
     // Dependencies
-    ret.linkSystemLibrary("gl");
     const ftstep = try ft.create(b, target, mode, .{});
     ftstep.addIncludeDirs(ret);
 
