@@ -168,12 +168,9 @@ pub fn render(
     var binding = try vbo.bind(.ArrayBuffer);
     defer binding.unbind();
     try binding.setData(vertices.items, .DynamicDraw);
-    try binding.enableVertexAttribArray(0);
-    try binding.vertexAttribPointer(0, 3, gl.c.GL_FLOAT, false, 9 * @sizeOf(f32), null);
-    try binding.enableVertexAttribArray(1);
-    try binding.vertexAttribPointer(1, 2, gl.c.GL_FLOAT, false, 9 * @sizeOf(f32), @intToPtr(*const anyopaque, 3 * @sizeOf(f32)));
-    try binding.enableVertexAttribArray(2);
-    try binding.vertexAttribPointer(2, 4, gl.c.GL_FLOAT, false, 9 * @sizeOf(f32), @intToPtr(*const anyopaque, 5 * @sizeOf(f32)));
+    try binding.attribute(0, 3, [9]f32, 0);
+    try binding.attribute(1, 2, [9]f32, 3);
+    try binding.attribute(2, 4, [9]f32, 5);
 
     try gl.drawArrays(gl.c.GL_TRIANGLES, 0, @intCast(c_int, vertices.items.len * 6));
     try gl.VertexArray.unbind();

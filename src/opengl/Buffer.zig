@@ -101,11 +101,58 @@ pub const Binding = struct {
         };
     }
 
-    pub inline fn enableVertexAttribArray(_: Binding, idx: c.GLuint) !void {
+    pub inline fn enableAttribArray(_: Binding, idx: c.GLuint) !void {
         c.glEnableVertexAttribArray(idx);
     }
 
-    pub inline fn vertexAttribPointer(
+    /// Shorthand for vertexAttribPointer that is specialized towards the
+    /// common use case of specifying an array of homogeneous types that
+    /// don't need normalization. This also enables the attribute at idx.
+    pub fn attribute(
+        b: Binding,
+        idx: c.GLuint,
+        size: c.GLint,
+        comptime T: type,
+        offset: usize,
+    ) !void {
+        const info: struct {
+            // Type of the each component in the array.
+            typ: c.GLenum,
+
+            // The byte offset between each full set of attributes.
+            stride: c.GLsizei,
+
+            // The size of each component used in calculating the offset.
+            offset: usize,
+        } = switch (@typeInfo(T)) {
+            .Array => |ary| .{
+                .typ = switch (ary.child) {
+                    f32 => c.GL_FLOAT,
+                    else => @compileError("unsupported array child type"),
+                },
+                .offset = @sizeOf(ary.child),
+                .stride = @sizeOf(T),
+            },
+            else => @compileError("unsupported type"),
+        };
+
+        const offsetPtr = if (offset > 0)
+            @intToPtr(*const anyopaque, offset * info.offset)
+        else
+            null;
+
+        try b.attributeAdvanced(
+            idx,
+            size,
+            info.typ,
+            false,
+            info.stride,
+            offsetPtr,
+        );
+        try b.enableAttribArray(idx);
+    }
+
+    pub inline fn attributeAdvanced(
         _: Binding,
         idx: c.GLuint,
         size: c.GLint,
