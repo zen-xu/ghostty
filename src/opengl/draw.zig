@@ -14,6 +14,12 @@ pub fn drawArrays(mode: c.GLenum, first: c.GLint, count: c.GLsizei) !void {
     try errors.getError();
 }
 
+pub fn drawElements(mode: c.GLenum, count: c.GLsizei, typ: c.GLenum, offset: usize) !void {
+    const offsetPtr = if (offset == 0) null else @intToPtr(*const anyopaque, offset);
+    c.glDrawElements(mode, count, typ, offsetPtr);
+    try errors.getError();
+}
+
 pub fn viewport(x: c.GLint, y: c.GLint, width: c.GLsizei, height: c.GLsizei) !void {
     c.glViewport(x, y, width, height);
 }

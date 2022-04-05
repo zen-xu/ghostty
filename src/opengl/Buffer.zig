@@ -9,6 +9,7 @@ id: c.GLuint,
 /// Enum for possible binding targets.
 pub const Target = enum(c_uint) {
     ArrayBuffer = c.GL_ARRAY_BUFFER,
+    ElementArrayBuffer = c.GL_ELEMENT_ARRAY_BUFFER,
     _,
 };
 
@@ -40,9 +41,6 @@ pub const Binding = struct {
         usage: Usage,
     ) !void {
         const info = dataInfo(data);
-        std.log.info("SET DATA {}", .{
-            info.size,
-        });
         c.glBufferData(@enumToInt(b.target), info.size, info.ptr, @enumToInt(usage));
         try errors.getError();
     }

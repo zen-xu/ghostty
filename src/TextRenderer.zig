@@ -115,12 +115,16 @@ pub fn render(
     const b = color[2];
     const a: f32 = 1.0;
 
-    var vertices: std.ArrayListUnmanaged([6][9]f32) = .{};
+    var vertices: std.ArrayListUnmanaged([4][9]f32) = .{};
     try vertices.ensureUnusedCapacity(self.alloc, text.len);
     defer vertices.deinit(self.alloc);
 
+    var indices: std.ArrayListUnmanaged([6]u32) = .{};
+    try indices.ensureUnusedCapacity(self.alloc, text.len);
+    defer indices.deinit(self.alloc);
+
     var curx: f32 = x;
-    for (text) |c| {
+    for (text) |c, i| {
         if (ftgl.texture_font_get_glyph(self.font, &c)) |glyph_ptr| {
             const glyph = glyph_ptr.*;
             const kerning = 0; // for now
@@ -137,16 +141,20 @@ pub fn render(
 
             std.log.info("CHAR ch={} x0={} y0={} x1={} y1={}", .{ c, x0, y0, x1, y1 });
 
-            const vert = [6][9]f32{
+            const vert = [4][9]f32{
                 .{ x0, y0, 0, s0, t0, r, g, b, a },
                 .{ x0, y1, 0, s0, t1, r, g, b, a },
-                .{ x1, y1, 0, s1, t1, r, g, b, a },
-                .{ x0, y0, 0, s0, t0, r, g, b, a },
                 .{ x1, y1, 0, s1, t1, r, g, b, a },
                 .{ x1, y0, 0, s1, t0, r, g, b, a },
             };
 
             vertices.appendAssumeCapacity(vert);
+
+            const idx = @intCast(u32, 4 * i);
+            indices.appendAssumeCapacity([6]u32{
+                idx, idx + 1, idx + 2, // 0, 1, 2
+                idx, idx + 2, idx + 3, // 0, 2, 3
+            });
 
             curx += glyph.advance_x;
         }
@@ -163,6 +171,8 @@ pub fn render(
     const vao = try gl.VertexArray.create();
     defer vao.destroy();
     try vao.bind();
+
+    // Array buffer
     const vbo = try gl.Buffer.create();
     defer vbo.destroy();
     var binding = try vbo.bind(.ArrayBuffer);
@@ -172,7 +182,15 @@ pub fn render(
     try binding.attribute(1, 2, [9]f32, 3);
     try binding.attribute(2, 4, [9]f32, 5);
 
-    try gl.drawArrays(gl.c.GL_TRIANGLES, 0, @intCast(c_int, vertices.items.len * 6));
+    // Element buffer
+    const ebo = try gl.Buffer.create();
+    defer ebo.destroy();
+    var ebobinding = try ebo.bind(.ElementArrayBuffer);
+    defer ebobinding.unbind();
+    try ebobinding.setData(indices.items, .DynamicDraw);
+
+    //try gl.drawArrays(gl.c.GL_TRIANGLES, 0, @intCast(c_int, vertices.items.len * 6));
+    try gl.drawElements(gl.c.GL_TRIANGLES, @intCast(c_int, indices.items.len * 6), gl.c.GL_UNSIGNED_INT, 0);
     try gl.VertexArray.unbind();
 }
 
