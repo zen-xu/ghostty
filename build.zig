@@ -43,4 +43,9 @@ pub fn build(b: *std.build.Builder) !void {
 
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
+
+    // Tests
+    const test_step = b.step("test", "Run all tests");
+    const lib_tests = b.addTest("src/main.zig");
+    test_step.dependOn(&lib_tests.step);
 }

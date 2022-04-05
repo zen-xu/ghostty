@@ -17,3 +17,7 @@ pub fn main() !void {
     defer app.deinit();
     try app.run();
 }
+
+test {
+    _ = @import("Atlas.zig");
+}
