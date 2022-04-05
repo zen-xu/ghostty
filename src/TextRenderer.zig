@@ -4,15 +4,15 @@ const std = @import("std");
 const ftc = @import("freetype/c.zig");
 const gl = @import("opengl.zig");
 const gb = @import("gb_math.zig");
+const ftgl = @import("freetype-gl/c.zig");
 
 alloc: std.mem.Allocator,
-ft: ftc.FT_Library,
-face: ftc.FT_Face,
-chars: CharList,
-vao: gl.VertexArray = undefined,
-vbo: gl.Buffer = undefined,
-program: gl.Program = undefined,
 projection: gb.gbMat4 = undefined,
+font: *ftgl.texture_font_t,
+atlas: *ftgl.texture_atlas_t,
+
+program: gl.Program,
+tex: gl.Texture,
 
 const CharList = std.ArrayListUnmanaged(Char);
 const Char = struct {
@@ -23,96 +23,58 @@ const Char = struct {
 };
 
 pub fn init(alloc: std.mem.Allocator) !TextRenderer {
-    var ft: ftc.FT_Library = undefined;
-    if (ftc.FT_Init_FreeType(&ft) != 0) {
-        return error.FreetypeInitFailed;
-    }
-
-    var face: ftc.FT_Face = undefined;
-    if (ftc.FT_New_Memory_Face(
-        ft,
+    const atlas = ftgl.texture_atlas_new(512, 512, 1);
+    if (atlas == null) return error.FontAtlasFail;
+    errdefer ftgl.texture_atlas_delete(atlas);
+    const font = ftgl.texture_font_new_from_memory(
+        atlas,
+        48,
         face_ttf,
         face_ttf.len,
-        0,
-        &face,
-    ) != 0) {
-        return error.FreetypeFaceFailed;
-    }
+    );
+    if (font == null) return error.FontInitFail;
+    errdefer ftgl.texture_font_delete(font);
 
-    _ = ftc.FT_Set_Pixel_Sizes(face, 0, 48);
-
-    // disable byte-alignment restriction
-    try gl.pixelStore(gl.c.GL_UNPACK_ALIGNMENT, 1);
-
-    // Pre-render all the ASCII characters
-    var chars = try CharList.initCapacity(alloc, 128);
-    var i: usize = 0;
-    while (i < chars.capacity) : (i += 1) {
+    // Load all visible ASCII characters.
+    var i: u8 = 32;
+    while (i < 127) : (i += 1) {
         // Load the character
-        if (ftc.FT_Load_Char(face, i, ftc.FT_LOAD_RENDER) != 0) {
+        if (ftgl.texture_font_load_glyph(font, &i) == 0) {
             return error.GlyphLoadFailed;
         }
-
-        // Generate the texture
-        const tex = try gl.Texture.create();
-        var binding = try tex.bind(.@"2D");
-        defer binding.unbind();
-        try binding.image2D(
-            0,
-            .Red,
-            @intCast(c_int, face.*.glyph.*.bitmap.width),
-            @intCast(c_int, face.*.glyph.*.bitmap.rows),
-            0,
-            .Red,
-            .UnsignedByte,
-            face.*.glyph.*.bitmap.buffer,
-        );
-        try binding.parameter(.WrapS, gl.c.GL_CLAMP_TO_EDGE);
-        try binding.parameter(.WrapT, gl.c.GL_CLAMP_TO_EDGE);
-        try binding.parameter(.MinFilter, gl.c.GL_LINEAR);
-        try binding.parameter(.MagFilter, gl.c.GL_LINEAR);
-
-        // Store the character
-        chars.appendAssumeCapacity(.{
-            .tex = tex,
-            .size = .{
-                @intToFloat(f32, face.*.glyph.*.bitmap.width),
-                @intToFloat(f32, face.*.glyph.*.bitmap.rows),
-            },
-            .bearing = .{
-                @intToFloat(f32, face.*.glyph.*.bitmap_left),
-                @intToFloat(f32, face.*.glyph.*.bitmap_top),
-            },
-            .advance = @intCast(c_uint, face.*.glyph.*.advance.x),
-        });
     }
 
-    // Configure VAO/VBO for glyph rendering
-    const vao = try gl.VertexArray.create();
-    const vbo = try gl.Buffer.create();
-    try vao.bind();
-    var binding = try vbo.bind(.ArrayBuffer);
-    try binding.setDataNull([6 * 4]f32, .DynamicDraw);
-    try binding.enableVertexAttribArray(0);
-    try binding.vertexAttribPointer(0, 4, gl.c.GL_FLOAT, false, 4 * @sizeOf(f32), null);
-    binding.unbind();
-    try gl.VertexArray.unbind();
+    // Build our texture
+    const tex = try gl.Texture.create();
+    errdefer tex.destroy();
+    const binding = try tex.bind(.@"2D");
+    try binding.parameter(.WrapS, gl.c.GL_CLAMP_TO_EDGE);
+    try binding.parameter(.WrapT, gl.c.GL_CLAMP_TO_EDGE);
+    try binding.parameter(.MinFilter, gl.c.GL_LINEAR);
+    try binding.parameter(.MagFilter, gl.c.GL_LINEAR);
+    try binding.image2D(
+        0,
+        .Red,
+        @intCast(c_int, atlas.*.width),
+        @intCast(c_int, atlas.*.height),
+        0,
+        .Red,
+        .UnsignedByte,
+        atlas.*.data,
+    );
 
     // Create our shader
     const program = try gl.Program.createVF(
-        @embedFile("../shaders/text.v.glsl"),
-        @embedFile("../shaders/text.f.glsl"),
+        @embedFile("../shaders/text-atlas.v.glsl"),
+        @embedFile("../shaders/text-atlas.f.glsl"),
     );
 
     var res = TextRenderer{
         .alloc = alloc,
-        .ft = ft,
-        .face = face,
-        .chars = chars,
+        .font = font,
+        .atlas = atlas,
         .program = program,
-        .vao = vao,
-        .vbo = vbo,
-        .projection = undefined,
+        .tex = tex,
     };
 
     // Update the initialize size so we have some projection. We
@@ -123,14 +85,8 @@ pub fn init(alloc: std.mem.Allocator) !TextRenderer {
 }
 
 pub fn deinit(self: *TextRenderer) void {
-    // TODO: delete textures
-    self.chars.deinit(self.alloc);
-
-    if (ftc.FT_Done_Face(self.face) != 0)
-        std.log.err("freetype face deinitialization failed", .{});
-    if (ftc.FT_Done_FreeType(self.ft) != 0)
-        std.log.err("freetype library deinitialization failed", .{});
-
+    ftgl.texture_font_delete(self.font);
+    ftgl.texture_atlas_delete(self.atlas);
     self.* = undefined;
 }
 
@@ -152,44 +108,74 @@ pub fn render(
     text: []const u8,
     x: f32,
     y: f32,
-    scale: f32,
     color: @Vector(3, f32),
 ) !void {
-    try self.program.use();
-    try self.program.setUniform("textColor", color);
-    try gl.Texture.active(gl.c.GL_TEXTURE0);
-    try self.vao.bind();
+    const r = color[0];
+    const g = color[1];
+    const b = color[2];
+    const a: f32 = 1.0;
+
+    var vertices: std.ArrayListUnmanaged([6][9]f32) = .{};
+    try vertices.ensureUnusedCapacity(self.alloc, text.len);
+    defer vertices.deinit(self.alloc);
 
     var curx: f32 = x;
     for (text) |c| {
-        const char = self.chars.items[c];
+        if (ftgl.texture_font_get_glyph(self.font, &c)) |glyph_ptr| {
+            const glyph = glyph_ptr.*;
+            const kerning = 0; // for now
+            curx += kerning;
 
-        const xpos = curx + (char.bearing[0] * scale);
-        const ypos = y - ((char.size[1] - char.bearing[1]) * scale);
-        const w = char.size[0] * scale;
-        const h = char.size[1] * scale;
+            const x0 = curx + @intToFloat(f32, glyph.offset_x);
+            const y0 = y + @intToFloat(f32, glyph.offset_y);
+            const x1 = x0 + @intToFloat(f32, glyph.width);
+            const y1 = y0 - @intToFloat(f32, glyph.height);
+            const s0 = glyph.s0;
+            const t0 = glyph.t0;
+            const s1 = glyph.s1;
+            const t1 = glyph.t1;
 
-        const vert = [6][4]f32{
-            .{ xpos, ypos + h, 0.0, 0.0 },
-            .{ xpos, ypos, 0.0, 1.0 },
-            .{ xpos + w, ypos, 1.0, 1.0 },
+            std.log.info("CHAR ch={} x0={} y0={} x1={} y1={}", .{ c, x0, y0, x1, y1 });
 
-            .{ xpos, ypos + h, 0.0, 0.0 },
-            .{ xpos + w, ypos, 1.0, 1.0 },
-            .{ xpos + w, ypos + h, 1.0, 0.0 },
-        };
+            const vert = [6][9]f32{
+                .{ x0, y0, 0, s0, t0, r, g, b, a },
+                .{ x0, y1, 0, s0, t1, r, g, b, a },
+                .{ x1, y1, 0, s1, t1, r, g, b, a },
+                .{ x0, y0, 0, s0, t0, r, g, b, a },
+                .{ x1, y1, 0, s1, t1, r, g, b, a },
+                .{ x1, y0, 0, s1, t0, r, g, b, a },
+            };
 
-        var texbind = try char.tex.bind(.@"2D");
-        defer texbind.unbind();
-        var bind = try self.vbo.bind(.ArrayBuffer);
-        try bind.setSubData(0, vert);
-        bind.unbind();
+            vertices.appendAssumeCapacity(vert);
 
-        try gl.drawArrays(gl.c.GL_TRIANGLES, 0, 6);
-
-        curx += @intToFloat(f32, char.advance >> 6) * scale;
+            curx += glyph.advance_x;
+        }
     }
 
+    try self.program.use();
+
+    // Bind our texture and set our data
+    try gl.Texture.active(gl.c.GL_TEXTURE0);
+    var texbind = try self.tex.bind(.@"2D");
+    defer texbind.unbind();
+
+    // Configure VAO/VBO for glyph rendering
+    const vao = try gl.VertexArray.create();
+    defer vao.destroy();
+    try vao.bind();
+    const vbo = try gl.Buffer.create();
+    defer vbo.destroy();
+    var binding = try vbo.bind(.ArrayBuffer);
+    defer binding.unbind();
+    try binding.setData(vertices.items, .DynamicDraw);
+    try binding.enableVertexAttribArray(0);
+    try binding.vertexAttribPointer(0, 3, gl.c.GL_FLOAT, false, 9 * @sizeOf(f32), null);
+    try binding.enableVertexAttribArray(1);
+    try binding.vertexAttribPointer(1, 2, gl.c.GL_FLOAT, false, 9 * @sizeOf(f32), @intToPtr(*const anyopaque, 3 * @sizeOf(f32)));
+    try binding.enableVertexAttribArray(2);
+    try binding.vertexAttribPointer(2, 4, gl.c.GL_FLOAT, false, 9 * @sizeOf(f32), @intToPtr(*const anyopaque, 5 * @sizeOf(f32)));
+
+    try gl.drawArrays(gl.c.GL_TRIANGLES, 0, @intCast(c_int, vertices.items.len * 6));
     try gl.VertexArray.unbind();
 }
 

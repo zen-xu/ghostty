@@ -24,6 +24,8 @@ pub fn link(
     var flags = std.ArrayList([]const u8).init(b.allocator);
     defer flags.deinit();
     try flags.appendSlice(&.{
+        "-std=c99",
+        "-O0",
         "-DGL_WITH_GLAD",
     });
 

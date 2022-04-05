@@ -40,6 +40,9 @@ pub const Binding = struct {
         usage: Usage,
     ) !void {
         const info = dataInfo(data);
+        std.log.info("SET DATA {}", .{
+            info.size,
+        });
         c.glBufferData(@enumToInt(b.target), info.size, info.ptr, @enumToInt(usage));
         try errors.getError();
     }
@@ -83,7 +86,7 @@ pub const Binding = struct {
                     .ptr = data,
                 },
                 .Slice => .{
-                    .size = @sizeOf(ptr.child) * data.len,
+                    .size = @intCast(isize, @sizeOf(ptr.child) * data.len),
                     .ptr = data.ptr,
                 },
                 else => {
