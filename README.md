@@ -18,16 +18,15 @@ modern, opt-in features that enable CLI tool developers to build more feature
 rich, interactive applications.
 
 There are a number of excellent terminal emulator options that exist
-today. ghostty isn't trying to claim to be the best in every category
-The unique goal of ghostty is to have a platform for experimenting with modern, optional,
-non-standards-compliant features to enhance the capabilities of CLI
-applications. We aim to be the best in this category, and competitive
-in the rest.
+today. The unique goal of ghostty is to have a platform for experimenting 
+with modern, optional, non-standards-compliant features to enhance the 
+capabilities of CLI applications. We aim to be the best in this category, 
+and competitive in the rest.
 
-ghostty is purposely minimal and provides no multi-window or tabbing support;
-it is expected to be used with something like a tiling window manager. Long
-term, we want to add support for a richer native GUI experience, especially
-for macOS and Windows.
+While aiming for this ambitious goal, ghostty is a fully standards compliant
+terminal emulator that aims to remain compatible with all existing shells
+and software. You can use this as a drop-in replacement for your existing
+terminal emulator.
 
 **Project Status:** Pre-Alpha. This project is not ready to be used as a
 day-to-day terminal emulator. It can't even render vim yet!
