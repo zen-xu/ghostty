@@ -1,11 +1,14 @@
 const TextRenderer = @This();
 
 const std = @import("std");
+const assert = std.debug.assert;
 const ftc = @import("freetype/c.zig");
 const gl = @import("opengl.zig");
 const gb = @import("gb_math.zig");
 const Atlas = @import("Atlas.zig");
 const FontAtlas = @import("FontAtlas.zig");
+
+const log = std.log.scoped(.text_renderer);
 
 alloc: std.mem.Allocator,
 projection: gb.gbMat4 = undefined,
@@ -29,13 +32,36 @@ pub fn init(alloc: std.mem.Allocator) !TextRenderer {
     errdefer atlas.deinit(alloc);
     var font = try FontAtlas.init(atlas);
     errdefer font.deinit(alloc);
-    try font.loadFaceFromMemory(face_ttf, 48);
+    try font.loadFaceFromMemory(face_ttf, 30);
+
+    // We'll calculate the cell width as the widest glyph advance
+    // in the set of visible ASCII characters.
+    var cell_width: f32 = 0;
 
     // Load all visible ASCII characters.
     var i: u8 = 32;
     while (i <= 126) : (i += 1) {
-        _ = try font.addGlyph(alloc, i);
+        const glyph = try font.addGlyph(alloc, i);
+        if (glyph.advance_x > cell_width) {
+            cell_width = @ceil(glyph.advance_x);
+        }
     }
+
+    // The cell height is the vertical height required to render underscore
+    // '_' which should live at the bottom of a cell.
+    const cell_height: f32 = cell_height: {
+        // TODO(render): kitty does a calculation based on other font
+        // metrics that we probably want to research more. For now, this is
+        // fine.
+        assert(font.ft_face != null);
+        const glyph = font.getGlyph('_').?;
+        var res: i32 = font.ft_face.*.ascender >> 6;
+        res -= glyph.offset_y;
+        res += @intCast(i32, glyph.height);
+        break :cell_height @intToFloat(f32, res);
+    };
+
+    log.debug("cell size w={d} h={d}", .{ cell_width, cell_height });
 
     // Build our texture
     const tex = try gl.Texture.create();
@@ -189,4 +215,5 @@ pub fn render(
     try gl.VertexArray.unbind();
 }
 
-const face_ttf = @embedFile("../fonts/Inconsolata-Regular.ttf");
+const face_ttf = @embedFile("../fonts/FiraCode-Regular.ttf");
+//const face_ttf = @embedFile("../fonts/Inconsolata-Regular.ttf");

@@ -177,7 +177,7 @@ pub fn addGlyph(self: *FontAtlas, alloc: Allocator, v: anytype) !*Glyph {
         .advance_x = f26dot6ToFloat(glyph.*.advance.x),
     };
 
-    log.debug("loaded glyph codepoint={} glyph={}", .{ utf32, gop.value_ptr.* });
+    //log.debug("loaded glyph codepoint={} glyph={}", .{ utf32, gop.value_ptr.* });
 
     return gop.value_ptr;
 }
