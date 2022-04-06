@@ -145,6 +145,9 @@ pub fn addGlyph(self: *FontAtlas, alloc: Allocator, v: anytype) !void {
     const region = try self.atlas.reserve(alloc, tgt_w, tgt_h);
 
     // Build our buffer
+    //
+    // TODO(perf): we can avoid a buffer copy here in some cases where
+    // tgt_w == bitmap.width and bitmap.width == bitmap.pitch
     const buffer = try alloc.alloc(u8, tgt_w * tgt_h);
     defer alloc.free(buffer);
     var dst_ptr = buffer;
@@ -178,7 +181,7 @@ pub fn addGlyph(self: *FontAtlas, alloc: Allocator, v: anytype) !void {
 
 /// Convert 26.6 pixel format to f32
 fn f26dot6ToFloat(v: ftc.FT_F26Dot6) f32 {
-    return @intToFloat(f32, v) / 64.0;
+    return @intToFloat(f32, v >> 6);
 }
 
 /// Returns the UTF-32 codepoint for the given value.
