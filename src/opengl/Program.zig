@@ -11,6 +11,12 @@ const errors = @import("errors.zig");
 
 id: c.GLuint,
 
+const Binding = struct {
+    pub inline fn unbind(_: Binding) void {
+        c.glUseProgram(0);
+    }
+};
+
 pub inline fn create() !Program {
     const id = c.glCreateProgram();
     if (id == 0) try errors.mustError();
@@ -61,8 +67,9 @@ pub inline fn link(p: Program) !void {
     return error.CompileFailed;
 }
 
-pub inline fn use(p: Program) !void {
+pub inline fn use(p: Program) !Binding {
     c.glUseProgram(p.id);
+    return Binding{};
 }
 
 /// Requires the program is currently in use.

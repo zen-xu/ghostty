@@ -92,7 +92,8 @@ pub fn setScreenSize(self: *TextRenderer, w: i32, h: i32) !void {
         @intToFloat(f32, h),
     );
 
-    try self.program.use();
+    const bind = try self.program.use();
+    defer bind.unbind();
     try self.program.setUniform("projection", self.projection);
 }
 
@@ -153,7 +154,8 @@ pub fn render(
         }
     }
 
-    try self.program.use();
+    const pbind = try self.program.use();
+    defer pbind.unbind();
 
     // Bind our texture and set our data
     try gl.Texture.active(gl.c.GL_TEXTURE0);
