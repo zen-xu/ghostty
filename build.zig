@@ -3,7 +3,6 @@ const Builder = std.build.Builder;
 const LibExeObjStep = std.build.LibExeObjStep;
 const glfw = @import("vendor/mach/glfw/build.zig");
 const ft = @import("src/freetype/build.zig");
-const ftgl = @import("src/freetype-gl/build.zig");
 
 pub fn build(b: *std.build.Builder) !void {
     const target = b.standardTargetOptions(.{});
@@ -17,7 +16,6 @@ pub fn build(b: *std.build.Builder) !void {
     exe.addCSourceFile("src/gb_math.c", &.{});
     exe.addPackagePath("glfw", "vendor/mach/glfw/src/main.zig");
     glfw.link(b, exe, .{});
-    try ftgl.link(exe, b, target, mode, .{});
 
     // GLAD
     exe.addIncludeDir("vendor/glad/include/");

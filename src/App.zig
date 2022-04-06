@@ -7,10 +7,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const glfw = @import("glfw");
 const gl = @import("opengl.zig");
-const TextRenderer = if (true)
-    @import("TextRenderer.zig")
-else
-    @import("TextRenderer2.zig");
+const TextRenderer = @import("TextRenderer.zig");
 
 const log = std.log;
 
