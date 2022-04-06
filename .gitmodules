@@ -10,6 +10,3 @@
 [submodule "vendor/cglm"]
 	path = vendor/cglm
 	url = https://github.com/recp/cglm.git
-[submodule "vendor/freetype-gl"]
-	path = vendor/freetype-gl
-	url = https://github.com/rougier/freetype-gl
