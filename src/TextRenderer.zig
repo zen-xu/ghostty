@@ -4,12 +4,14 @@ const std = @import("std");
 const ftc = @import("freetype/c.zig");
 const gl = @import("opengl.zig");
 const gb = @import("gb_math.zig");
-const ftgl = @import("freetype-gl/c.zig");
+const Atlas = @import("Atlas.zig");
+const FontAtlas = @import("FontAtlas.zig");
 
 alloc: std.mem.Allocator,
 projection: gb.gbMat4 = undefined,
-font: *ftgl.texture_font_t,
-atlas: *ftgl.texture_atlas_t,
+
+font: FontAtlas,
+atlas: Atlas,
 
 program: gl.Program,
 tex: gl.Texture,
@@ -23,25 +25,16 @@ const Char = struct {
 };
 
 pub fn init(alloc: std.mem.Allocator) !TextRenderer {
-    const atlas = ftgl.texture_atlas_new(512, 512, 1);
-    if (atlas == null) return error.FontAtlasFail;
-    errdefer ftgl.texture_atlas_delete(atlas);
-    const font = ftgl.texture_font_new_from_memory(
-        atlas,
-        48,
-        face_ttf,
-        face_ttf.len,
-    );
-    if (font == null) return error.FontInitFail;
-    errdefer ftgl.texture_font_delete(font);
+    var atlas = try Atlas.init(alloc, 512);
+    errdefer atlas.deinit(alloc);
+    var font = try FontAtlas.init(atlas);
+    errdefer font.deinit(alloc);
+    try font.loadFaceFromMemory(face_ttf, 48);
 
     // Load all visible ASCII characters.
     var i: u8 = 32;
     while (i < 127) : (i += 1) {
-        // Load the character
-        if (ftgl.texture_font_load_glyph(font, &i) == 0) {
-            return error.GlyphLoadFailed;
-        }
+        try font.addGlyph(alloc, i);
     }
 
     // Build our texture
@@ -55,12 +48,12 @@ pub fn init(alloc: std.mem.Allocator) !TextRenderer {
     try binding.image2D(
         0,
         .Red,
-        @intCast(c_int, atlas.*.width),
-        @intCast(c_int, atlas.*.height),
+        @intCast(c_int, atlas.size),
+        @intCast(c_int, atlas.size),
         0,
         .Red,
         .UnsignedByte,
-        atlas.*.data,
+        atlas.data.ptr,
     );
 
     // Create our shader
@@ -84,9 +77,9 @@ pub fn init(alloc: std.mem.Allocator) !TextRenderer {
     return res;
 }
 
-pub fn deinit(self: *TextRenderer) void {
-    ftgl.texture_font_delete(self.font);
-    ftgl.texture_atlas_delete(self.atlas);
+pub fn deinit(self: *TextRenderer, alloc: std.mem.Allocator) void {
+    self.font.deinit(alloc);
+    self.atlas.deinit(alloc);
     self.* = undefined;
 }
 
@@ -125,7 +118,7 @@ pub fn render(
 
     var curx: f32 = x;
     for (text) |c, i| {
-        if (ftgl.texture_font_get_glyph(self.font, &c)) |glyph_ptr| {
+        if (self.font.getGlyph(c)) |glyph_ptr| {
             const glyph = glyph_ptr.*;
             const kerning = 0; // for now
             curx += kerning;

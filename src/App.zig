@@ -4,11 +4,17 @@
 const App = @This();
 
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const glfw = @import("glfw");
 const gl = @import("opengl.zig");
-const TextRenderer = @import("TextRenderer.zig");
+const TextRenderer = if (true)
+    @import("TextRenderer.zig")
+else
+    @import("TextRenderer2.zig");
 
 const log = std.log;
+
+alloc: Allocator,
 
 window: glfw.Window,
 
@@ -17,7 +23,7 @@ text: TextRenderer,
 /// Initialize the main app instance. This creates the main window, sets
 /// up the renderer state, compiles the shaders, etc. This is the primary
 /// "startup" logic.
-pub fn init(alloc: std.mem.Allocator) !App {
+pub fn init(alloc: Allocator) !App {
     // Create our window
     const window = try glfw.Window.create(640, 480, "ghostty", null, null, .{
         .context_version_major = 3,
@@ -57,13 +63,14 @@ pub fn init(alloc: std.mem.Allocator) !App {
     }).callback);
 
     return App{
+        .alloc = alloc,
         .window = window,
         .text = texter,
     };
 }
 
 pub fn deinit(self: *App) void {
-    self.text.deinit();
+    self.text.deinit(self.alloc);
     self.window.destroy();
     self.* = undefined;
 }

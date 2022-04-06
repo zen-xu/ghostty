@@ -104,7 +104,7 @@ pub fn loadFaceFromMemory(self: *FontAtlas, source: [:0]const u8, size: u32) !vo
 }
 
 /// Get the glyph for the given codepoint.
-pub fn getGlyph(self: *FontAtlas, v: anytype) ?*Glyph {
+pub fn getGlyph(self: FontAtlas, v: anytype) ?*Glyph {
     const utf32 = codepoint(v);
     const entry = self.glyphs.getEntry(utf32) orelse return null;
     return entry.value_ptr;
@@ -170,8 +170,15 @@ pub fn addGlyph(self: *FontAtlas, alloc: Allocator, v: anytype) !void {
         .t0 = @intToFloat(f32, region.y) / @intToFloat(f32, self.atlas.size),
         .s1 = @intToFloat(f32, region.x + tgt_w) / @intToFloat(f32, self.atlas.size),
         .t1 = @intToFloat(f32, region.y + tgt_h) / @intToFloat(f32, self.atlas.size),
-        .advance_x = @intToFloat(f32, glyph.*.advance.x),
+        .advance_x = f26dot6ToFloat(glyph.*.advance.x),
     };
+
+    log.debug("loaded glyph codepoint={} glyph={}", .{ utf32, gop.value_ptr.* });
+}
+
+/// Convert 26.6 pixel format to f32
+fn f26dot6ToFloat(v: ftc.FT_F26Dot6) f32 {
+    return @intToFloat(f32, v) / 64.0;
 }
 
 /// Returns the UTF-32 codepoint for the given value.
