@@ -103,17 +103,25 @@ pub fn loadFaceFromMemory(self: *FontAtlas, source: [:0]const u8, size: u32) !vo
         return error.FaceLoadFailed;
 }
 
+/// Get the glyph for the given codepoint.
+pub fn getGlyph(self: *FontAtlas, v: anytype) ?*Glyph {
+    const utf32 = codepoint(v);
+    const entry = self.glyphs.getEntry(utf32) orelse return null;
+    return entry.value_ptr;
+}
+
 /// Add a glyph to the font atlas. The codepoint can be either a u8 or
 /// []const u8 depending on if you know it is ASCII or must be UTF-8 decoded.
-pub fn addGlyph(self: *FontAtlas, alloc: Allocator, codepoint: anytype) !void {
+pub fn addGlyph(self: *FontAtlas, alloc: Allocator, v: anytype) !void {
     assert(self.ft_face != null);
 
     // We need a UTF32 codepoint for freetype
-    const utf32 = switch (@TypeOf(codepoint)) {
-        comptime_int, u8 => @intCast(u32, codepoint),
-        []const u8 => @intCast(u32, try std.unicode.utfDecode(codepoint)),
-        else => @compileError("invalid codepoint type"),
-    };
+    const utf32 = codepoint(v);
+
+    // If we have this glyph loaded already then we're done.
+    const gop = try self.glyphs.getOrPut(alloc, utf32);
+    if (gop.found_existing) return;
+    errdefer _ = self.glyphs.remove(utf32);
 
     const glyph_index = ftc.FT_Get_Char_Index(self.ft_face, utf32);
 
@@ -153,7 +161,6 @@ pub fn addGlyph(self: *FontAtlas, alloc: Allocator, codepoint: anytype) !void {
     assert(region.height == tgt_h);
     self.atlas.set(region, buffer);
 
-    const gop = try self.glyphs.getOrPut(alloc, utf32);
     gop.value_ptr.* = .{
         .width = tgt_w,
         .height = tgt_h,
@@ -164,6 +171,16 @@ pub fn addGlyph(self: *FontAtlas, alloc: Allocator, codepoint: anytype) !void {
         .s1 = @intToFloat(f32, region.x + tgt_w) / @intToFloat(f32, self.atlas.size),
         .t1 = @intToFloat(f32, region.y + tgt_h) / @intToFloat(f32, self.atlas.size),
         .advance_x = @intToFloat(f32, glyph.*.advance.x),
+    };
+}
+
+/// Returns the UTF-32 codepoint for the given value.
+fn codepoint(v: anytype) u32 {
+    // We need a UTF32 codepoint for freetype
+    return switch (@TypeOf(v)) {
+        comptime_int, u8 => @intCast(u32, v),
+        []const u8 => @intCast(u32, try std.unicode.utfDecode(v)),
+        else => @compileError("invalid codepoint type"),
     };
 }
 
@@ -179,6 +196,11 @@ test {
     var i: u8 = 32;
     while (i < 127) : (i += 1) {
         try font.addGlyph(alloc, i);
+    }
+
+    i = 32;
+    while (i < 127) : (i += 1) {
+        try testing.expect(font.getGlyph(i) != null);
     }
 }
 
