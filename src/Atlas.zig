@@ -151,17 +151,14 @@ fn fit(self: Atlas, idx: usize, width: u32, height: u32) ?u32 {
     var y = node.y;
     var i = idx;
     var width_left = width;
-    while (true) : (i += 1) {
+    while (width_left > 0) : (i += 1) {
         const n = self.nodes.items[i];
         if (n.y > y) y = n.y;
 
         // If the added height exceeds our texture size, it doesn't fit.
         if ((y + height) > (self.size - 1)) return null;
 
-        // If we have no more width left (width_left - n.width < 0)
-        // then we are done.
-        if (n.width >= width_left) break;
-        width_left -= n.width;
+        width_left -|= n.width;
     }
 
     return y;
