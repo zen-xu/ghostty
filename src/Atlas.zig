@@ -26,9 +26,10 @@ data: []u8,
 
 /// Width and height of the atlas texture. The current implementation is
 /// always square so this is both the width and the height.
-size: u32,
+size: u32 = 0,
 
-nodes: std.ArrayListUnmanaged(Node),
+/// The nodes (rectangles) of available space.
+nodes: std.ArrayListUnmanaged(Node) = .{},
 
 const Node = struct {
     x: u32,
@@ -41,6 +42,8 @@ pub const Error = error{
     AtlasFull,
 };
 
+/// A region within the texture atlas. These can be acquired using the
+/// "reserve" function. A region reservation is required to write data.
 pub const Region = struct {
     x: u32,
     y: u32,
@@ -121,7 +124,7 @@ pub fn reserve(self: *Atlas, alloc: Allocator, width: u32, height: u32) !Region 
         if (node.x < (prev.x + prev.width)) {
             const shrink = prev.x + prev.width - node.x;
             node.x += shrink;
-            node.width -= shrink;
+            node.width -|= shrink;
             if (node.width <= 0) {
                 _ = self.nodes.orderedRemove(i);
                 i -= 1;

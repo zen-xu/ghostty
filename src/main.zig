@@ -20,4 +20,5 @@ pub fn main() !void {
 
 test {
     _ = @import("Atlas.zig");
+    _ = @import("FontAtlas.zig");
 }

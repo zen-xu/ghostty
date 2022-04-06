@@ -47,5 +47,6 @@ pub fn build(b: *std.build.Builder) !void {
     // Tests
     const test_step = b.step("test", "Run all tests");
     const lib_tests = b.addTest("src/main.zig");
+    ftlib.link(lib_tests);
     test_step.dependOn(&lib_tests.step);
 }
