@@ -33,8 +33,8 @@ pub fn init(alloc: std.mem.Allocator) !TextRenderer {
 
     // Load all visible ASCII characters.
     var i: u8 = 32;
-    while (i < 127) : (i += 1) {
-        try font.addGlyph(alloc, i);
+    while (i <= 126) : (i += 1) {
+        _ = try font.addGlyph(alloc, i);
     }
 
     // Build our texture
@@ -133,7 +133,7 @@ pub fn render(
             const s1 = glyph.s1;
             const t1 = glyph.t1;
 
-            std.log.info("CHAR ch={} x0={} y0={} x1={} y1={}", .{ c, x0, y0, x1, y1 });
+            //std.log.info("CHAR ch={} x0={} y0={} x1={} y1={}", .{ c, x0, y0, x1, y1 });
 
             const vert = [4][9]f32{
                 .{ x0, y0, 0, s0, t0, r, g, b, a },

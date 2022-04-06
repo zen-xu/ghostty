@@ -112,7 +112,7 @@ pub fn getGlyph(self: FontAtlas, v: anytype) ?*Glyph {
 
 /// Add a glyph to the font atlas. The codepoint can be either a u8 or
 /// []const u8 depending on if you know it is ASCII or must be UTF-8 decoded.
-pub fn addGlyph(self: *FontAtlas, alloc: Allocator, v: anytype) !void {
+pub fn addGlyph(self: *FontAtlas, alloc: Allocator, v: anytype) !*Glyph {
     assert(self.ft_face != null);
 
     // We need a UTF32 codepoint for freetype
@@ -120,7 +120,7 @@ pub fn addGlyph(self: *FontAtlas, alloc: Allocator, v: anytype) !void {
 
     // If we have this glyph loaded already then we're done.
     const gop = try self.glyphs.getOrPut(alloc, utf32);
-    if (gop.found_existing) return;
+    if (gop.found_existing) return gop.value_ptr;
     errdefer _ = self.glyphs.remove(utf32);
 
     const glyph_index = ftc.FT_Get_Char_Index(self.ft_face, utf32);
@@ -164,6 +164,7 @@ pub fn addGlyph(self: *FontAtlas, alloc: Allocator, v: anytype) !void {
     assert(region.height == tgt_h);
     self.atlas.set(region, buffer);
 
+    // Store glyph metadata
     gop.value_ptr.* = .{
         .width = tgt_w,
         .height = tgt_h,
@@ -177,6 +178,8 @@ pub fn addGlyph(self: *FontAtlas, alloc: Allocator, v: anytype) !void {
     };
 
     log.debug("loaded glyph codepoint={} glyph={}", .{ utf32, gop.value_ptr.* });
+
+    return gop.value_ptr;
 }
 
 /// Convert 26.6 pixel format to f32
