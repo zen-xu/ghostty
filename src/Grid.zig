@@ -51,9 +51,9 @@ pub fn init(alloc: Allocator) !Grid {
     // Initialize our font atlas. We will initially populate the
     // font atlas with all the visible ASCII characters since they are common.
     var atlas = try Atlas.init(alloc, 512);
-    errdefer atlas.deinit(alloc);
+    defer atlas.deinit(alloc);
     var font = try FontAtlas.init(atlas);
-    errdefer font.deinit(alloc);
+    defer font.deinit(alloc);
     try font.loadFaceFromMemory(face_ttf, 30);
 
     // Load all visible ASCII characters and build our cell width based on
@@ -102,6 +102,11 @@ pub fn init(alloc: Allocator) !Grid {
         .cell_dims = .{ .width = cell_width, .height = cell_height },
         .program = program,
     };
+}
+
+pub fn deinit(self: *Grid) void {
+    self.program.destroy();
+    self.* = undefined;
 }
 
 /// Set the screen size for rendering. This will update the projection

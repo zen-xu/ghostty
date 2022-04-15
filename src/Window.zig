@@ -77,6 +77,7 @@ pub fn create(alloc: Allocator) !*Window {
 }
 
 pub fn destroy(self: *Window, alloc: Allocator) void {
+    self.grid.deinit();
     alloc.destroy(self);
 }
 
@@ -102,8 +103,9 @@ fn sizeCallback(window: glfw.Window, width: i32, height: i32) void {
     win.grid.setScreenSize(.{
         .width = width,
         .height = height,
-    }) catch unreachable;
+    }) catch |err| log.err("error updating grid screen size err={}", .{err});
 
     // Update our viewport for this context to be the entire window
-    try gl.viewport(0, 0, width, height);
+    gl.viewport(0, 0, width, height) catch |err|
+        log.err("error updating OpenGL viewport err={}", .{err});
 }
