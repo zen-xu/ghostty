@@ -134,18 +134,13 @@ pub const Binding = struct {
             else => @compileError("unsupported type"),
         };
 
-        const offsetPtr = if (offset > 0)
-            @intToPtr(*const anyopaque, offset * info.offset)
-        else
-            null;
-
         try b.attributeAdvanced(
             idx,
             size,
             info.typ,
             false,
             info.stride,
-            offsetPtr,
+            offset * info.offset,
         );
         try b.enableAttribArray(idx);
     }
@@ -163,10 +158,15 @@ pub const Binding = struct {
         typ: c.GLenum,
         normalized: bool,
         stride: c.GLsizei,
-        ptr: ?*const anyopaque,
+        offset: usize,
     ) !void {
         const normalized_c: c.GLboolean = if (normalized) c.GL_TRUE else c.GL_FALSE;
-        c.glVertexAttribPointer(idx, size, typ, normalized_c, stride, ptr);
+        const offsetPtr = if (offset > 0)
+            @intToPtr(*const anyopaque, offset)
+        else
+            null;
+
+        c.glVertexAttribPointer(idx, size, typ, normalized_c, stride, offsetPtr);
         try errors.getError();
     }
 

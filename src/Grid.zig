@@ -26,6 +26,19 @@ vao: gl.VertexArray,
 ebo: gl.Buffer,
 vbo: gl.Buffer,
 
+/// The raw structure that maps directly to the buffer sent to the vertex shader.
+const GPUCell = struct {
+    /// vec2 grid_coord
+    grid_col: u16,
+    grid_row: u16,
+
+    /// vec4 bg_color_in
+    bg_r: u8,
+    bg_g: u8,
+    bg_b: u8,
+    bg_a: u8,
+};
+
 pub fn init(alloc: Allocator) !Grid {
     // Initialize our font atlas. We will initially populate the
     // font atlas with all the visible ASCII characters since they are common.
@@ -98,8 +111,13 @@ pub fn init(alloc: Allocator) !Grid {
     var vbobind = try vbo.bind(.ArrayBuffer);
     defer vbobind.unbind();
     //try vbobind.setDataNull(vertices.items, .StaticDraw);
-    try vbobind.attribute(0, 2, [6]f32, 0);
-    try vbobind.attribute(1, 4, [6]f32, 2);
+
+    var offset: usize = 0;
+    try vbobind.attributeAdvanced(0, 2, gl.c.GL_UNSIGNED_SHORT, false, @sizeOf(GPUCell), offset);
+    offset += 2 * @sizeOf(u16);
+    try vbobind.attributeAdvanced(1, 4, gl.c.GL_UNSIGNED_BYTE, false, @sizeOf(GPUCell), offset);
+    try vbobind.enableAttribArray(0);
+    try vbobind.enableAttribArray(1);
     try vbobind.attributeDivisor(0, 1);
     try vbobind.attributeDivisor(1, 1);
 
@@ -155,23 +173,20 @@ pub fn render(self: Grid) !void {
     defer gl.VertexArray.unbind() catch null;
 
     // Build our data
-    var vertices: std.ArrayListUnmanaged([6]f32) = .{};
+    var vertices: std.ArrayListUnmanaged(GPUCell) = .{};
     try vertices.ensureUnusedCapacity(self.alloc, self.size.columns * self.size.rows);
     defer vertices.deinit(self.alloc);
     var row: u32 = 0;
     while (row < self.size.rows) : (row += 1) {
         var col: u32 = 0;
         while (col < self.size.columns) : (col += 1) {
-            const rowf = @intToFloat(f32, row);
-            const colf = @intToFloat(f32, col);
-            const hue = ((colf * @intToFloat(f32, self.size.rows)) + rowf) / @intToFloat(f32, self.size.columns * self.size.rows);
-            vertices.appendAssumeCapacity([6]f32{
-                colf,
-                rowf,
-                hue,
-                0.7,
-                0.8,
-                1.0,
+            vertices.appendAssumeCapacity(.{
+                .grid_col = @intCast(u16, col),
+                .grid_row = @intCast(u16, row),
+                .bg_r = 200,
+                .bg_g = 100,
+                .bg_b = 150,
+                .bg_a = 255,
             });
         }
     }
