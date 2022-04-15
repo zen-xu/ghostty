@@ -22,4 +22,5 @@ test {
     _ = @import("Atlas.zig");
     _ = @import("FontAtlas.zig");
     _ = @import("Grid.zig");
+    _ = @import("Pty.zig");
 }

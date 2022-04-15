@@ -7,10 +7,11 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const Window = @import("Window.zig");
 
-const log = std.log;
-
+/// General purpose allocator
 alloc: Allocator,
 
+/// The primary window for the application. We currently support only
+/// single window operations.
 window: *Window,
 
 /// Initialize the main app instance. This creates the main window, sets

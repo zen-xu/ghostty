@@ -11,6 +11,7 @@ const Allocator = std.mem.Allocator;
 const Grid = @import("Grid.zig");
 const glfw = @import("glfw");
 const gl = @import("opengl.zig");
+const Pty = @import("Pty.zig");
 
 const log = std.log.scoped(.window);
 
@@ -19,6 +20,9 @@ window: glfw.Window,
 
 /// The terminal grid attached to this window.
 grid: Grid,
+
+/// The underlying pty for this window.
+pty: Pty,
 
 /// Create a new window. This allocates and returns a pointer because we
 /// need a stable pointer for user data callbacks. Therefore, a stack-only
@@ -61,13 +65,24 @@ pub fn create(alloc: Allocator) !*Window {
     gl.c.glEnable(gl.c.GL_BLEND);
     gl.c.glBlendFunc(gl.c.GL_SRC_ALPHA, gl.c.GL_ONE_MINUS_SRC_ALPHA);
 
-    // Create our terminal grid with a bogus initial size.
+    // Create our terminal grid with the initial window size
+    const window_size = try window.getSize();
     var grid = try Grid.init(alloc);
-    try grid.setScreenSize(.{ .width = 640, .height = 480 });
+    try grid.setScreenSize(.{ .width = window_size.width, .height = window_size.height });
+
+    // Create our pty
+    var pty = try Pty.open(.{
+        .ws_row = @intCast(u16, grid.size.rows),
+        .ws_col = @intCast(u16, grid.size.columns),
+        .ws_xpixel = @intCast(u16, window_size.width),
+        .ws_ypixel = @intCast(u16, window_size.height),
+    });
+    errdefer pty.deinit();
 
     self.* = .{
         .window = window,
         .grid = grid,
+        .pty = pty,
     };
 
     // Setup our callbacks and user data
@@ -78,6 +93,7 @@ pub fn create(alloc: Allocator) !*Window {
 }
 
 pub fn destroy(self: *Window, alloc: Allocator) void {
+    self.pty.deinit();
     self.grid.deinit();
     self.window.destroy();
     alloc.destroy(self);
@@ -113,6 +129,14 @@ fn sizeCallback(window: glfw.Window, width: i32, height: i32) void {
 
     // TODO: temp
     win.grid.demoCells() catch unreachable;
+
+    // Update the size of our pty
+    win.pty.setSize(.{
+        .ws_row = @intCast(u16, win.grid.size.rows),
+        .ws_col = @intCast(u16, win.grid.size.columns),
+        .ws_xpixel = @intCast(u16, width),
+        .ws_ypixel = @intCast(u16, height),
+    }) catch |err| log.err("error updating pty screen size err={}", .{err});
 
     // Update our viewport for this context to be the entire window
     gl.viewport(0, 0, width, height) catch |err|
