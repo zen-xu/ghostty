@@ -22,6 +22,9 @@ cell_size: CellSize,
 
 /// Shader program for cell rendering.
 program: gl.Program,
+vao: gl.VertexArray,
+ebo: gl.Buffer,
+vbo: gl.Buffer,
 
 pub fn init(alloc: Allocator) !Grid {
     // Initialize our font atlas. We will initially populate the
@@ -73,15 +76,48 @@ pub fn init(alloc: Allocator) !Grid {
     defer pbind.unbind();
     try program.setUniform("cell_size", @Vector(2, f32){ cell_width, cell_height });
 
+    // Setup our VAO
+    const vao = try gl.VertexArray.create();
+    errdefer vao.destroy();
+    try vao.bind();
+    defer gl.VertexArray.unbind() catch null;
+
+    // Element buffer (EBO)
+    const ebo = try gl.Buffer.create();
+    errdefer ebo.destroy();
+    var ebobind = try ebo.bind(.ElementArrayBuffer);
+    defer ebobind.unbind();
+    try ebobind.setData([6]u32{
+        0, 1, 3, // Top-left triangle
+        1, 2, 3, // Bottom-right triangle
+    }, .StaticDraw);
+
+    // Vertex buffer (VBO)
+    const vbo = try gl.Buffer.create();
+    errdefer vbo.destroy();
+    var vbobind = try vbo.bind(.ArrayBuffer);
+    defer vbobind.unbind();
+    //try vbobind.setDataNull(vertices.items, .StaticDraw);
+    try vbobind.attribute(0, 2, [6]f32, 0);
+    try vbobind.attribute(1, 4, [6]f32, 2);
+    try vbobind.attributeDivisor(0, 1);
+    try vbobind.attributeDivisor(1, 1);
+
     return Grid{
         .alloc = alloc,
         .cell_size = .{ .width = cell_width, .height = cell_height },
         .size = .{ .rows = 0, .columns = 0 },
         .program = program,
+        .vao = vao,
+        .ebo = ebo,
+        .vbo = vbo,
     };
 }
 
 pub fn deinit(self: *Grid) void {
+    self.vbo.destroy();
+    self.ebo.destroy();
+    self.vao.destroy();
     self.program.destroy();
     self.* = undefined;
 }
@@ -115,19 +151,8 @@ pub fn render(self: Grid) !void {
     defer pbind.unbind();
 
     // Setup our VAO
-    const vao = try gl.VertexArray.create();
-    defer vao.destroy();
-    try vao.bind();
-
-    // Element buffer (EBO)
-    const ebo = try gl.Buffer.create();
-    defer ebo.destroy();
-    var ebobinding = try ebo.bind(.ElementArrayBuffer);
-    defer ebobinding.unbind();
-    try ebobinding.setData([6]u32{
-        0, 1, 3,
-        1, 2, 3,
-    }, .StaticDraw);
+    try self.vao.bind();
+    defer gl.VertexArray.unbind() catch null;
 
     // Build our data
     var vertices: std.ArrayListUnmanaged([6]f32) = .{};
@@ -151,16 +176,14 @@ pub fn render(self: Grid) !void {
         }
     }
 
-    // Vertex buffer (VBO)
-    const vbo = try gl.Buffer.create();
-    defer vbo.destroy();
-    var binding = try vbo.bind(.ArrayBuffer);
+    // Bind EBO
+    var ebobind = try self.ebo.bind(.ElementArrayBuffer);
+    defer ebobind.unbind();
+
+    // Bind VBO and set data
+    var binding = try self.vbo.bind(.ArrayBuffer);
     defer binding.unbind();
     try binding.setData(vertices.items, .StaticDraw);
-    try binding.attribute(0, 2, [6]f32, 0);
-    try binding.attribute(1, 4, [6]f32, 2);
-    try binding.attributeDivisor(0, 1);
-    try binding.attributeDivisor(1, 1);
 
     try gl.drawElementsInstanced(
         gl.c.GL_TRIANGLES,
@@ -168,7 +191,6 @@ pub fn render(self: Grid) !void {
         gl.c.GL_UNSIGNED_INT,
         vertices.items.len,
     );
-    try gl.VertexArray.unbind();
 }
 
 /// The dimensions of a single "cell" in the terminal grid.
