@@ -113,8 +113,6 @@ pub fn init(alloc: Allocator) !Grid {
     errdefer vbo.destroy();
     var vbobind = try vbo.bind(.ArrayBuffer);
     defer vbobind.unbind();
-    //try vbobind.setDataNull(vertices.items, .StaticDraw);
-
     var offset: usize = 0;
     try vbobind.attributeAdvanced(0, 2, gl.c.GL_UNSIGNED_SHORT, false, @sizeOf(GPUCell), offset);
     offset += 2 * @sizeOf(u16);
@@ -157,9 +155,9 @@ pub fn demoCells(self: *Grid) !void {
             self.cells.appendAssumeCapacity(.{
                 .grid_col = @intCast(u16, col),
                 .grid_row = @intCast(u16, row),
-                .bg_r = 200,
-                .bg_g = 100,
-                .bg_b = 150,
+                .bg_r = @intCast(u8, @mod(col * row, 255)),
+                .bg_g = @intCast(u8, @mod(col, 255)),
+                .bg_b = @intCast(u8, 255 - @mod(col, 255)),
                 .bg_a = 255,
             });
         }
