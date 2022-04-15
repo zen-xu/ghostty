@@ -20,6 +20,9 @@ size: GridSize,
 /// Current cell dimensions for this grid.
 cell_size: CellSize,
 
+/// The current set of cells to render.
+cells: std.ArrayListUnmanaged(GPUCell),
+
 /// Shader program for cell rendering.
 program: gl.Program,
 vao: gl.VertexArray,
@@ -100,7 +103,7 @@ pub fn init(alloc: Allocator) !Grid {
     errdefer ebo.destroy();
     var ebobind = try ebo.bind(.ElementArrayBuffer);
     defer ebobind.unbind();
-    try ebobind.setData([6]u32{
+    try ebobind.setData([6]u8{
         0, 1, 3, // Top-left triangle
         1, 2, 3, // Bottom-right triangle
     }, .StaticDraw);
@@ -123,6 +126,7 @@ pub fn init(alloc: Allocator) !Grid {
 
     return Grid{
         .alloc = alloc,
+        .cells = .{},
         .cell_size = .{ .width = cell_width, .height = cell_height },
         .size = .{ .rows = 0, .columns = 0 },
         .program = program,
@@ -137,7 +141,29 @@ pub fn deinit(self: *Grid) void {
     self.ebo.destroy();
     self.vao.destroy();
     self.program.destroy();
+    self.cells.deinit(self.alloc);
     self.* = undefined;
+}
+
+/// TODO: remove, this is for testing
+pub fn demoCells(self: *Grid) !void {
+    self.cells.clearRetainingCapacity();
+    try self.cells.ensureUnusedCapacity(self.alloc, self.size.columns * self.size.rows);
+
+    var row: u32 = 0;
+    while (row < self.size.rows) : (row += 1) {
+        var col: u32 = 0;
+        while (col < self.size.columns) : (col += 1) {
+            self.cells.appendAssumeCapacity(.{
+                .grid_col = @intCast(u16, col),
+                .grid_row = @intCast(u16, row),
+                .bg_r = 200,
+                .bg_g = 100,
+                .bg_b = 150,
+                .bg_a = 255,
+            });
+        }
+    }
 }
 
 /// Set the screen size for rendering. This will update the projection
@@ -165,31 +191,15 @@ pub fn setScreenSize(self: *Grid, dim: ScreenSize) !void {
 }
 
 pub fn render(self: Grid) !void {
+    // If we have no cells to render, then we render nothing.
+    if (self.cells.items.len == 0) return;
+
     const pbind = try self.program.use();
     defer pbind.unbind();
 
     // Setup our VAO
     try self.vao.bind();
     defer gl.VertexArray.unbind() catch null;
-
-    // Build our data
-    var vertices: std.ArrayListUnmanaged(GPUCell) = .{};
-    try vertices.ensureUnusedCapacity(self.alloc, self.size.columns * self.size.rows);
-    defer vertices.deinit(self.alloc);
-    var row: u32 = 0;
-    while (row < self.size.rows) : (row += 1) {
-        var col: u32 = 0;
-        while (col < self.size.columns) : (col += 1) {
-            vertices.appendAssumeCapacity(.{
-                .grid_col = @intCast(u16, col),
-                .grid_row = @intCast(u16, row),
-                .bg_r = 200,
-                .bg_g = 100,
-                .bg_b = 150,
-                .bg_a = 255,
-            });
-        }
-    }
 
     // Bind EBO
     var ebobind = try self.ebo.bind(.ElementArrayBuffer);
@@ -198,13 +208,13 @@ pub fn render(self: Grid) !void {
     // Bind VBO and set data
     var binding = try self.vbo.bind(.ArrayBuffer);
     defer binding.unbind();
-    try binding.setData(vertices.items, .StaticDraw);
+    try binding.setData(self.cells.items, .StaticDraw);
 
     try gl.drawElementsInstanced(
         gl.c.GL_TRIANGLES,
         6,
-        gl.c.GL_UNSIGNED_INT,
-        vertices.items.len,
+        gl.c.GL_UNSIGNED_BYTE,
+        self.cells.items.len,
     );
 }
 

@@ -111,6 +111,9 @@ fn sizeCallback(window: glfw.Window, width: i32, height: i32) void {
         .height = @intCast(u32, height),
     }) catch |err| log.err("error updating grid screen size err={}", .{err});
 
+    // TODO: temp
+    win.grid.demoCells() catch unreachable;
+
     // Update our viewport for this context to be the entire window
     gl.viewport(0, 0, width, height) catch |err|
         log.err("error updating OpenGL viewport err={}", .{err});
