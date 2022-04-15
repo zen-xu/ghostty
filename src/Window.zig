@@ -6,6 +6,7 @@
 const Window = @This();
 
 const std = @import("std");
+const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 const Grid = @import("Grid.zig");
 const glfw = @import("glfw");
@@ -78,6 +79,7 @@ pub fn create(alloc: Allocator) !*Window {
 
 pub fn destroy(self: *Window, alloc: Allocator) void {
     self.grid.deinit();
+    self.window.destroy();
     alloc.destroy(self);
 }
 
@@ -97,12 +99,16 @@ pub fn run(self: Window) !void {
 }
 
 fn sizeCallback(window: glfw.Window, width: i32, height: i32) void {
-    const win = window.getUserPointer(Window) orelse return;
+    // glfw gives us signed integers, but negative width/height is n
+    // non-sensical so we use unsigned throughout, so assert.
+    assert(width >= 0);
+    assert(height >= 0);
 
     // Update our grid so that the projections on render are correct.
+    const win = window.getUserPointer(Window) orelse return;
     win.grid.setScreenSize(.{
-        .width = width,
-        .height = height,
+        .width = @intCast(u32, width),
+        .height = @intCast(u32, height),
     }) catch |err| log.err("error updating grid screen size err={}", .{err});
 
     // Update our viewport for this context to be the entire window

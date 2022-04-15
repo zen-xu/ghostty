@@ -208,7 +208,7 @@ test {
     // Generate all visible ASCII
     var i: u8 = 32;
     while (i < 127) : (i += 1) {
-        try font.addGlyph(alloc, i);
+        _ = try font.addGlyph(alloc, i);
     }
 
     i = 32;

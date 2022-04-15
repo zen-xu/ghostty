@@ -46,5 +46,7 @@ pub fn build(b: *std.build.Builder) !void {
     const test_step = b.step("test", "Run all tests");
     const lib_tests = b.addTest("src/main.zig");
     ftlib.link(lib_tests);
+    lib_tests.addIncludeDir("vendor/glad/include/");
+    lib_tests.addCSourceFile("vendor/glad/src/gl.c", &.{});
     test_step.dependOn(&lib_tests.step);
 }

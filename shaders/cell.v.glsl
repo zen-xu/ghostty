@@ -9,7 +9,7 @@ layout (location = 1) in vec4 bg_color_in;
 // The background color for this cell in RGBA (0 to 1.0)
 flat out vec4 bg_color;
 
-uniform vec2 cell_dims;
+uniform vec2 cell_size;
 uniform mat4 projection;
 
 vec3 hsv2rgb(vec3 c)
@@ -21,7 +21,7 @@ vec3 hsv2rgb(vec3 c)
 
 void main() {
     // Top-left cell coordinates converted to world space
-    vec2 cell_pos = cell_dims * grid_coord;
+    vec2 cell_pos = cell_size * grid_coord;
 
     // Turn the cell position into a vertex point depending on the
     // gl_VertexID. Since we use instanced drawing, we have 4 vertices
@@ -31,7 +31,7 @@ void main() {
     vec2 position;
     position.x = (gl_VertexID == 0 || gl_VertexID == 1) ? 1. : 0.;
     position.y = (gl_VertexID == 0 || gl_VertexID == 3) ? 0. : 1.;
-    cell_pos = cell_pos + cell_dims * position;
+    cell_pos = cell_pos + cell_size * position;
 
     gl_Position = projection * vec4(cell_pos, 1.0, 1.0);
     bg_color = vec4(hsv2rgb(bg_color_in.rgb), 1.0);
