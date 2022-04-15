@@ -150,6 +150,12 @@ pub const Binding = struct {
         try b.enableAttribArray(idx);
     }
 
+    /// VertexAttribDivisor
+    pub fn attributeDivisor(_: Binding, idx: c.GLuint, divisor: c.GLuint) !void {
+        c.glVertexAttribDivisor(idx, divisor);
+        try errors.getError();
+    }
+
     pub inline fn attributeAdvanced(
         _: Binding,
         idx: c.GLuint,

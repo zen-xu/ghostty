@@ -99,6 +99,7 @@ pub fn init(alloc: std.mem.Allocator) !TextRenderer {
     // Update the initialize size so we have some projection. We
     // expect this will get updated almost immediately.
     try res.setScreenSize(3000, 1666);
+    //try res.setScreenSize(1432, 874);
 
     return res;
 }

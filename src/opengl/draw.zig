@@ -20,6 +20,16 @@ pub fn drawElements(mode: c.GLenum, count: c.GLsizei, typ: c.GLenum, offset: usi
     try errors.getError();
 }
 
+pub fn drawElementsInstanced(
+    mode: c.GLenum,
+    count: c.GLsizei,
+    typ: c.GLenum,
+    primcount: usize,
+) !void {
+    c.glDrawElementsInstanced(mode, count, typ, null, @intCast(c.GLsizei, primcount));
+    try errors.getError();
+}
+
 pub fn viewport(x: c.GLint, y: c.GLint, width: c.GLsizei, height: c.GLsizei) !void {
     c.glViewport(x, y, width, height);
 }

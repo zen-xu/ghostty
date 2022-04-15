@@ -8,6 +8,7 @@ const Allocator = std.mem.Allocator;
 const glfw = @import("glfw");
 const gl = @import("opengl.zig");
 const TextRenderer = @import("TextRenderer.zig");
+const Grid = @import("Grid.zig");
 
 const log = std.log;
 
@@ -16,6 +17,7 @@ alloc: Allocator,
 window: glfw.Window,
 
 text: TextRenderer,
+grid: Grid,
 
 /// Initialize the main app instance. This creates the main window, sets
 /// up the renderer state, compiles the shaders, etc. This is the primary
@@ -43,14 +45,21 @@ pub fn init(alloc: Allocator) !App {
         gl.glad.versionMinor(version),
     });
 
-    // Blending for text
+    // Culling, probably not necessary. We have to change the winding
+    // order since our 0,0 is top-left.
     gl.c.glEnable(gl.c.GL_CULL_FACE);
+    gl.c.glFrontFace(gl.c.GL_CW);
+
+    // Blending for text
     gl.c.glEnable(gl.c.GL_BLEND);
     gl.c.glBlendFunc(gl.c.GL_SRC_ALPHA, gl.c.GL_ONE_MINUS_SRC_ALPHA);
 
     // Setup our text renderer
     var texter = try TextRenderer.init(alloc);
-    errdefer texter.deinit();
+    errdefer texter.deinit(alloc);
+
+    const grid = try Grid.init(alloc);
+    try grid.setScreenSize(.{ .width = 3000, .height = 1666 });
 
     window.setSizeCallback((struct {
         fn callback(_: glfw.Window, width: i32, height: i32) void {
@@ -63,6 +72,7 @@ pub fn init(alloc: Allocator) !App {
         .alloc = alloc,
         .window = window,
         .text = texter,
+        .grid = grid,
     };
 }
 
@@ -78,8 +88,8 @@ pub fn run(self: App) !void {
         gl.clearColor(0.2, 0.3, 0.3, 1.0);
         gl.clear(gl.c.GL_COLOR_BUFFER_BIT);
 
-        try self.text.render("sh $ /bin/bash -c \"echo hello\"", 25.0, 25.0, .{ 0.5, 0.8, 0.2 });
-        //try self.text.render("hi", 25.0, 25.0, .{ 0.5, 0.8, 0.2 });
+        try self.grid.render();
+        //try self.text.render("sh $ /bin/bash -c \"echo hello\"", 25.0, 25.0, .{ 0.5, 0.8, 0.2 });
 
         try self.window.swapBuffers();
         try glfw.waitEvents();
