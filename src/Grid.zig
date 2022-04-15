@@ -36,8 +36,13 @@ const ScreenDim = struct {
     height: i32,
 };
 
+alloc: std.mem.Allocator,
+
 /// Current cell dimensions for this grid.
 cell_dims: CellDim,
+
+columns: u32 = 0,
+rows: u32 = 0,
 
 /// Shader program for cell rendering.
 program: gl.Program,
@@ -93,6 +98,7 @@ pub fn init(alloc: Allocator) !Grid {
     try program.setUniform("cell_dims", @Vector(2, f32){ cell_width, cell_height });
 
     return Grid{
+        .alloc = alloc,
         .cell_dims = .{ .width = cell_width, .height = cell_height },
         .program = program,
     };
@@ -100,7 +106,7 @@ pub fn init(alloc: Allocator) !Grid {
 
 /// Set the screen size for rendering. This will update the projection
 /// used for the shader so that the scaling of the grid is correct.
-pub fn setScreenSize(self: Grid, dim: ScreenDim) !void {
+pub fn setScreenSize(self: *Grid, dim: ScreenDim) !void {
     // Create a 2D orthographic projection matrix with the full width/height.
     var projection: gb.gbMat4 = undefined;
     gb.gb_mat4_ortho2d(
@@ -111,12 +117,18 @@ pub fn setScreenSize(self: Grid, dim: ScreenDim) !void {
         0,
     );
 
+    self.columns = @floatToInt(u32, @intToFloat(f32, dim.width) / self.cell_dims.width);
+    self.rows = @floatToInt(u32, @intToFloat(f32, dim.height) / self.cell_dims.width);
+
     // Update the projection uniform within our shader
     const bind = try self.program.use();
     defer bind.unbind();
     try self.program.setUniform("projection", projection);
 
-    log.debug("screen size w={d} h={d}", .{ dim.width, dim.height });
+    log.debug("screen size w={d} h={d} cols={d} rows={d}", .{
+        dim.width,    dim.height,
+        self.columns, self.rows,
+    });
 }
 
 pub fn render(self: Grid) !void {
@@ -138,16 +150,34 @@ pub fn render(self: Grid) !void {
         1, 2, 3,
     }, .StaticDraw);
 
+    // Build our data
+    var vertices: std.ArrayListUnmanaged([6]f32) = .{};
+    try vertices.ensureUnusedCapacity(self.alloc, self.columns * self.rows);
+    defer vertices.deinit(self.alloc);
+    var row: u32 = 0;
+    while (row < self.rows) : (row += 1) {
+        var col: u32 = 0;
+        while (col < self.columns) : (col += 1) {
+            const rowf = @intToFloat(f32, row);
+            const colf = @intToFloat(f32, col);
+            const hue = ((colf * @intToFloat(f32, self.rows)) + rowf) / @intToFloat(f32, self.columns * self.rows);
+            vertices.appendAssumeCapacity([6]f32{
+                colf,
+                rowf,
+                hue,
+                0.7,
+                0.8,
+                1.0,
+            });
+        }
+    }
+
     // Vertex buffer (VBO)
     const vbo = try gl.Buffer.create();
     defer vbo.destroy();
     var binding = try vbo.bind(.ArrayBuffer);
     defer binding.unbind();
-    try binding.setData([_][6]f32{
-        .{ 0, 0, 1, 0, 0, 1 },
-        .{ 1, 0, 0, 1, 0, 1 },
-        .{ 2, 0, 0, 0, 1, 1 },
-    }, .StaticDraw);
+    try binding.setData(vertices.items, .StaticDraw);
     try binding.attribute(0, 2, [6]f32, 0);
     try binding.attribute(1, 4, [6]f32, 2);
     try binding.attributeDivisor(0, 1);
@@ -157,7 +187,7 @@ pub fn render(self: Grid) !void {
         gl.c.GL_TRIANGLES,
         6,
         gl.c.GL_UNSIGNED_INT,
-        3,
+        vertices.items.len,
     );
     try gl.VertexArray.unbind();
 }

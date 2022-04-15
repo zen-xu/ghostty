@@ -58,7 +58,7 @@ pub fn init(alloc: Allocator) !App {
     var texter = try TextRenderer.init(alloc);
     errdefer texter.deinit(alloc);
 
-    const grid = try Grid.init(alloc);
+    var grid = try Grid.init(alloc);
     try grid.setScreenSize(.{ .width = 3000, .height = 1666 });
 
     window.setSizeCallback((struct {
