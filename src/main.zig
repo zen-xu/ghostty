@@ -8,7 +8,7 @@ pub fn main() !void {
     const gpa = general_purpose_allocator.allocator();
     defer _ = general_purpose_allocator.deinit();
 
-    // List our fonts
+    // Initialize glfw
     try glfw.init(.{});
     defer glfw.terminate();
 
