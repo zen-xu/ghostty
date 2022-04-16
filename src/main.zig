@@ -24,4 +24,5 @@ test {
     _ = @import("Grid.zig");
     _ = @import("Pty.zig");
     _ = @import("Command.zig");
+    _ = @import("TempDir.zig");
 }

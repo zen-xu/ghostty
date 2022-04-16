@@ -17,6 +17,7 @@ const Command = @This();
 
 const std = @import("std");
 const builtin = @import("builtin");
+const TempDir = @import("TempDir.zig");
 const os = std.os;
 const debug = std.debug;
 const testing = std.testing;
@@ -161,12 +162,9 @@ test "Command: pre exec" {
 }
 
 test "Command: redirect stdout to file" {
-    const cwd = std.fs.cwd();
-    var stdout = try cwd.createFile("test1234.txt", .{
-        .read = true,
-        .truncate = true,
-    });
-    defer cwd.deleteFile("test1234.txt") catch unreachable;
+    const td = try TempDir.create();
+    defer td.deinit();
+    var stdout = try td.dir.createFile("stdout.txt", .{ .read = true });
     defer stdout.close();
 
     var cmd: Command = .{
