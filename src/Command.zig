@@ -162,7 +162,7 @@ test "Command: pre exec" {
 }
 
 test "Command: redirect stdout to file" {
-    const td = try TempDir.create();
+    const td = try TempDir.init();
     defer td.deinit();
     var stdout = try td.dir.createFile("stdout.txt", .{ .read = true });
     defer stdout.close();

@@ -1,4 +1,5 @@
-//! Creates a temporary directory with a random name.
+//! Creates a temporary directory at runtime that can be safely used to
+//! store temporary data and is destroyed on deinit.
 const TempDir = @This();
 
 const std = @import("std");
@@ -17,9 +18,14 @@ parent: Dir,
 /// name call the name() function.
 name_buf: [TMP_PATH_LEN:0]u8,
 
-pub fn create() !TempDir {
-    var rand_buf: [RANDOM_BYTES]u8 = undefined;
+/// Create the temporary directory.
+pub fn init() !TempDir {
+    // Note: the tmp_path_buf sentinel is important because it ensures
+    // we actually always have TMP_PATH_LEN+1 bytes of available space. We
+    // need that so we can set the sentinel in the case we use all the
+    // possible length.
     var tmp_path_buf: [TMP_PATH_LEN:0]u8 = undefined;
+    var rand_buf: [RANDOM_BYTES]u8 = undefined;
 
     // TODO: use the real temp dir not cwd
     const dir = std.fs.cwd();
@@ -50,7 +56,7 @@ pub fn name(self: TempDir) []const u8 {
 }
 
 /// Finish with the temporary directory. This deletes all contents in the
-/// directory.
+/// directory. This is safe to call multiple times.
 pub fn deinit(self: TempDir) void {
     self.parent.deleteTree(self.name()) catch |err|
         log.err("error deleting temp dir err={}", .{err});
@@ -66,7 +72,7 @@ const b64_encoder = std.base64.Base64Encoder.init(b64_alphabet, null);
 const b64_alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_".*;
 
 test {
-    var td = try create();
+    var td = try init();
     defer td.deinit();
 
     const nameval = td.name();
