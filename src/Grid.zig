@@ -168,8 +168,29 @@ pub fn demoCells(self: *Grid) !void {
 /// updateCells updates our GPU cells from the current terminal view.
 /// The updated cells will take effect on the next render.
 pub fn updateCells(self: *Grid, term: Terminal) !void {
-    _ = self;
-    _ = term;
+    // For now, we just ensure that we have enough cells for all the lines
+    // we have plus a full width. This is very likely too much but its
+    // the probably close enough while guaranteeing no more allocations.
+    self.cells.clearRetainingCapacity();
+    try self.cells.ensureTotalCapacity(
+        self.alloc,
+        term.screen.items.len * term.cols,
+    );
+
+    for (term.screen.items) |line, y| {
+        for (line.items) |cell, x| {
+            _ = cell;
+
+            self.cells.appendAssumeCapacity(.{
+                .grid_col = @intCast(u16, x),
+                .grid_row = @intCast(u16, y),
+                .bg_r = @intCast(u8, @mod(x * y, 255)),
+                .bg_g = @intCast(u8, @mod(x, 255)),
+                .bg_b = @intCast(u8, 255 - @mod(x, 255)),
+                .bg_a = 255,
+            });
+        }
+    }
 }
 
 /// Set the screen size for rendering. This will update the projection

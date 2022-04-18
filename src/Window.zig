@@ -141,11 +141,11 @@ fn sizeCallback(window: glfw.Window, width: i32, height: i32) void {
         .height = @intCast(u32, height),
     }) catch |err| log.err("error updating grid screen size err={}", .{err});
 
-    // TODO: temp
-    win.grid.demoCells() catch unreachable;
-
     // Update the size of our terminal state
     win.terminal.resize(win.grid.size.columns, win.grid.size.rows);
+
+    // TODO: this is not the right place for this
+    win.grid.updateCells(win.terminal) catch unreachable;
 
     // Update the size of our pty
     win.pty.setSize(.{
