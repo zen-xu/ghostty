@@ -42,3 +42,7 @@ pub fn init(cols: usize, rows: usize) Terminal {
         .cursor = .{ .x = 0, .y = 0 },
     };
 }
+
+test {
+    _ = @import("Parser.zig");
+}
