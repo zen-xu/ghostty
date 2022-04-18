@@ -5,7 +5,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const parser = @import("Parser.zig");
 const State = parser.State;
-const Action = parser.Action;
+const Action = parser.TransitionAction;
 
 /// The state transition table. The type is [u8][State]Transition but
 /// comptime-generated to be exactly-sized.
