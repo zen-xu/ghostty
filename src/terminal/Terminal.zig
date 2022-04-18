@@ -115,9 +115,15 @@ fn print(self: *Terminal, alloc: Allocator, c: u8) !void {
 
 fn execute(self: *Terminal, c: u8) !void {
     switch (@intToEnum(ansi.C0, c)) {
+        .BS => self.backspace(),
         .LF => self.linefeed(),
         .CR => self.carriage_return(),
     }
+}
+
+/// Backspace moves the cursor back a column (but not less than 0).
+pub fn backspace(self: *Terminal) void {
+    self.cursor.x -|= 1;
 }
 
 /// Carriage return moves the cursor to the first column.
@@ -151,7 +157,7 @@ test {
     _ = Parser;
 }
 
-test "Terminal: simple input" {
+test "Terminal: input with no control characters" {
     var t = init(80, 80);
     defer t.deinit(testing.allocator);
 
@@ -166,7 +172,7 @@ test "Terminal: simple input" {
     }
 }
 
-test "Terminal: multiline input" {
+test "Terminal: C0 control LF and CR" {
     var t = init(80, 80);
     defer t.deinit(testing.allocator);
 
@@ -178,5 +184,22 @@ test "Terminal: multiline input" {
         var str = try t.plainString(testing.allocator);
         defer testing.allocator.free(str);
         try testing.expectEqualStrings("hello\nworld", str);
+    }
+}
+
+test "Terminal: C0 control BS" {
+    var t = init(80, 80);
+    defer t.deinit(testing.allocator);
+
+    // BS
+    try t.append(testing.allocator, "hello");
+    try t.appendChar(testing.allocator, @enumToInt(ansi.C0.BS));
+    try t.append(testing.allocator, "y");
+    try testing.expectEqual(@as(usize, 0), t.cursor.y);
+    try testing.expectEqual(@as(usize, 5), t.cursor.x);
+    {
+        var str = try t.plainString(testing.allocator);
+        defer testing.allocator.free(str);
+        try testing.expectEqualStrings("helly", str);
     }
 }
