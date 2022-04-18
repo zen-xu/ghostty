@@ -12,6 +12,7 @@ const Grid = @import("Grid.zig");
 const glfw = @import("glfw");
 const gl = @import("opengl.zig");
 const Pty = @import("Pty.zig");
+const Terminal = @import("terminal/Terminal.zig");
 
 const log = std.log.scoped(.window);
 
@@ -23,6 +24,12 @@ grid: Grid,
 
 /// The underlying pty for this window.
 pty: Pty,
+
+/// The terminal emulator internal state. This is the abstract "terminal"
+/// that manages input, grid updating, etc. and is renderer-agnostic. It
+/// just stores internal state about a grid. This is connected back to
+/// a renderer.
+terminal: Terminal,
 
 /// Create a new window. This allocates and returns a pointer because we
 /// need a stable pointer for user data callbacks. Therefore, a stack-only
@@ -79,10 +86,16 @@ pub fn create(alloc: Allocator) !*Window {
     });
     errdefer pty.deinit();
 
+    // Create our terminal
+    var term = Terminal.init(grid.size.columns, grid.size.rows);
+    errdefer term.deinit(alloc);
+    try term.append(alloc, "hello!");
+
     self.* = .{
         .window = window,
         .grid = grid,
         .pty = pty,
+        .terminal = term,
     };
 
     // Setup our callbacks and user data
@@ -93,6 +106,7 @@ pub fn create(alloc: Allocator) !*Window {
 }
 
 pub fn destroy(self: *Window, alloc: Allocator) void {
+    self.terminal.deinit(alloc);
     self.pty.deinit();
     self.grid.deinit();
     self.window.destroy();
@@ -129,6 +143,9 @@ fn sizeCallback(window: glfw.Window, width: i32, height: i32) void {
 
     // TODO: temp
     win.grid.demoCells() catch unreachable;
+
+    // Update the size of our terminal state
+    win.terminal.resize(win.grid.size.columns, win.grid.size.rows);
 
     // Update the size of our pty
     win.pty.setSize(.{

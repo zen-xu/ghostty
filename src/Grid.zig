@@ -7,6 +7,7 @@ const testing = std.testing;
 const Allocator = std.mem.Allocator;
 const Atlas = @import("Atlas.zig");
 const FontAtlas = @import("FontAtlas.zig");
+const Terminal = @import("terminal/Terminal.zig");
 const gl = @import("opengl.zig");
 const gb = @import("gb_math.zig");
 
@@ -162,6 +163,13 @@ pub fn demoCells(self: *Grid) !void {
             });
         }
     }
+}
+
+/// updateCells updates our GPU cells from the current terminal view.
+/// The updated cells will take effect on the next render.
+pub fn updateCells(self: *Grid, term: Terminal) !void {
+    _ = self;
+    _ = term;
 }
 
 /// Set the screen size for rendering. This will update the projection

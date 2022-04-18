@@ -57,6 +57,13 @@ pub fn deinit(self: *Terminal, alloc: Allocator) void {
     self.* = undefined;
 }
 
+/// Resize the underlying terminal.
+pub fn resize(self: *Terminal, cols: usize, rows: usize) void {
+    // TODO: actually doing anything for this
+    self.cols = cols;
+    self.rows = rows;
+}
+
 /// Return the current string value of the terminal. Newlines are
 /// encoded as "\n". This omits any formatting such as fg/bg.
 ///
