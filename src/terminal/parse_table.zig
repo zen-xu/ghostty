@@ -1,3 +1,6 @@
+//! The primary export of this file is "table", which contains a
+//! comptime-generated state transition table for VT emulation.
+
 const std = @import("std");
 const builtin = @import("builtin");
 const parser = @import("Parser.zig");
