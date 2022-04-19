@@ -170,6 +170,23 @@ pub const Binding = struct {
         try errors.getError();
     }
 
+    pub inline fn attributeIAdvanced(
+        _: Binding,
+        idx: c.GLuint,
+        size: c.GLint,
+        typ: c.GLenum,
+        stride: c.GLsizei,
+        offset: usize,
+    ) !void {
+        const offsetPtr = if (offset > 0)
+            @intToPtr(*const anyopaque, offset)
+        else
+            null;
+
+        c.glVertexAttribIPointer(idx, size, typ, stride, offsetPtr);
+        try errors.getError();
+    }
+
     pub inline fn unbind(b: *Binding) void {
         c.glBindBuffer(@enumToInt(b.target), 0);
         b.* = undefined;

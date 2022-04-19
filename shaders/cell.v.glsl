@@ -1,5 +1,12 @@
 #version 330 core
 
+// These are the possible modes that "mode" can be set to. This is
+// used to multiplex multiple render modes into a single shader.
+//
+// NOTE: this must be kept in sync with the fragment shader
+const uint MODE_BG = 1u;
+const uint MODE_FG = 2u;
+
 // The grid coordinates (x, y) where x < columns and y < rows
 layout (location = 0) in vec2 grid_coord;
 
@@ -18,6 +25,12 @@ layout (location = 4) in vec4 fg_color_in;
 // The background color for this cell in RGBA (0 to 1.0)
 layout (location = 5) in vec4 bg_color_in;
 
+// The mode of this shader. The mode determines what fields are used,
+// what the output will be, etc. This shader is capable of executing in
+// multiple "modes" so that we can share some logic and so that we can draw
+// the entire terminal grid in a single GPU pass.
+layout (location = 6) in uint mode_in;
+
 // The background or foreground color for the fragment, depending on
 // whether this is a background or foreground pass.
 flat out vec4 color;
@@ -25,15 +38,37 @@ flat out vec4 color;
 // The x/y coordinate for the glyph representing the font.
 out vec2 glyph_tex_coords;
 
+// Pass the mode forward to the fragment shader.
+flat out uint mode;
+
 uniform sampler2D text;
 uniform vec2 cell_size;
 uniform mat4 projection;
 
-// non-zero if this is a background pass where we draw the background
-// of the cell. We do a background pass followed by a foreground pass.
-uniform int background;
+/********************************************************************
+ * Modes
+ *
+ *-------------------------------------------------------------------
+ * MODE_BG
+ *
+ * In MODE_BG, this shader renders only the background color for the
+ * cell. This is a simple mode where we generate a simple rectangle
+ * made up of 4 vertices and then it is filled. In this mode, the output
+ * "color" is the fill color for the bg.
+ *
+ *-------------------------------------------------------------------
+ * MODE_FG
+ *
+ * In MODE_FG, the shader renders the glyph onto this cell and utilizes
+ * the glyph texture "text". In this mode, the output "color" is the
+ * fg color to use for the glyph.
+ *
+ */
 
 void main() {
+    // We always forward our mode
+    mode = mode_in;
+
     // Top-left cell coordinates converted to world space
     // Example: (1,0) with a 30 wide cell is converted to (30,0)
     vec2 cell_pos = cell_size * grid_coord;
@@ -52,7 +87,8 @@ void main() {
     position.x = (gl_VertexID == 0 || gl_VertexID == 1) ? 1. : 0.;
     position.y = (gl_VertexID == 0 || gl_VertexID == 3) ? 0. : 1.;
 
-    if (background == 1) {
+    switch (mode_in) {
+    case MODE_BG:
         // Calculate the final position of our cell in world space.
         // We have to add our cell size since our vertices are offset
         // one cell up and to the left. (Do the math to verify yourself)
@@ -60,7 +96,9 @@ void main() {
 
         gl_Position = projection * vec4(cell_pos, 0.0, 1.0);
         color = bg_color_in / 255.0;
-    } else {
+        break;
+
+    case MODE_FG:
         // The glyph offset is upside down so we need to reverse it to
         // be based on the offset of our cell. This is equivalent to
         // "1 - value" to flip the value.
@@ -80,5 +118,6 @@ void main() {
 
         // Set our foreground color output
         color = fg_color_in / 255.;
+        break;
     }
 }

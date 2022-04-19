@@ -41,16 +41,16 @@ const GPUCell = struct {
     grid_row: u16,
 
     /// vec2 glyph_pos
-    glyph_x: u32,
-    glyph_y: u32,
+    glyph_x: u32 = 0,
+    glyph_y: u32 = 0,
 
     /// vec2 glyph_size
-    glyph_width: u32,
-    glyph_height: u32,
+    glyph_width: u32 = 0,
+    glyph_height: u32 = 0,
 
     /// vec2 glyph_size
-    glyph_offset_x: i32,
-    glyph_offset_y: i32,
+    glyph_offset_x: i32 = 0,
+    glyph_offset_y: i32 = 0,
 
     /// vec4 fg_color_in
     fg_r: u8,
@@ -63,6 +63,9 @@ const GPUCell = struct {
     bg_g: u8,
     bg_b: u8,
     bg_a: u8,
+
+    /// uint mode
+    mode: u8,
 };
 
 pub fn init(alloc: Allocator) !Grid {
@@ -148,18 +151,22 @@ pub fn init(alloc: Allocator) !Grid {
     try vbobind.attributeAdvanced(4, 4, gl.c.GL_UNSIGNED_BYTE, false, @sizeOf(GPUCell), offset);
     offset += 4 * @sizeOf(u8);
     try vbobind.attributeAdvanced(5, 4, gl.c.GL_UNSIGNED_BYTE, false, @sizeOf(GPUCell), offset);
+    offset += 4 * @sizeOf(u8);
+    try vbobind.attributeIAdvanced(6, 1, gl.c.GL_UNSIGNED_BYTE, @sizeOf(GPUCell), offset);
     try vbobind.enableAttribArray(0);
     try vbobind.enableAttribArray(1);
     try vbobind.enableAttribArray(2);
     try vbobind.enableAttribArray(3);
     try vbobind.enableAttribArray(4);
     try vbobind.enableAttribArray(5);
+    try vbobind.enableAttribArray(6);
     try vbobind.attributeDivisor(0, 1);
     try vbobind.attributeDivisor(1, 1);
     try vbobind.attributeDivisor(2, 1);
     try vbobind.attributeDivisor(3, 1);
     try vbobind.attributeDivisor(4, 1);
     try vbobind.attributeDivisor(5, 1);
+    try vbobind.attributeDivisor(6, 1);
 
     // Build our texture
     const tex = try gl.Texture.create();
@@ -239,6 +246,7 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
         term.screen.items.len * term.cols,
     );
 
+    // Build each cell
     for (term.screen.items) |line, y| {
         for (line.items) |cell, x| {
             // It can be zero if the cell is empty
@@ -248,6 +256,7 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
             // TODO: if we add a glyph, I think we need to rerender the texture.
             const glyph = try self.font_atlas.addGlyph(self.alloc, cell.char);
 
+            // TODO: for background colors, add another cell with mode = 1
             self.cells.appendAssumeCapacity(.{
                 .grid_col = @intCast(u16, x),
                 .grid_row = @intCast(u16, y),
@@ -265,9 +274,25 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
                 .bg_g = 0xA5,
                 .bg_b = 0,
                 .bg_a = 0,
+                .mode = 2,
             });
         }
     }
+
+    // Draw the cursor
+    self.cells.appendAssumeCapacity(.{
+        .grid_col = @intCast(u16, term.cursor.x),
+        .grid_row = @intCast(u16, term.cursor.y),
+        .fg_r = 0,
+        .fg_g = 0,
+        .fg_b = 0,
+        .fg_a = 0,
+        .bg_r = 0xFF,
+        .bg_g = 0xFF,
+        .bg_b = 0xFF,
+        .bg_a = 255,
+        .mode = 1,
+    });
 }
 
 /// Set the screen size for rendering. This will update the projection
@@ -319,15 +344,6 @@ pub fn render(self: Grid) !void {
     var texbind = try self.texture.bind(.@"2D");
     defer texbind.unbind();
 
-    try self.program.setUniform("background", 1);
-    try gl.drawElementsInstanced(
-        gl.c.GL_TRIANGLES,
-        6,
-        gl.c.GL_UNSIGNED_BYTE,
-        self.cells.items.len,
-    );
-
-    try self.program.setUniform("background", 0);
     try gl.drawElementsInstanced(
         gl.c.GL_TRIANGLES,
         6,
