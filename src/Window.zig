@@ -89,7 +89,7 @@ pub fn create(alloc: Allocator) !*Window {
     // Create our terminal
     var term = Terminal.init(grid.size.columns, grid.size.rows);
     errdefer term.deinit(alloc);
-    try term.append(alloc, "hello!");
+    try term.append(alloc, "hello!\r\nworld!");
 
     self.* = .{
         .window = window,

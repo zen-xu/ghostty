@@ -32,6 +32,11 @@ const Cell = struct {
     char: u32,
 
     // TODO(mitchellh): this is where we'll track fg/bg and other attrs.
+
+    /// True if the cell should be skipped for drawing
+    pub fn empty(self: Cell) bool {
+        return self.char == 0;
+    }
 };
 
 /// Cursor represents the cursor state.

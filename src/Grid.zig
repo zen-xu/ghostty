@@ -231,6 +231,9 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
 
     for (term.screen.items) |line, y| {
         for (line.items) |cell, x| {
+            // It can be zero if the cell is empty
+            if (cell.empty()) continue;
+
             // Get our glyph
             const glyph = try self.font_atlas.addGlyph(self.alloc, cell.char);
 
