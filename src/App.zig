@@ -28,7 +28,7 @@ pub fn init(alloc: Allocator) !App {
 }
 
 pub fn deinit(self: *App) void {
-    self.window.destroy(self.alloc);
+    self.window.destroy();
     self.* = undefined;
 }
 

@@ -16,6 +16,9 @@ const Terminal = @import("terminal/Terminal.zig");
 
 const log = std.log.scoped(.window);
 
+/// Allocator
+alloc: Allocator,
+
 /// The glfw window handle.
 window: glfw.Window,
 
@@ -92,6 +95,7 @@ pub fn create(alloc: Allocator) !*Window {
     try term.append(alloc, "hello!\r\nworld!");
 
     self.* = .{
+        .alloc = alloc,
         .window = window,
         .grid = grid,
         .pty = pty,
@@ -101,16 +105,17 @@ pub fn create(alloc: Allocator) !*Window {
     // Setup our callbacks and user data
     window.setUserPointer(self);
     window.setSizeCallback(sizeCallback);
+    window.setCharCallback(charCallback);
 
     return self;
 }
 
-pub fn destroy(self: *Window, alloc: Allocator) void {
-    self.terminal.deinit(alloc);
+pub fn destroy(self: *Window) void {
+    self.terminal.deinit(self.alloc);
     self.pty.deinit();
     self.grid.deinit();
     self.window.destroy();
-    alloc.destroy(self);
+    self.alloc.destroy(self);
 }
 
 pub fn run(self: Window) !void {
@@ -158,4 +163,14 @@ fn sizeCallback(window: glfw.Window, width: i32, height: i32) void {
     // Update our viewport for this context to be the entire window
     gl.viewport(0, 0, width, height) catch |err|
         log.err("error updating OpenGL viewport err={}", .{err});
+}
+
+fn charCallback(window: glfw.Window, codepoint: u21) void {
+    const win = window.getUserPointer(Window) orelse return;
+
+    // Append this character to the terminal
+    win.terminal.appendChar(win.alloc, @intCast(u8, codepoint)) catch unreachable;
+
+    // Update the cells for drawing
+    win.grid.updateCells(win.terminal) catch unreachable;
 }
