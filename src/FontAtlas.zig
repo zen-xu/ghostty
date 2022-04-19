@@ -191,6 +191,7 @@ fn f26dot6ToFloat(v: ftc.FT_F26Dot6) f32 {
 fn codepoint(v: anytype) u32 {
     // We need a UTF32 codepoint for freetype
     return switch (@TypeOf(v)) {
+        u32 => v,
         comptime_int, u8 => @intCast(u32, v),
         []const u8 => @intCast(u32, try std.unicode.utfDecode(v)),
         else => @compileError("invalid codepoint type"),

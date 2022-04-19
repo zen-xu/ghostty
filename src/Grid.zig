@@ -29,12 +29,28 @@ program: gl.Program,
 vao: gl.VertexArray,
 ebo: gl.Buffer,
 vbo: gl.Buffer,
+texture: gl.Texture,
+
+/// The font atlas.
+font_atlas: FontAtlas,
 
 /// The raw structure that maps directly to the buffer sent to the vertex shader.
 const GPUCell = struct {
     /// vec2 grid_coord
     grid_col: u16,
     grid_row: u16,
+
+    /// vec2 glyph_pos
+    glyph_x: f32,
+    glyph_y: f32,
+
+    /// vec2 glyph_size
+    glyph_width: u32,
+    glyph_height: u32,
+
+    /// vec2 glyph_size
+    glyph_offset_x: i32,
+    glyph_offset_y: i32,
 
     /// vec4 bg_color_in
     bg_r: u8,
@@ -47,9 +63,9 @@ pub fn init(alloc: Allocator) !Grid {
     // Initialize our font atlas. We will initially populate the
     // font atlas with all the visible ASCII characters since they are common.
     var atlas = try Atlas.init(alloc, 512);
-    defer atlas.deinit(alloc);
+    errdefer atlas.deinit(alloc);
     var font = try FontAtlas.init(atlas);
-    defer font.deinit(alloc);
+    errdefer font.deinit(alloc);
     try font.loadFaceFromMemory(face_ttf, 30);
 
     // Load all visible ASCII characters and build our cell width based on
@@ -117,11 +133,42 @@ pub fn init(alloc: Allocator) !Grid {
     var offset: usize = 0;
     try vbobind.attributeAdvanced(0, 2, gl.c.GL_UNSIGNED_SHORT, false, @sizeOf(GPUCell), offset);
     offset += 2 * @sizeOf(u16);
-    try vbobind.attributeAdvanced(1, 4, gl.c.GL_UNSIGNED_BYTE, false, @sizeOf(GPUCell), offset);
+    try vbobind.attributeAdvanced(1, 2, gl.c.GL_FLOAT, false, @sizeOf(GPUCell), offset);
+    offset += 2 * @sizeOf(f32);
+    try vbobind.attributeAdvanced(2, 2, gl.c.GL_UNSIGNED_INT, false, @sizeOf(GPUCell), offset);
+    offset += 2 * @sizeOf(u32);
+    try vbobind.attributeAdvanced(3, 2, gl.c.GL_INT, false, @sizeOf(GPUCell), offset);
+    offset += 2 * @sizeOf(i32);
+    try vbobind.attributeAdvanced(4, 4, gl.c.GL_UNSIGNED_BYTE, false, @sizeOf(GPUCell), offset);
     try vbobind.enableAttribArray(0);
     try vbobind.enableAttribArray(1);
+    try vbobind.enableAttribArray(2);
+    try vbobind.enableAttribArray(3);
+    try vbobind.enableAttribArray(4);
     try vbobind.attributeDivisor(0, 1);
     try vbobind.attributeDivisor(1, 1);
+    try vbobind.attributeDivisor(2, 1);
+    try vbobind.attributeDivisor(3, 1);
+    try vbobind.attributeDivisor(4, 1);
+
+    // Build our texture
+    const tex = try gl.Texture.create();
+    errdefer tex.destroy();
+    const texbind = try tex.bind(.@"2D");
+    try texbind.parameter(.WrapS, gl.c.GL_CLAMP_TO_EDGE);
+    try texbind.parameter(.WrapT, gl.c.GL_CLAMP_TO_EDGE);
+    try texbind.parameter(.MinFilter, gl.c.GL_LINEAR);
+    try texbind.parameter(.MagFilter, gl.c.GL_LINEAR);
+    try texbind.image2D(
+        0,
+        .Red,
+        @intCast(c_int, atlas.size),
+        @intCast(c_int, atlas.size),
+        0,
+        .Red,
+        .UnsignedByte,
+        atlas.data.ptr,
+    );
 
     return Grid{
         .alloc = alloc,
@@ -132,10 +179,15 @@ pub fn init(alloc: Allocator) !Grid {
         .vao = vao,
         .ebo = ebo,
         .vbo = vbo,
+        .texture = tex,
+        .font_atlas = font,
     };
 }
 
 pub fn deinit(self: *Grid) void {
+    self.font_atlas.atlas.deinit(self.alloc);
+    self.font_atlas.deinit(self.alloc);
+    self.texture.destroy();
     self.vbo.destroy();
     self.ebo.destroy();
     self.vao.destroy();
@@ -179,14 +231,21 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
 
     for (term.screen.items) |line, y| {
         for (line.items) |cell, x| {
-            _ = cell;
+            // Get our glyph
+            const glyph = try self.font_atlas.addGlyph(self.alloc, cell.char);
 
             self.cells.appendAssumeCapacity(.{
                 .grid_col = @intCast(u16, x),
                 .grid_row = @intCast(u16, y),
-                .bg_r = @intCast(u8, @mod(x * y, 255)),
-                .bg_g = @intCast(u8, @mod(x, 255)),
-                .bg_b = @intCast(u8, 255 - @mod(x, 255)),
+                .glyph_x = glyph.s0,
+                .glyph_y = glyph.t0,
+                .glyph_width = glyph.width,
+                .glyph_height = glyph.height,
+                .glyph_offset_x = glyph.offset_x,
+                .glyph_offset_y = glyph.offset_y,
+                .bg_r = 0xFF,
+                .bg_g = 0xA5,
+                .bg_b = 0,
                 .bg_a = 255,
             });
         }
@@ -236,6 +295,11 @@ pub fn render(self: Grid) !void {
     var binding = try self.vbo.bind(.ArrayBuffer);
     defer binding.unbind();
     try binding.setData(self.cells.items, .StaticDraw);
+
+    // Bind our texture
+    try gl.Texture.active(gl.c.GL_TEXTURE0);
+    var texbind = try self.texture.bind(.@"2D");
+    defer texbind.unbind();
 
     try gl.drawElementsInstanced(
         gl.c.GL_TRIANGLES,
