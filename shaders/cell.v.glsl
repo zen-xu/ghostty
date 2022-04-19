@@ -71,10 +71,12 @@ void main() {
         cell_pos = cell_pos + glyph_size * position + glyph_offset_calc;
         gl_Position = projection * vec4(cell_pos, 0.0, 1.0);
 
-        // Calculate our texture coordinate
+        // We need to convert our texture position and size to normalized
+        // device coordinates (0 to 1.0) by dividing by the size of the texture.
         ivec2 text_size = textureSize(text, 0);
-        vec2 glyph_tex_size = glyph_size / text_size.xy;
-        glyph_tex_coords = glyph_pos + glyph_tex_size * position;
+        vec2 glyph_tex_pos = glyph_pos / text_size;
+        vec2 glyph_tex_size = glyph_size / text_size;
+        glyph_tex_coords = glyph_tex_pos + glyph_tex_size * position;
 
         // Set our foreground color output
         color = fg_color_in / 255.;

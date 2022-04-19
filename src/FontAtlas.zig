@@ -41,11 +41,10 @@ pub const Glyph = struct {
     /// top bearing
     offset_y: i32,
 
-    /// normalized x, y (s, t) coordinates
-    s0: f32,
-    t0: f32,
-    s1: f32,
-    t1: f32,
+    /// coordinates in the atlas of the top-left corner. These have to
+    /// be normalized to be between 0 and 1 prior to use.
+    atlas_x: u32,
+    atlas_y: u32,
 
     /// horizontal position to increase drawing position for strings
     advance_x: f32,
@@ -170,10 +169,8 @@ pub fn addGlyph(self: *FontAtlas, alloc: Allocator, v: anytype) !*Glyph {
         .height = tgt_h,
         .offset_x = glyph.*.bitmap_left,
         .offset_y = glyph.*.bitmap_top,
-        .s0 = @intToFloat(f32, region.x) / @intToFloat(f32, self.atlas.size),
-        .t0 = @intToFloat(f32, region.y) / @intToFloat(f32, self.atlas.size),
-        .s1 = @intToFloat(f32, region.x + tgt_w) / @intToFloat(f32, self.atlas.size),
-        .t1 = @intToFloat(f32, region.y + tgt_h) / @intToFloat(f32, self.atlas.size),
+        .atlas_x = region.x,
+        .atlas_y = region.y,
         .advance_x = f26dot6ToFloat(glyph.*.advance.x),
     };
 

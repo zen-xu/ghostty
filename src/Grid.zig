@@ -41,8 +41,8 @@ const GPUCell = struct {
     grid_row: u16,
 
     /// vec2 glyph_pos
-    glyph_x: f32,
-    glyph_y: f32,
+    glyph_x: u32,
+    glyph_y: u32,
 
     /// vec2 glyph_size
     glyph_width: u32,
@@ -139,8 +139,8 @@ pub fn init(alloc: Allocator) !Grid {
     var offset: usize = 0;
     try vbobind.attributeAdvanced(0, 2, gl.c.GL_UNSIGNED_SHORT, false, @sizeOf(GPUCell), offset);
     offset += 2 * @sizeOf(u16);
-    try vbobind.attributeAdvanced(1, 2, gl.c.GL_FLOAT, false, @sizeOf(GPUCell), offset);
-    offset += 2 * @sizeOf(f32);
+    try vbobind.attributeAdvanced(1, 2, gl.c.GL_UNSIGNED_INT, false, @sizeOf(GPUCell), offset);
+    offset += 2 * @sizeOf(u32);
     try vbobind.attributeAdvanced(2, 2, gl.c.GL_UNSIGNED_INT, false, @sizeOf(GPUCell), offset);
     offset += 2 * @sizeOf(u32);
     try vbobind.attributeAdvanced(3, 2, gl.c.GL_INT, false, @sizeOf(GPUCell), offset);
@@ -251,8 +251,8 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
             self.cells.appendAssumeCapacity(.{
                 .grid_col = @intCast(u16, x),
                 .grid_row = @intCast(u16, y),
-                .glyph_x = glyph.s0,
-                .glyph_y = glyph.t0,
+                .glyph_x = glyph.atlas_x,
+                .glyph_y = glyph.atlas_y,
                 .glyph_width = glyph.width,
                 .glyph_height = glyph.height,
                 .glyph_offset_x = glyph.offset_x,
