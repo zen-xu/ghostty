@@ -245,6 +245,7 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
             if (cell.empty()) continue;
 
             // Get our glyph
+            // TODO: if we add a glyph, I think we need to rerender the texture.
             const glyph = try self.font_atlas.addGlyph(self.alloc, cell.char);
 
             self.cells.appendAssumeCapacity(.{

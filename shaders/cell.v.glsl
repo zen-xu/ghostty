@@ -61,7 +61,9 @@ void main() {
         gl_Position = projection * vec4(cell_pos, 0.0, 1.0);
         color = bg_color_in / 255.0;
     } else {
-        // TODO: why?
+        // The glyph offset is upside down so we need to reverse it to
+        // be based on the offset of our cell. This is equivalent to
+        // "1 - value" to flip the value.
         vec2 glyph_offset_calc = glyph_offset;
         glyph_offset_calc.y = cell_size.y - glyph_offset.y;
 
