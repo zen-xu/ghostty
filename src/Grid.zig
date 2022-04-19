@@ -52,6 +52,12 @@ const GPUCell = struct {
     glyph_offset_x: i32,
     glyph_offset_y: i32,
 
+    /// vec4 fg_color_in
+    fg_r: u8,
+    fg_g: u8,
+    fg_b: u8,
+    fg_a: u8,
+
     /// vec4 bg_color_in
     bg_r: u8,
     bg_g: u8,
@@ -140,16 +146,20 @@ pub fn init(alloc: Allocator) !Grid {
     try vbobind.attributeAdvanced(3, 2, gl.c.GL_INT, false, @sizeOf(GPUCell), offset);
     offset += 2 * @sizeOf(i32);
     try vbobind.attributeAdvanced(4, 4, gl.c.GL_UNSIGNED_BYTE, false, @sizeOf(GPUCell), offset);
+    offset += 4 * @sizeOf(u8);
+    try vbobind.attributeAdvanced(5, 4, gl.c.GL_UNSIGNED_BYTE, false, @sizeOf(GPUCell), offset);
     try vbobind.enableAttribArray(0);
     try vbobind.enableAttribArray(1);
     try vbobind.enableAttribArray(2);
     try vbobind.enableAttribArray(3);
     try vbobind.enableAttribArray(4);
+    try vbobind.enableAttribArray(5);
     try vbobind.attributeDivisor(0, 1);
     try vbobind.attributeDivisor(1, 1);
     try vbobind.attributeDivisor(2, 1);
     try vbobind.attributeDivisor(3, 1);
     try vbobind.attributeDivisor(4, 1);
+    try vbobind.attributeDivisor(5, 1);
 
     // Build our texture
     const tex = try gl.Texture.create();
@@ -246,10 +256,14 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
                 .glyph_height = glyph.height,
                 .glyph_offset_x = glyph.offset_x,
                 .glyph_offset_y = glyph.offset_y,
-                .bg_r = 0xFF,
+                .fg_r = 0xFF,
+                .fg_g = 0xA5,
+                .fg_b = 0,
+                .fg_a = 255,
+                .bg_r = 0x0,
                 .bg_g = 0xA5,
                 .bg_b = 0,
-                .bg_a = 255,
+                .bg_a = 0,
             });
         }
     }
@@ -304,6 +318,15 @@ pub fn render(self: Grid) !void {
     var texbind = try self.texture.bind(.@"2D");
     defer texbind.unbind();
 
+    try self.program.setUniform("background", 1);
+    try gl.drawElementsInstanced(
+        gl.c.GL_TRIANGLES,
+        6,
+        gl.c.GL_UNSIGNED_BYTE,
+        self.cells.items.len,
+    );
+
+    try self.program.setUniform("background", 0);
     try gl.drawElementsInstanced(
         gl.c.GL_TRIANGLES,
         6,

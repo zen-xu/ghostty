@@ -2,18 +2,21 @@
 
 in vec2 glyph_tex_coords;
 
-/// The background color for this cell.
-flat in vec4 bg_color;
+// The color for this cell. If this is a background pass this is the
+// background color. Otherwise, this is the foreground color.
+flat in vec4 color;
 
-/// Font texture
+// Font texture
 uniform sampler2D text;
 
+// Background or foreground pass.
+uniform int background;
+
 void main() {
-    int background = 0;
     if (background == 1) {
-        gl_FragColor = bg_color;
+        gl_FragColor = color;
     } else {
         float a = texture(text, glyph_tex_coords).r;
-        gl_FragColor = vec4(bg_color.rgb, bg_color.a*a);
+        gl_FragColor = vec4(color.rgb, color.a*a);
     }
 }

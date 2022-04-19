@@ -82,6 +82,7 @@ pub inline fn setUniform(p: Program, n: [:0]const u8, value: anytype) !void {
 
     // Perform the correct call depending on the type of the value.
     switch (@TypeOf(value)) {
+        comptime_int => c.glUniform1i(loc, value),
         @Vector(2, f32) => c.glUniform2f(loc, value[0], value[1]),
         @Vector(3, f32) => c.glUniform3f(loc, value[0], value[1], value[2]),
         @Vector(4, f32) => c.glUniform4f(loc, value[0], value[1], value[2], value[3]),

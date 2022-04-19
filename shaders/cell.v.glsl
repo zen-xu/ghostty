@@ -13,10 +13,14 @@ layout (location = 2) in vec2 glyph_size;
 layout (location = 3) in vec2 glyph_offset;
 
 // The background color for this cell in RGBA (0 to 1.0)
-layout (location = 4) in vec4 bg_color_in;
+layout (location = 4) in vec4 fg_color_in;
 
 // The background color for this cell in RGBA (0 to 1.0)
-flat out vec4 bg_color;
+layout (location = 5) in vec4 bg_color_in;
+
+// The background or foreground color for the fragment, depending on
+// whether this is a background or foreground pass.
+flat out vec4 color;
 
 // The x/y coordinate for the glyph representing the font.
 out vec2 glyph_tex_coords;
@@ -24,6 +28,10 @@ out vec2 glyph_tex_coords;
 uniform sampler2D text;
 uniform vec2 cell_size;
 uniform mat4 projection;
+
+// non-zero if this is a background pass where we draw the background
+// of the cell. We do a background pass followed by a foreground pass.
+uniform int background;
 
 void main() {
     // Top-left cell coordinates converted to world space
@@ -44,7 +52,6 @@ void main() {
     position.x = (gl_VertexID == 0 || gl_VertexID == 1) ? 1. : 0.;
     position.y = (gl_VertexID == 0 || gl_VertexID == 3) ? 0. : 1.;
 
-    int background = 0;
     if (background == 1) {
         // Calculate the final position of our cell in world space.
         // We have to add our cell size since our vertices are offset
@@ -52,7 +59,7 @@ void main() {
         cell_pos = cell_pos + cell_size * position;
 
         gl_Position = projection * vec4(cell_pos, 0.0, 1.0);
-        bg_color = vec4(bg_color_in.rgb / 255.0, 1.0);
+        color = bg_color_in / 255.0;
     } else {
         // TODO: why?
         vec2 glyph_offset_calc = glyph_offset;
@@ -67,7 +74,7 @@ void main() {
         vec2 glyph_tex_size = glyph_size / text_size.xy;
         glyph_tex_coords = glyph_pos + glyph_tex_size * position;
 
-        // This is used to color the font for now.
-        bg_color = vec4(bg_color_in.rgb / 255.0, 1.0);
+        // Set our foreground color output
+        color = fg_color_in / 255.;
     }
 }
