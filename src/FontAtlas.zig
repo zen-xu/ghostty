@@ -179,6 +179,12 @@ pub fn addGlyph(self: *FontAtlas, alloc: Allocator, v: anytype) !*Glyph {
     return gop.value_ptr;
 }
 
+/// Convert 16.6 pixel format to pixels based on the scale factor of the
+/// current font size.
+pub fn unitsToPxY(self: FontAtlas, units: i32) i32 {
+    return @intCast(i32, ftc.FT_MulFix(units, self.ft_face.*.size.*.metrics.y_scale) >> 6);
+}
+
 /// Convert 26.6 pixel format to f32
 fn f26dot6ToFloat(v: ftc.FT_F26Dot6) f32 {
     return @intToFloat(f32, v >> 6);

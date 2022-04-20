@@ -75,7 +75,7 @@ pub fn init(alloc: Allocator) !Grid {
     errdefer atlas.deinit(alloc);
     var font = try FontAtlas.init(atlas);
     errdefer font.deinit(alloc);
-    try font.loadFaceFromMemory(face_ttf, 30);
+    try font.loadFaceFromMemory(face_ttf, 40);
 
     // Load all visible ASCII characters and build our cell width based on
     // the widest character that we see.
@@ -96,21 +96,23 @@ pub fn init(alloc: Allocator) !Grid {
     // '_' which should live at the bottom of a cell.
     const cell_height: f32 = cell_height: {
         // This is the height reported by the font face
-        const face_height: i32 = font.ft_face.*.height >> 6;
+        const face_height: i32 = font.unitsToPxY(font.ft_face.*.height);
 
         // Determine the height of the underscore char
         assert(font.ft_face != null);
         const glyph = font.getGlyph('_').?;
-        var res: i32 = font.ft_face.*.ascender >> 6;
+        var res: i32 = font.unitsToPxY(font.ft_face.*.ascender);
         res -= glyph.offset_y;
         res += @intCast(i32, glyph.height);
 
         // We take whatever is larger to account for some fonts that
         // put the underscore outside f the rectangle.
         if (res < face_height) res = face_height;
+
         break :cell_height @intToFloat(f32, res);
     };
-    log.debug("cell dimensions w={d} h={d}", .{ cell_width, cell_height });
+    const cell_baseline = cell_height - @intToFloat(f32, font.unitsToPxY(font.ft_face.*.ascender));
+    log.debug("cell dimensions w={d} h={d} baseline={d}", .{ cell_width, cell_height, cell_baseline });
 
     // Create our shader
     const program = try gl.Program.createVF(
@@ -122,10 +124,7 @@ pub fn init(alloc: Allocator) !Grid {
     const pbind = try program.use();
     defer pbind.unbind();
     try program.setUniform("cell_size", @Vector(2, f32){ cell_width, cell_height });
-    try program.setUniform(
-        "glyph_baseline",
-        cell_height - @intToFloat(f32, font.ft_face.*.ascender >> 6),
-    );
+    try program.setUniform("glyph_baseline", cell_baseline);
 
     // Setup our VAO
     const vao = try gl.VertexArray.create();
@@ -430,3 +429,4 @@ test "GridSize update rounding" {
 }
 
 const face_ttf = @embedFile("../fonts/FiraCode-Regular.ttf");
+//const face_ttf = @embedFile("../fonts/Inconsolata-Regular.ttf");
