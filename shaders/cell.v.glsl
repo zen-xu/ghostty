@@ -44,6 +44,7 @@ flat out uint mode;
 uniform sampler2D text;
 uniform vec2 cell_size;
 uniform mat4 projection;
+uniform float glyph_baseline;
 
 /********************************************************************
  * Modes
@@ -99,11 +100,12 @@ void main() {
         break;
 
     case MODE_FG:
-        // The glyph offset is upside down so we need to reverse it to
-        // be based on the offset of our cell. This is equivalent to
-        // "1 - value" to flip the value.
+        // The glyph_offset.y is the y bearing, a y value that when added
+        // to the baseline is the offset (+y is up). Our grid goes down.
+        // So we flip it with `cell_size.y - glyph_offset.y`. The glyph_baseline
+        // uniform sets our line baseline where characters "sit".
         vec2 glyph_offset_calc = glyph_offset;
-        glyph_offset_calc.y = cell_size.y - glyph_offset.y;
+        glyph_offset_calc.y = cell_size.y - glyph_offset.y - glyph_baseline;
 
         // Calculate the final position of the cell.
         cell_pos = cell_pos + glyph_size * position + glyph_offset_calc;

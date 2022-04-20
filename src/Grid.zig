@@ -95,14 +95,19 @@ pub fn init(alloc: Allocator) !Grid {
     // The cell height is the vertical height required to render underscore
     // '_' which should live at the bottom of a cell.
     const cell_height: f32 = cell_height: {
-        // TODO(render): kitty does a calculation based on other font
-        // metrics that we probably want to research more. For now, this is
-        // fine.
+        // This is the height reported by the font face
+        const face_height: i32 = font.ft_face.*.height >> 6;
+
+        // Determine the height of the underscore char
         assert(font.ft_face != null);
         const glyph = font.getGlyph('_').?;
         var res: i32 = font.ft_face.*.ascender >> 6;
         res -= glyph.offset_y;
         res += @intCast(i32, glyph.height);
+
+        // We take whatever is larger to account for some fonts that
+        // put the underscore outside f the rectangle.
+        if (res < face_height) res = face_height;
         break :cell_height @intToFloat(f32, res);
     };
     log.debug("cell dimensions w={d} h={d}", .{ cell_width, cell_height });
@@ -117,6 +122,10 @@ pub fn init(alloc: Allocator) !Grid {
     const pbind = try program.use();
     defer pbind.unbind();
     try program.setUniform("cell_size", @Vector(2, f32){ cell_width, cell_height });
+    try program.setUniform(
+        "glyph_baseline",
+        cell_height - @intToFloat(f32, font.ft_face.*.ascender >> 6),
+    );
 
     // Setup our VAO
     const vao = try gl.VertexArray.create();
@@ -258,6 +267,7 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
 
             // TODO: for background colors, add another cell with mode = 1
             self.cells.appendAssumeCapacity(.{
+                .mode = 2,
                 .grid_col = @intCast(u16, x),
                 .grid_row = @intCast(u16, y),
                 .glyph_x = glyph.atlas_x,
@@ -274,13 +284,13 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
                 .bg_g = 0xA5,
                 .bg_b = 0,
                 .bg_a = 0,
-                .mode = 2,
             });
         }
     }
 
     // Draw the cursor
     self.cells.appendAssumeCapacity(.{
+        .mode = 1,
         .grid_col = @intCast(u16, term.cursor.x),
         .grid_row = @intCast(u16, term.cursor.y),
         .fg_r = 0,
@@ -291,7 +301,6 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
         .bg_g = 0xFF,
         .bg_b = 0xFF,
         .bg_a = 255,
-        .mode = 1,
     });
 }
 
@@ -316,7 +325,7 @@ pub fn setScreenSize(self: *Grid, dim: ScreenSize) !void {
     // Recalculate the rows/columns.
     self.size.update(dim, self.cell_size);
 
-    log.debug("screen size screen={} grid={}", .{ dim, self.size });
+    log.debug("screen size screen={} grid={}, cell={}", .{ dim, self.size, self.cell_size });
 }
 
 pub fn render(self: Grid) !void {
