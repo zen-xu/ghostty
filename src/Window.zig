@@ -106,6 +106,7 @@ pub fn create(alloc: Allocator) !*Window {
     window.setUserPointer(self);
     window.setSizeCallback(sizeCallback);
     window.setCharCallback(charCallback);
+    window.setKeyCallback(keyCallback);
 
     return self;
 }
@@ -173,4 +174,22 @@ fn charCallback(window: glfw.Window, codepoint: u21) void {
 
     // Update the cells for drawing
     win.grid.updateCells(win.terminal) catch unreachable;
+}
+
+fn keyCallback(
+    window: glfw.Window,
+    key: glfw.Key,
+    scancode: i32,
+    action: glfw.Action,
+    mods: glfw.Mods,
+) void {
+    _ = scancode;
+    _ = mods;
+
+    //log.info("KEY {} {}", .{ key, action });
+    if (key == .enter and (action == .press or action == .repeat)) {
+        const win = window.getUserPointer(Window) orelse return;
+        win.terminal.append(win.alloc, "\r\n> ") catch unreachable;
+        win.grid.updateCells(win.terminal) catch unreachable;
+    }
 }
