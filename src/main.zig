@@ -26,4 +26,7 @@ test {
     _ = @import("Command.zig");
     _ = @import("TempDir.zig");
     _ = @import("terminal/Terminal.zig");
+
+    // TEMP
+    _ = @import("libuv/main.zig");
 }

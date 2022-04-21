@@ -10,3 +10,6 @@
 [submodule "vendor/cglm"]
 	path = vendor/cglm
 	url = https://github.com/recp/cglm.git
+[submodule "vendor/libuv"]
+	path = vendor/libuv
+	url = https://github.com/libuv/libuv.git
