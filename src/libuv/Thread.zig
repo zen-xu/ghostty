@@ -9,6 +9,11 @@ const errors = @import("error.zig");
 
 thread: c.uv_thread_t,
 
+/// Get the current thread
+pub fn self() Thread {
+    return .{ .thread = c.uv_thread_self() };
+}
+
 /// Initialize a new thread.
 pub fn init(
     comptime callback: fn () void,
@@ -52,18 +57,13 @@ pub fn initData(
     return res;
 }
 
-pub fn deinit(self: *Thread) void {
-    self.* = undefined;
-}
-
-pub fn join(self: *Thread) !void {
-    try errors.convertError(c.uv_thread_join(&self.thread));
+pub fn join(t: *Thread) !void {
+    try errors.convertError(c.uv_thread_join(&t.thread));
 }
 
 test "Thread: no data argument" {
     count = 0;
     var thread = try init(incr);
-    defer thread.deinit();
     try thread.join();
     try testing.expectEqual(@as(u8, 1), count);
 }
@@ -72,7 +72,6 @@ test "Thread: with data argument" {
     count = 0;
     var data: u8 = 2;
     var thread = try initData(&data, incrBy);
-    defer thread.deinit();
     try thread.join();
     try testing.expectEqual(@as(u8, 2), count);
 }
