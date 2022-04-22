@@ -26,6 +26,7 @@ pub fn build(b: *std.build.Builder) !void {
     ftlib.link(exe);
 
     const libuv = try uv.create(b, target, mode);
+    libuv.link(exe);
 
     // stb if we need it
     // exe.addIncludeDir("vendor/stb");

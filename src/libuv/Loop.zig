@@ -40,7 +40,7 @@ pub fn alive(self: Loop) !bool {
 /// This function runs the event loop. See RunMode for mode documentation.
 ///
 /// This is not reentrant. It must not be called from a callback.
-pub fn run(self: *Loop, mode: RunMode) !u32 {
+pub fn run(self: Loop, mode: RunMode) !u32 {
     const res = c.uv_run(self.loop, @enumToInt(mode));
     try errors.convertError(res);
     return @intCast(u32, res);

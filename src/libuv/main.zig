@@ -1,8 +1,10 @@
-const Loop = @import("Loop.zig");
-const Timer = @import("Timer.zig");
-const Sem = @import("Sem.zig");
-const Thread = @import("Thread.zig");
-const Error = @import("error.zig").Error;
+pub const Loop = @import("Loop.zig");
+pub const Timer = @import("Timer.zig");
+pub const Sem = @import("Sem.zig");
+pub const Thread = @import("Thread.zig");
+pub const Error = @import("error.zig").Error;
+
+pub const Embed = @import("Embed.zig");
 
 test {
     _ = Loop;
@@ -10,4 +12,6 @@ test {
     _ = Sem;
     _ = Thread;
     _ = Error;
+
+    _ = Embed;
 }

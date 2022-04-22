@@ -119,19 +119,20 @@ pub fn destroy(self: *Window) void {
     self.alloc.destroy(self);
 }
 
+pub fn shouldClose(self: Window) bool {
+    return self.window.shouldClose();
+}
+
 pub fn run(self: Window) !void {
-    while (!self.window.shouldClose()) {
-        // Set our background
-        gl.clearColor(0.2, 0.3, 0.3, 1.0);
-        gl.clear(gl.c.GL_COLOR_BUFFER_BIT);
+    // Set our background
+    gl.clearColor(0.2, 0.3, 0.3, 1.0);
+    gl.clear(gl.c.GL_COLOR_BUFFER_BIT);
 
-        // Render the grid
-        try self.grid.render();
+    // Render the grid
+    try self.grid.render();
 
-        // Swap
-        try self.window.swapBuffers();
-        try glfw.waitEvents();
-    }
+    // Swap
+    try self.window.swapBuffers();
 }
 
 fn sizeCallback(window: glfw.Window, width: i32, height: i32) void {
