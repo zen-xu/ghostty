@@ -11,6 +11,7 @@ const Allocator = std.mem.Allocator;
 const Grid = @import("Grid.zig");
 const glfw = @import("glfw");
 const gl = @import("opengl.zig");
+const libuv = @import("libuv/main.zig");
 const Pty = @import("Pty.zig");
 const Terminal = @import("terminal/Terminal.zig");
 
@@ -37,7 +38,7 @@ terminal: Terminal,
 /// Create a new window. This allocates and returns a pointer because we
 /// need a stable pointer for user data callbacks. Therefore, a stack-only
 /// initialization is not currently possible.
-pub fn create(alloc: Allocator) !*Window {
+pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
     var self = try alloc.create(Window);
     errdefer alloc.destroy(self);
 
@@ -77,7 +78,7 @@ pub fn create(alloc: Allocator) !*Window {
 
     // Create our terminal grid with the initial window size
     const window_size = try window.getSize();
-    var grid = try Grid.init(alloc);
+    var grid = try Grid.init(alloc, loop);
     try grid.setScreenSize(.{ .width = window_size.width, .height = window_size.height });
 
     // Create our pty

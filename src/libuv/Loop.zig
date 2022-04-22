@@ -70,6 +70,19 @@ pub fn backendTimeout(self: Loop) c_int {
     return c.uv_backend_timeout(self.loop);
 }
 
+/// Sets loop->data to data.
+pub fn setData(self: Loop, pointer: ?*anyopaque) void {
+    c.uv_loop_set_data(self.loop, pointer);
+}
+
+/// Returns loop->data.
+pub fn getData(self: Loop, comptime DT: type) ?*DT {
+    return if (c.uv_loop_get_data(self.loop)) |ptr|
+        @ptrCast(?*DT, @alignCast(@alignOf(DT), ptr))
+    else
+        null;
+}
+
 /// Mode used to run the loop with uv_run().
 pub const RunMode = enum(c.uv_run_mode) {
     default = c.UV_RUN_DEFAULT,
@@ -80,6 +93,10 @@ pub const RunMode = enum(c.uv_run_mode) {
 test {
     var loop = try init(testing.allocator);
     defer loop.deinit(testing.allocator);
+
+    var data: u8 = 42;
+    loop.setData(&data);
+    try testing.expect(loop.getData(u8).?.* == 42);
 
     try testing.expect((try loop.backendFd()) > 0);
     try testing.expectEqual(@as(u32, 0), try loop.run(.nowait));

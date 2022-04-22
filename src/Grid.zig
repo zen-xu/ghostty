@@ -10,6 +10,7 @@ const FontAtlas = @import("FontAtlas.zig");
 const Terminal = @import("terminal/Terminal.zig");
 const gl = @import("opengl.zig");
 const gb = @import("gb_math.zig");
+const libuv = @import("libuv/main.zig");
 
 const log = std.log.scoped(.grid);
 
@@ -33,6 +34,9 @@ texture: gl.Texture,
 
 /// The font atlas.
 font_atlas: FontAtlas,
+
+/// The timer for cursor blining.
+cursor_timer: libuv.Timer,
 
 /// The raw structure that maps directly to the buffer sent to the vertex shader.
 const GPUCell = struct {
@@ -68,7 +72,11 @@ const GPUCell = struct {
     mode: u8,
 };
 
-pub fn init(alloc: Allocator) !Grid {
+pub fn init(alloc: Allocator, loop: libuv.Loop) !Grid {
+    // Setup the timer for our cursor.
+    var timer = try libuv.Timer.init(alloc, loop);
+    errdefer timer.deinit(alloc);
+
     // Initialize our font atlas. We will initially populate the
     // font atlas with all the visible ASCII characters since they are common.
     var atlas = try Atlas.init(alloc, 512);
@@ -206,10 +214,17 @@ pub fn init(alloc: Allocator) !Grid {
         .vbo = vbo,
         .texture = tex,
         .font_atlas = font,
+        .cursor_timer = timer,
     };
 }
 
 pub fn deinit(self: *Grid) void {
+    self.cursor_timer.close((struct {
+        fn callback(t: *libuv.Timer) void {
+            const alloc = t.loop().getData(Allocator).?;
+            t.deinit(alloc.*);
+        }
+    }).callback);
     self.font_atlas.atlas.deinit(self.alloc);
     self.font_atlas.deinit(self.alloc);
     self.texture.destroy();

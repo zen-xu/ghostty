@@ -18,20 +18,29 @@ alloc: Allocator,
 /// single window operations.
 window: *Window,
 
-// The main event loop for the application.
+// The main event loop for the application. The user data of this loop
+// is always the allocator used to create the loop. This is a convenience
+// so that users of the loop always have an allocator.
 loop: libuv.Loop,
 
 /// Initialize the main app instance. This creates the main window, sets
 /// up the renderer state, compiles the shaders, etc. This is the primary
 /// "startup" logic.
 pub fn init(alloc: Allocator) !App {
-    // Create the window
-    var window = try Window.create(alloc);
-    errdefer window.destroy();
-
     // Create the event loop
     var loop = try libuv.Loop.init(alloc);
     errdefer loop.deinit(alloc);
+
+    // We always store allocator pointer on the loop data so that
+    // handles can use our global allocator.
+    const allocPtr = try alloc.create(Allocator);
+    errdefer alloc.destroy(allocPtr);
+    allocPtr.* = alloc;
+    loop.setData(allocPtr);
+
+    // Create the window
+    var window = try Window.create(alloc, loop);
+    errdefer window.destroy();
 
     return App{
         .alloc = alloc,
@@ -42,6 +51,15 @@ pub fn init(alloc: Allocator) !App {
 
 pub fn deinit(self: *App) void {
     self.window.destroy();
+
+    // Run the loop one more time, because destroying our other things
+    // like windows usually cancel all our event loop stuff and we need
+    // one more run through to finalize all the closes.
+    _ = self.loop.run(.default) catch unreachable;
+
+    // Dealloc our allocator copy
+    self.alloc.destroy(self.loop.getData(Allocator).?);
+
     self.loop.deinit(self.alloc);
     self.* = undefined;
 }

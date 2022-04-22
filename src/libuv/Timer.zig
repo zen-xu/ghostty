@@ -85,7 +85,7 @@ test "Timer: close callback" {
     var data: u8 = 42;
     timer.setData(&data);
     timer.close((struct {
-        fn callback(v: Timer) void {
+        fn callback(v: *Timer) void {
             var dataPtr = v.getData(u8).?;
             dataPtr.* = 24;
         }
