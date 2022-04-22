@@ -30,6 +30,13 @@ pub fn deinit(self: *Loop, alloc: Allocator) void {
     self.* = undefined;
 }
 
+/// Returns true if the loop is still alive.
+pub fn alive(self: Loop) !bool {
+    const res = c.uv_loop_alive(self.loop);
+    try errors.convertError(res);
+    return res > 0;
+}
+
 /// This function runs the event loop. See RunMode for mode documentation.
 ///
 /// This is not reentrant. It must not be called from a callback.
