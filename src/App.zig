@@ -57,7 +57,12 @@ pub fn run(self: App) !void {
     }).callback);
     defer embed.deinit(self.alloc);
     try embed.start();
-    errdefer embed.stop();
+
+    // Notify the embedder to stop. We purposely do NOT wait for `join`
+    // here because handles with long timeouts may cause this to take a long
+    // time. We're exiting the app anyways if we're here so we let the OS
+    // clean up the threads.
+    defer embed.stop();
 
     // We need at least one handle in the event loop at all times so
     // that the loop doesn't spin 100% CPU.
@@ -81,10 +86,4 @@ pub fn run(self: App) !void {
     // CLose our timer so that we can cleanly close the loop.
     timer.close(null);
     _ = try self.loop.run(.default);
-
-    // Notify the embedder to stop. We purposely do NOT wait for `join`
-    // here because handles with long timeouts may cause this to take a long
-    // time. We're exiting the app anyways if we're here so we let the OS
-    // clean up the threads.
-    embed.stop();
 }
