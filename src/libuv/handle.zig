@@ -1,5 +1,7 @@
 const c = @import("c.zig");
 
+const Loop = @import("Loop.zig");
+
 /// Returns a struct that has all the shared handle functions for the
 /// given handle type T. The type T must have a field named "handle".
 /// This is expected to be used with usingnamespace to add the shared
@@ -38,6 +40,12 @@ pub fn Handle(comptime T: type) type {
                 null;
 
             c.uv_close(@ptrCast(*c.uv_handle_t, self.handle), cbParam);
+        }
+
+        /// Loop returns the loop that this handle is a part of.
+        pub fn loop(self: T) Loop {
+            const handle = @ptrCast(*c.uv_handle_t, self.handle);
+            return .{ .loop = c.uv_handle_get_loop(handle) };
         }
 
         /// Sets handle->data to data.

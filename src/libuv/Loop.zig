@@ -46,6 +46,13 @@ pub fn run(self: Loop, mode: RunMode) !u32 {
     return @intCast(u32, res);
 }
 
+/// Stop the event loop, causing uv_run() to end as soon as possible. This
+/// will happen not sooner than the next loop iteration. If this function was
+/// called before blocking for i/o, the loop won’t block for i/o on this iteration.
+pub fn stop(self: Loop) void {
+    c.uv_stop(self.loop);
+}
+
 /// Get backend file descriptor. Only kqueue, epoll and event ports are supported.
 ///
 /// This can be used in conjunction with uv_run(loop, UV_RUN_NOWAIT) to poll
