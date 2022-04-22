@@ -23,16 +23,15 @@ pub fn Handle(comptime T: type) type {
         //
         // In-progress requests, like uv_connect_t or uv_write_t, are cancelled
         // and have their callbacks called asynchronously with status=UV_ECANCELED.
-        pub fn close(self: *T, comptime cb: ?fn (*T) void) void {
+        pub fn close(self: T, comptime cb: ?fn (T) void) void {
             const cbParam = if (cb) |f|
                 (struct {
                     pub fn callback(handle: [*c]c.uv_handle_t) callconv(.C) void {
                         // We get the raw handle, so we need to reconstruct
                         // the T. This is mutable because a lot of the libuv APIs
                         // are non-const but modifying it makes no sense.
-                        var param: T = .{ .handle = @ptrCast(HandleType, handle) };
-
-                        @call(.{ .modifier = .always_inline }, f, .{&param});
+                        const param: T = .{ .handle = @ptrCast(HandleType, handle) };
+                        @call(.{ .modifier = .always_inline }, f, .{param});
                     }
                 }).callback
             else
@@ -42,7 +41,7 @@ pub fn Handle(comptime T: type) type {
         }
 
         /// Sets handle->data to data.
-        pub fn setData(self: *T, pointer: ?*anyopaque) void {
+        pub fn setData(self: T, pointer: ?*anyopaque) void {
             c.uv_handle_set_data(
                 @ptrCast(*c.uv_handle_t, self.handle),
                 pointer,
@@ -50,7 +49,7 @@ pub fn Handle(comptime T: type) type {
         }
 
         /// Returns handle->data.
-        pub fn getData(self: *T, comptime DT: type) ?*DT {
+        pub fn getData(self: T, comptime DT: type) ?*DT {
             return if (c.uv_handle_get_data(@ptrCast(*c.uv_handle_t, self.handle))) |ptr|
                 @ptrCast(?*DT, @alignCast(@alignOf(DT), ptr))
             else
