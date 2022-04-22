@@ -46,6 +46,23 @@ pub fn run(self: *Loop, mode: RunMode) !u32 {
     return @intCast(u32, res);
 }
 
+/// Get backend file descriptor. Only kqueue, epoll and event ports are supported.
+///
+/// This can be used in conjunction with uv_run(loop, UV_RUN_NOWAIT) to poll
+/// in one thread and run the event loop’s callbacks in another see
+/// test/test-embed.c for an example.
+pub fn backendFd(self: Loop) !c_int {
+    const res = c.uv_backend_fd(self.loop);
+    try errors.convertError(res);
+    return res;
+}
+
+/// Get the poll timeout. The return value is in milliseconds, or -1 for no
+/// timeout.
+pub fn backendTimeout(self: Loop) c_int {
+    return c.uv_backend_timeout(self.loop);
+}
+
 /// Mode used to run the loop with uv_run().
 pub const RunMode = enum(c.uv_run_mode) {
     default = c.UV_RUN_DEFAULT,
@@ -56,5 +73,7 @@ pub const RunMode = enum(c.uv_run_mode) {
 test {
     var loop = try init(testing.allocator);
     defer loop.deinit(testing.allocator);
+
+    try testing.expect((try loop.backendFd()) > 0);
     try testing.expectEqual(@as(u32, 0), try loop.run(.nowait));
 }
