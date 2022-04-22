@@ -36,7 +36,6 @@ pub fn init(alloc: Allocator, loop: Loop, callback: fn () void) !Embed {
 /// Deinit the embed struct. This will not automatically terminate
 /// the embed thread. You must call stop manually.
 pub fn deinit(self: *Embed, alloc: Allocator) void {
-    std.debug.assert(self.thread == null);
     self.sem.deinit(alloc);
     self.* = undefined;
 }
@@ -48,18 +47,22 @@ pub fn start(self: *Embed) !void {
 }
 
 /// Stop stops the embed thread and blocks until the thread joins.
-pub fn stop(self: *Embed) !void {
-    var thread = self.thread orelse return;
+pub fn stop(self: *Embed) void {
+    if (self.thread == null) return;
 
     // Mark that we want to terminate
     self.terminate.store(true, .SeqCst);
 
     // Post to the semaphore to ensure that any waits are processed.
     self.sem.post();
+}
 
-    // Wait
-    try thread.join();
-    self.thread = null;
+/// Wait for the thread backing the embedding to end.
+pub fn join(self: *Embed) !void {
+    if (self.thread) |*thr| {
+        try thr.join();
+        self.thread = null;
+    }
 }
 
 /// loopRun runs the next tick of the libuv event loop. This should be
@@ -77,7 +80,6 @@ fn threadMain(self: *Embed) void {
         switch (builtin.os.tag) {
             // epoll
             .linux => {
-                std.log.info("FOO {} {}", .{ fd, timeout });
                 var ev: [1]std.os.linux.epoll_event = undefined;
                 while (std.os.epoll_wait(fd, &ev, timeout) == -1) {}
             },
@@ -105,5 +107,6 @@ test "Embed" {
     // This just tests that the thread can start and then stop.
     // It doesn't do much else at the moment
     try embed.start();
-    try embed.stop();
+    embed.stop();
+    try embed.join();
 }
