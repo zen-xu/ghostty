@@ -20,7 +20,7 @@ test "Async: cancel timer" {
     }).callback, 5000, 5000);
 
     var async_handle = try libuv.Async.init(testing.allocator, loop, (struct {
-        fn callback(v: libuv.Async) void {
+        fn callback(v: *libuv.Async) void {
             v.loop().stop();
             v.close(null);
         }

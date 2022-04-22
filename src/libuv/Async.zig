@@ -14,14 +14,14 @@ handle: *c.uv_async_t,
 
 pub usingnamespace Handle(Async);
 
-pub fn init(alloc: Allocator, loop: Loop, comptime cb: fn (Async) void) !Async {
+pub fn init(alloc: Allocator, loop: Loop, comptime cb: fn (*Async) void) !Async {
     var handle = try alloc.create(c.uv_async_t);
     errdefer alloc.destroy(handle);
 
     const Wrapper = struct {
         pub fn callback(arg: [*c]c.uv_async_t) callconv(.C) void {
-            const newSelf: Async = .{ .handle = arg };
-            @call(.{ .modifier = .always_inline }, cb, .{newSelf});
+            var newSelf: Async = .{ .handle = arg };
+            @call(.{ .modifier = .always_inline }, cb, .{&newSelf});
         }
     };
 
@@ -43,7 +43,7 @@ test "Async" {
     var loop = try Loop.init(testing.allocator);
     defer loop.deinit(testing.allocator);
     var h = try init(testing.allocator, loop, (struct {
-        fn callback(v: Async) void {
+        fn callback(v: *Async) void {
             v.close(null);
         }
     }).callback);

@@ -55,7 +55,8 @@ pub fn deinit(self: *App) void {
     // Run the loop one more time, because destroying our other things
     // like windows usually cancel all our event loop stuff and we need
     // one more run through to finalize all the closes.
-    _ = self.loop.run(.default) catch unreachable;
+    _ = self.loop.run(.default) catch |err|
+        log.err("error finalizing event loop: {}", .{err});
 
     // Dealloc our allocator copy
     self.alloc.destroy(self.loop.getData(Allocator).?);
@@ -76,13 +77,11 @@ pub fn run(self: App) !void {
     defer embed.deinit(self.alloc);
     try embed.start();
 
-    // We need at least one handle in the event loop at all times so
-    // that the loop doesn't spin 100% CPU.
-    var timer = try libuv.Timer.init(self.alloc, self.loop);
-    errdefer timer.deinit(self.alloc);
-    try timer.start((struct {
-        fn callback(_: *libuv.Timer) void {}
-    }).callback, 5000, 5000);
+    // This async handle is used to "wake up" the embed thread so we can
+    // exit immediately once the windows want to close.
+    var async_h = try libuv.Async.init(self.alloc, self.loop, (struct {
+        fn callback(_: *libuv.Async) void {}
+    }).callback);
 
     while (!self.window.shouldClose()) {
         try self.window.run();
@@ -95,14 +94,19 @@ pub fn run(self: App) !void {
         try embed.loopRun();
     }
 
-    // Close our timer so that we can cleanly close the loop.
-    timer.close((struct {
-        fn callback(t: *libuv.Timer) void {
-            const alloc = t.loop().getData(Allocator).?.*;
-            t.deinit(alloc);
+    // Notify the embed thread to stop. We do this before we send on the
+    // async handle so that when the thread goes around it exits.
+    embed.stop();
+
+    // Wake up the event loop and schedule our close.
+    try async_h.send();
+    async_h.close((struct {
+        fn callback(h: *libuv.Async) void {
+            const alloc = h.loop().getData(Allocator).?.*;
+            h.deinit(alloc);
         }
     }).callback);
 
-    embed.stop();
+    // Wait for the thread to end which should be almost instant.
     try embed.join();
 }
