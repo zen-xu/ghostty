@@ -35,6 +35,9 @@ pty: Pty,
 /// a renderer.
 terminal: Terminal,
 
+/// Timer that blinks the cursor.
+cursor_timer: libuv.Timer,
+
 /// Create a new window. This allocates and returns a pointer because we
 /// need a stable pointer for user data callbacks. Therefore, a stack-only
 /// initialization is not currently possible.
@@ -78,7 +81,7 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
 
     // Create our terminal grid with the initial window size
     const window_size = try window.getSize();
-    var grid = try Grid.init(alloc, loop);
+    var grid = try Grid.init(alloc);
     try grid.setScreenSize(.{ .width = window_size.width, .height = window_size.height });
 
     // Create our pty
@@ -95,12 +98,20 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
     errdefer term.deinit(alloc);
     try term.append(alloc, "> ");
 
+    // Setup a timer for blinking the cursor
+    var timer = try libuv.Timer.init(alloc, loop);
+    errdefer timer.deinit(alloc);
+    errdefer timer.close(null);
+    timer.setData(self);
+    try timer.start(cursorTimerCallback, 800, 800);
+
     self.* = .{
         .alloc = alloc,
         .window = window,
         .grid = grid,
         .pty = pty,
         .terminal = term,
+        .cursor_timer = timer,
     };
 
     // Setup our callbacks and user data
@@ -113,6 +124,12 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
 }
 
 pub fn destroy(self: *Window) void {
+    self.cursor_timer.close((struct {
+        fn callback(t: *libuv.Timer) void {
+            const alloc = t.loop().getData(Allocator).?.*;
+            t.deinit(alloc);
+        }
+    }).callback);
     self.terminal.deinit(self.alloc);
     self.pty.deinit();
     self.grid.deinit();
@@ -194,4 +211,10 @@ fn keyCallback(
         win.terminal.append(win.alloc, "\r\n> ") catch unreachable;
         win.grid.updateCells(win.terminal) catch unreachable;
     }
+}
+
+fn cursorTimerCallback(t: *libuv.Timer) void {
+    const win = t.getData(Window) orelse return;
+    win.grid.cursor_visible = !win.grid.cursor_visible;
+    win.grid.updateCells(win.terminal) catch unreachable;
 }

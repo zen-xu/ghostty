@@ -16,7 +16,7 @@ test "Async: cancel timer" {
 
     // Start a timer with a long timeout. This will block our loop.
     try timer.start((struct {
-        fn callback(_: libuv.Timer) void {}
+        fn callback(_: *libuv.Timer) void {}
     }).callback, 5000, 5000);
 
     var async_handle = try libuv.Async.init(testing.allocator, loop, (struct {

@@ -10,7 +10,6 @@ const FontAtlas = @import("FontAtlas.zig");
 const Terminal = @import("terminal/Terminal.zig");
 const gl = @import("opengl.zig");
 const gb = @import("gb_math.zig");
-const libuv = @import("libuv/main.zig");
 
 const log = std.log.scoped(.grid);
 
@@ -35,8 +34,9 @@ texture: gl.Texture,
 /// The font atlas.
 font_atlas: FontAtlas,
 
-/// The timer for cursor blining.
-cursor_timer: libuv.Timer,
+/// Whether the cursor is visible or not. This is used to control cursor
+/// blinking.
+cursor_visible: bool,
 
 /// The raw structure that maps directly to the buffer sent to the vertex shader.
 const GPUCell = struct {
@@ -72,11 +72,7 @@ const GPUCell = struct {
     mode: u8,
 };
 
-pub fn init(alloc: Allocator, loop: libuv.Loop) !Grid {
-    // Setup the timer for our cursor.
-    var timer = try libuv.Timer.init(alloc, loop);
-    errdefer timer.deinit(alloc);
-
+pub fn init(alloc: Allocator) !Grid {
     // Initialize our font atlas. We will initially populate the
     // font atlas with all the visible ASCII characters since they are common.
     var atlas = try Atlas.init(alloc, 512);
@@ -214,17 +210,11 @@ pub fn init(alloc: Allocator, loop: libuv.Loop) !Grid {
         .vbo = vbo,
         .texture = tex,
         .font_atlas = font,
-        .cursor_timer = timer,
+        .cursor_visible = true,
     };
 }
 
 pub fn deinit(self: *Grid) void {
-    self.cursor_timer.close((struct {
-        fn callback(t: *libuv.Timer) void {
-            const alloc = t.loop().getData(Allocator).?;
-            t.deinit(alloc.*);
-        }
-    }).callback);
     self.font_atlas.atlas.deinit(self.alloc);
     self.font_atlas.deinit(self.alloc);
     self.texture.destroy();
@@ -303,19 +293,21 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
     }
 
     // Draw the cursor
-    self.cells.appendAssumeCapacity(.{
-        .mode = 1,
-        .grid_col = @intCast(u16, term.cursor.x),
-        .grid_row = @intCast(u16, term.cursor.y),
-        .fg_r = 0,
-        .fg_g = 0,
-        .fg_b = 0,
-        .fg_a = 0,
-        .bg_r = 0xFF,
-        .bg_g = 0xFF,
-        .bg_b = 0xFF,
-        .bg_a = 255,
-    });
+    if (self.cursor_visible) {
+        self.cells.appendAssumeCapacity(.{
+            .mode = 1,
+            .grid_col = @intCast(u16, term.cursor.x),
+            .grid_row = @intCast(u16, term.cursor.y),
+            .fg_r = 0,
+            .fg_g = 0,
+            .fg_b = 0,
+            .fg_a = 0,
+            .bg_r = 0xFF,
+            .bg_g = 0xFF,
+            .bg_b = 0xFF,
+            .bg_a = 255,
+        });
+    }
 }
 
 /// Set the screen size for rendering. This will update the projection

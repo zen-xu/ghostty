@@ -32,14 +32,14 @@ pub fn deinit(self: *Timer, alloc: Allocator) void {
 /// and then repeatedly after repeat milliseconds.
 pub fn start(
     self: Timer,
-    comptime cb: fn (Timer) void,
+    comptime cb: fn (*Timer) void,
     timeout: u64,
     repeat: u64,
 ) !void {
     const Wrapper = struct {
         pub fn callback(handle: [*c]c.uv_timer_t) callconv(.C) void {
-            const newSelf: Timer = .{ .handle = handle };
-            @call(.{ .modifier = .always_inline }, cb, .{newSelf});
+            var newSelf: Timer = .{ .handle = handle };
+            @call(.{ .modifier = .always_inline }, cb, .{&newSelf});
         }
     };
 
@@ -65,7 +65,7 @@ test "Timer" {
     var called: bool = false;
     timer.setData(&called);
     try timer.start((struct {
-        fn callback(t: Timer) void {
+        fn callback(t: *Timer) void {
             t.getData(bool).?.* = true;
             t.close(null);
         }

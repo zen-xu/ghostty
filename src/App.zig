@@ -76,18 +76,12 @@ pub fn run(self: App) !void {
     defer embed.deinit(self.alloc);
     try embed.start();
 
-    // Notify the embedder to stop. We purposely do NOT wait for `join`
-    // here because handles with long timeouts may cause this to take a long
-    // time. We're exiting the app anyways if we're here so we let the OS
-    // clean up the threads.
-    defer embed.stop();
-
     // We need at least one handle in the event loop at all times so
     // that the loop doesn't spin 100% CPU.
     var timer = try libuv.Timer.init(self.alloc, self.loop);
-    defer timer.deinit(self.alloc);
+    errdefer timer.deinit(self.alloc);
     try timer.start((struct {
-        fn callback(_: libuv.Timer) void {}
+        fn callback(_: *libuv.Timer) void {}
     }).callback, 5000, 5000);
 
     while (!self.window.shouldClose()) {
@@ -101,7 +95,14 @@ pub fn run(self: App) !void {
         try embed.loopRun();
     }
 
-    // CLose our timer so that we can cleanly close the loop.
-    timer.close(null);
-    _ = try self.loop.run(.default);
+    // Close our timer so that we can cleanly close the loop.
+    timer.close((struct {
+        fn callback(t: *libuv.Timer) void {
+            const alloc = t.loop().getData(Allocator).?.*;
+            t.deinit(alloc);
+        }
+    }).callback);
+
+    embed.stop();
+    try embed.join();
 }
