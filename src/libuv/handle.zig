@@ -9,10 +9,12 @@ const Loop = @import("Loop.zig");
 pub fn Handle(comptime T: type) type {
     // 1. T should be a struct
     // 2. First field should be the handle pointer
-    const tInfo = @typeInfo(T).Struct;
-    const HandleType = tInfo.fields[0].field_type;
 
     return struct {
+        // note: this has to be here: https://github.com/ziglang/zig/issues/11367
+        const tInfo = @typeInfo(T).Struct;
+        const HandleType = tInfo.fields[0].field_type;
+
         // Request handle to be closed. close_cb will be called asynchronously
         // after this call. This MUST be called on each handle before memory
         // is released. Moreover, the memory can only be released in close_cb
