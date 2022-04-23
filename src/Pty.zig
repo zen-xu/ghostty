@@ -4,13 +4,19 @@
 const Pty = @This();
 
 const std = @import("std");
+const builtin = @import("builtin");
 const testing = std.testing;
 const linux = std.os.linux;
 const fd_t = std.os.fd_t;
 const winsize = linux.winsize;
-const c = @cImport({
-    @cInclude("pty.h");
-});
+const c = switch (builtin.os.tag) {
+    .macos => @cImport({
+        @cInclude("util.h");
+    }),
+    else => @cImport({
+        @cInclude("pty.h");
+    }),
+};
 
 /// The file descriptors for the master and slave side of the pty.
 master: fd_t,
@@ -18,6 +24,9 @@ slave: fd_t,
 
 /// Open a new PTY with the given initial size.
 pub fn open(size: winsize) !Pty {
+    // Need to copy so that it becomes non-const.
+    var sizeCopy = size;
+
     var master_fd: fd_t = undefined;
     var slave_fd: fd_t = undefined;
     if (c.openpty(
@@ -25,7 +34,7 @@ pub fn open(size: winsize) !Pty {
         &slave_fd,
         null,
         null,
-        @ptrCast([*c]const c.struct_winsize, &size),
+        @ptrCast([*c]c.struct_winsize, &sizeCopy),
     ) < 0)
         return error.OpenptyFailed;
 

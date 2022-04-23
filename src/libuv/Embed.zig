@@ -103,14 +103,16 @@ fn threadMain(self: *Embed) void {
 
             // kqueue
             .macos, .dragonfly, .freebsd, .openbsd, .netbsd => {
-                // TODO: untested, probably some compile errors here
-                // or other issues, but this is roughly what we're trying
-                // to do.
                 var ts: std.os.timespec = .{
-                    .tv_sec = timeout / 1000,
-                    .tv_nsec = (timeout % 1000) * 1000,
+                    .tv_sec = @divTrunc(timeout, 1000),
+                    .tv_nsec = @mod(timeout, 1000) * 1000,
                 };
-                while ((try std.os.kevent(fd, null, null, &ts)) == -1) {}
+
+                var ev: [0]std.os.Kevent = undefined;
+                _ = std.os.kevent(fd, &ev, &ev, &ts) catch |err| blk: {
+                    log.err("kevent error: {}", .{err});
+                    break :blk 0;
+                };
             },
 
             else => @compileError("unsupported libuv Embed platform"),
