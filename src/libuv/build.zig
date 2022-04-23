@@ -50,6 +50,13 @@ pub fn create(
         });
     }
 
+    if (target.isDarwin()) {
+        try flags.appendSlice(&.{
+            "-D_DARWIN_UNLIMITED_SELECT=1",
+            "-D_DARWIN_USE_64_BIT_INODE=1",
+        });
+    }
+
     // C files common to all platforms
     ret.addCSourceFiles(&.{
         root() ++ "src/fs-poll.c",
@@ -103,6 +110,32 @@ pub fn create(
             root() ++ "src/unix/random-getrandom.c",
             root() ++ "src/unix/random-sysctl-linux.c",
             root() ++ "src/unix/epoll.c",
+        }, flags.items);
+    }
+
+    if (target.isDarwin() or
+        target.isOpenBSD() or
+        target.isNetBSD() or
+        target.isFreeBSD() or
+        target.isDragonFlyBSD())
+    {
+        ret.addCSourceFiles(&.{
+            root() ++ "src/unix/bsd-ifaddrs.c",
+            root() ++ "src/unix/kqueue.c",
+        }, flags.items);
+    }
+
+    if (target.isDarwin() or target.isOpenBSD()) {
+        ret.addCSourceFiles(&.{
+            root() ++ "src/unix/random-getentropy.c",
+        }, flags.items);
+    }
+
+    if (target.isDarwin()) {
+        ret.addCSourceFiles(&.{
+            root() ++ "src/unix/darwin-proctitle.c",
+            root() ++ "src/unix/darwin.c",
+            root() ++ "src/unix/fsevents.c",
         }, flags.items);
     }
 

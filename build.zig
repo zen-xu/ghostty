@@ -4,6 +4,7 @@ const LibExeObjStep = std.build.LibExeObjStep;
 const glfw = @import("vendor/mach/glfw/build.zig");
 const ft = @import("src/freetype/build.zig");
 const uv = @import("src/libuv/build.zig");
+const system_sdk = @import("vendor/mach/glfw/system_sdk.zig");
 
 pub fn build(b: *std.build.Builder) !void {
     const target = b.standardTargetOptions(.{});
@@ -26,6 +27,7 @@ pub fn build(b: *std.build.Builder) !void {
     ftlib.link(exe);
 
     const libuv = try uv.create(b, target, mode);
+    system_sdk.include(b, libuv.step, .{});
     libuv.link(exe);
 
     // stb if we need it
