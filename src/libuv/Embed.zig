@@ -101,6 +101,18 @@ fn threadMain(self: *Embed) void {
                 while (std.os.epoll_wait(fd, &ev, timeout) == -1) {}
             },
 
+            // kqueue
+            .macos, .dragonfly, .freebsd, .openbsd, .netbsd => {
+                // TODO: untested, probably some compile errors here
+                // or other issues, but this is roughly what we're trying
+                // to do.
+                var ts: std.os.timespec = .{
+                    .tv_sec = timeout / 1000,
+                    .tv_nsec = (timeout % 1000) * 1000,
+                };
+                while ((try std.os.kevent(fd, null, null, &ts)) == -1) {}
+            },
+
             else => @compileError("unsupported libuv Embed platform"),
         }
 
