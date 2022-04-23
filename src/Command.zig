@@ -18,6 +18,7 @@ const Command = @This();
 const std = @import("std");
 const builtin = @import("builtin");
 const TempDir = @import("TempDir.zig");
+const mem = std.mem;
 const os = std.os;
 const debug = std.debug;
 const testing = std.testing;
@@ -126,6 +127,74 @@ fn setupFd(src: File.Handle, target: i32) !void {
 pub fn wait(self: Command) !Exit {
     const res = std.os.waitpid(self.pid.?, 0);
     return Exit.init(res.status);
+}
+
+/// Search for "cmd" in the PATH and return the absolute path. This will
+/// always allocate if there is a non-null result. The caller must free the
+/// resulting value.
+///
+/// TODO: windows
+pub fn expandPath(alloc: Allocator, cmd: []const u8) !?[]u8 {
+    // If the command already contains a slash, then we return it as-is
+    // because it is assumed to be absolute or relative.
+    if (std.mem.indexOfScalar(u8, cmd, '/') != null) {
+        return try alloc.dupe(u8, cmd);
+    }
+
+    const PATH = os.getenvZ("PATH") orelse return null;
+    var path_buf: [std.fs.MAX_PATH_BYTES]u8 = undefined;
+    var it = std.mem.tokenize(u8, PATH, ":");
+    var seen_eacces = false;
+    while (it.next()) |search_path| {
+        // We need enough space in our path buffer to store this
+        const path_len = search_path.len + cmd.len + 1;
+        if (path_buf.len < path_len) return error.PathTooLong;
+
+        // Copy in the full path
+        mem.copy(u8, &path_buf, search_path);
+        path_buf[search_path.len] = '/';
+        mem.copy(u8, path_buf[search_path.len + 1 ..], cmd);
+        path_buf[path_len] = 0;
+        const full_path = path_buf[0..path_len :0];
+
+        // Stat it
+        const f = std.fs.openFileAbsolute(full_path, .{}) catch |err| switch (err) {
+            error.FileNotFound => continue,
+            error.AccessDenied => {
+                // Accumulate this and return it later so we can try other
+                // paths that we have access to.
+                seen_eacces = true;
+                continue;
+            },
+            else => return err,
+        };
+        defer f.close();
+        const stat = try f.stat();
+        if (stat.kind != .Directory and stat.mode & 0111 != 0) {
+            return try alloc.dupe(u8, full_path);
+        }
+    }
+
+    if (seen_eacces) return error.AccessDenied;
+
+    return null;
+}
+
+test "expandPath: env" {
+    const path = (try expandPath(testing.allocator, "env")).?;
+    defer testing.allocator.free(path);
+    try testing.expect(path.len > 0);
+}
+
+test "expandPath: does not exist" {
+    const path = try expandPath(testing.allocator, "thisreallyprobablydoesntexist123");
+    try testing.expect(path == null);
+}
+
+test "expandPath: slash" {
+    const path = (try expandPath(testing.allocator, "foo/env")).?;
+    defer testing.allocator.free(path);
+    try testing.expect(path.len == 7);
 }
 
 test "Command: basic exec" {
