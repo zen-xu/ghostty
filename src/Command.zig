@@ -24,6 +24,7 @@ const debug = std.debug;
 const testing = std.testing;
 const Allocator = std.mem.Allocator;
 const File = std.fs.File;
+const BufMap = std.BufMap;
 
 /// Path to the command to run. This must be an absolute path. This
 /// library does not do PATH lookup.
@@ -33,6 +34,11 @@ path: []const u8,
 /// args[0] to the command. If args is empty then args[0] will automatically
 /// be set to equal path.
 args: []const []const u8,
+
+/// Environment variables for the child process. If this is null, inherits
+/// the environment variables from this process. These are the exact
+/// environment variables to set; these are /not/ merged.
+env: ?*const BufMap = null,
 
 /// The file handle to set for stdin/out/err. If this isn't set, we do
 /// nothing explicitly so it is up to the behavior of the operating system.
@@ -92,7 +98,12 @@ pub fn start(self: *Command, alloc: Allocator) !void {
     for (self.args) |arg, i| argsZ[i] = (try arena.dupeZ(u8, arg)).ptr;
 
     // Determine our env vars
-    const envp = if (builtin.link_libc) std.c.environ else @compileError("missing env vars");
+    const envp = if (self.env) |env_map|
+        (try createNullDelimitedEnvMap(arena, env_map)).ptr
+    else if (builtin.link_libc)
+        std.c.environ
+    else
+        @compileError("missing env vars");
 
     // Fork
     const pid = try std.os.fork();
@@ -197,6 +208,58 @@ test "expandPath: slash" {
     try testing.expect(path.len == 7);
 }
 
+// Copied from Zig. This is a publicly exported function but there is no
+// way to get it from the std package.
+fn createNullDelimitedEnvMap(arena: mem.Allocator, env_map: *const std.BufMap) ![:null]?[*:0]u8 {
+    const envp_count = env_map.count();
+    const envp_buf = try arena.allocSentinel(?[*:0]u8, envp_count, null);
+
+    var it = env_map.iterator();
+    var i: usize = 0;
+    while (it.next()) |pair| : (i += 1) {
+        const env_buf = try arena.allocSentinel(u8, pair.key_ptr.len + pair.value_ptr.len + 1, 0);
+        mem.copy(u8, env_buf, pair.key_ptr.*);
+        env_buf[pair.key_ptr.len] = '=';
+        mem.copy(u8, env_buf[pair.key_ptr.len + 1 ..], pair.value_ptr.*);
+        envp_buf[i] = env_buf.ptr;
+    }
+    std.debug.assert(i == envp_count);
+
+    return envp_buf;
+}
+
+test "createNullDelimitedEnvMap" {
+    const allocator = testing.allocator;
+    var envmap = BufMap.init(allocator);
+    defer envmap.deinit();
+
+    try envmap.put("HOME", "/home/ifreund");
+    try envmap.put("WAYLAND_DISPLAY", "wayland-1");
+    try envmap.put("DISPLAY", ":1");
+    try envmap.put("DEBUGINFOD_URLS", " ");
+    try envmap.put("XCURSOR_SIZE", "24");
+
+    var arena = std.heap.ArenaAllocator.init(allocator);
+    defer arena.deinit();
+    const environ = try createNullDelimitedEnvMap(arena.allocator(), &envmap);
+
+    try testing.expectEqual(@as(usize, 5), environ.len);
+
+    inline for (.{
+        "HOME=/home/ifreund",
+        "WAYLAND_DISPLAY=wayland-1",
+        "DISPLAY=:1",
+        "DEBUGINFOD_URLS= ",
+        "XCURSOR_SIZE=24",
+    }) |target| {
+        for (environ) |variable| {
+            if (mem.eql(u8, mem.span(variable orelse continue), target)) break;
+        } else {
+            try testing.expect(false); // Environment variable not found
+        }
+    }
+}
+
 test "Command: basic exec" {
     var cmd: Command = .{
         .path = "/usr/bin/env",
@@ -253,4 +316,34 @@ test "Command: redirect stdout to file" {
     const contents = try stdout.readToEndAlloc(testing.allocator, 4096);
     defer testing.allocator.free(contents);
     try testing.expect(contents.len > 0);
+}
+
+test "Command: custom env vars" {
+    const td = try TempDir.init();
+    defer td.deinit();
+    var stdout = try td.dir.createFile("stdout.txt", .{ .read = true });
+    defer stdout.close();
+
+    var env = std.BufMap.init(testing.allocator);
+    defer env.deinit();
+    try env.put("VALUE", "hello");
+
+    var cmd: Command = .{
+        .path = "/usr/bin/env",
+        .args = &.{ "/usr/bin/env", "sh", "-c", "echo $VALUE" },
+        .stdout = stdout,
+        .env = &env,
+    };
+
+    try cmd.start(testing.allocator);
+    try testing.expect(cmd.pid != null);
+    const exit = try cmd.wait();
+    try testing.expect(exit == .Exited);
+    try testing.expect(exit.Exited == 0);
+
+    // Read our stdout
+    try stdout.seekTo(0);
+    const contents = try stdout.readToEndAlloc(testing.allocator, 4096);
+    defer testing.allocator.free(contents);
+    try testing.expectEqualStrings("hello\n", contents);
 }
