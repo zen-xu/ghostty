@@ -13,11 +13,14 @@ const Loop = @import("Loop.zig");
 const Sem = @import("Sem.zig");
 const Thread = @import("Thread.zig");
 
-const TerminateAtomic = std.atomic.Atomic(bool);
+const log = std.log.scoped(.libuv_embed);
+
+const BoolAtomic = std.atomic.Atomic(bool);
 
 loop: Loop,
 sem: Sem,
-terminate: TerminateAtomic,
+terminate: BoolAtomic,
+sleeping: BoolAtomic,
 callback: fn () void,
 thread: ?Thread,
 
@@ -27,7 +30,8 @@ pub fn init(alloc: Allocator, loop: Loop, callback: fn () void) !Embed {
     return Embed{
         .loop = loop,
         .sem = try Sem.init(alloc, 0),
-        .terminate = TerminateAtomic.init(false),
+        .terminate = BoolAtomic.init(false),
+        .sleeping = BoolAtomic.init(false),
         .callback = callback,
         .thread = null,
     };
@@ -77,6 +81,19 @@ fn threadMain(self: *Embed) void {
     while (self.terminate.load(.SeqCst) == false) {
         const fd = self.loop.backendFd() catch unreachable;
         const timeout = self.loop.backendTimeout();
+
+        // If the timeout is negative then we are sleeping (i.e. no
+        // timers active or anything). In that case, we set the boolean
+        // to true so that we can wake up the event loop if we have to.
+        if (timeout < 0) {
+            log.debug("going to sleep", .{});
+            self.sleeping.store(true, .SeqCst);
+        }
+        defer if (timeout < 0) {
+            log.debug("waking from sleep", .{});
+            self.sleeping.store(false, .SeqCst);
+        };
+
         switch (builtin.os.tag) {
             // epoll
             .linux => {

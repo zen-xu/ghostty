@@ -90,6 +90,18 @@ pub fn run(self: App) !void {
         // posted by the libuv watcher so that we trigger a libuv loop tick.
         try glfw.waitEvents();
 
+        // If the window wants the event loop to wakeup, then we "kick" the
+        // embed thread to wake up. I'm not sure why we have to do this in a
+        // loop, this is surely a lacking in my understanding of libuv. But
+        // this works.
+        if (self.window.wakeup) {
+            self.window.wakeup = false;
+            while (embed.sleeping.load(.SeqCst) and embed.terminate.load(.SeqCst) == false) {
+                try async_h.send();
+                try embed.loopRun();
+            }
+        }
+
         // Run the libuv loop
         try embed.loopRun();
     }

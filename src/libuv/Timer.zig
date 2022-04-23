@@ -56,6 +56,24 @@ pub fn stop(self: Timer) !void {
     try errors.convertError(c.uv_timer_stop(self.handle));
 }
 
+/// Stop the timer, and if it is repeating restart it using the repeat value
+/// as the timeout. If the timer has never been started before it returns UV_EINVAL.
+pub fn again(self: Timer) !void {
+    try errors.convertError(c.uv_timer_again(self.handle));
+}
+
+/// Get the timer repeat value.
+pub fn getRepeat(self: Timer) u64 {
+    return c.uv_timer_get_repeat(self.handle);
+}
+
+/// Set the repeat interval value in milliseconds. The timer will be scheduled
+/// to run on the given interval, regardless of the callback execution duration,
+/// and will follow normal timer semantics in the case of a time-slice overrun.
+pub fn setRepeat(self: Timer, repeat: u64) void {
+    c.uv_timer_set_repeat(self.handle, repeat);
+}
+
 test "Timer" {
     var loop = try Loop.init(testing.allocator);
     defer loop.deinit(testing.allocator);

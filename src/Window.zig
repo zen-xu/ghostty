@@ -38,6 +38,10 @@ terminal: Terminal,
 /// Timer that blinks the cursor.
 cursor_timer: libuv.Timer,
 
+/// Set this to true whenver an event occurs that we may want to wake up
+/// the event loop. Only set this from the main thread.
+wakeup: bool = false,
+
 /// Create a new window. This allocates and returns a pointer because we
 /// need a stable pointer for user data callbacks. Therefore, a stack-only
 /// initialization is not currently possible.
@@ -119,6 +123,7 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
     window.setSizeCallback(sizeCallback);
     window.setCharCallback(charCallback);
     window.setKeyCallback(keyCallback);
+    window.setFocusCallback(focusCallback);
 
     return self;
 }
@@ -210,6 +215,17 @@ fn keyCallback(
         const win = window.getUserPointer(Window) orelse return;
         win.terminal.append(win.alloc, "\r\n> ") catch unreachable;
         win.grid.updateCells(win.terminal) catch unreachable;
+    }
+}
+
+fn focusCallback(window: glfw.Window, focused: bool) void {
+    const win = window.getUserPointer(Window) orelse return;
+    if (focused) {
+        win.cursor_timer.start(cursorTimerCallback, 800, 800) catch unreachable;
+        win.wakeup = true;
+    } else {
+        win.grid.cursor_visible = false;
+        win.cursor_timer.stop() catch unreachable;
     }
 }
 
