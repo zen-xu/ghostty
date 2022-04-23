@@ -6,6 +6,8 @@
 // NOTE: this must be kept in sync with the fragment shader
 const uint MODE_BG = 1u;
 const uint MODE_FG = 2u;
+const uint MODE_CURSOR_RECT = 3u;
+const uint MODE_CURSOR_RECT_HOLLOW = 4u;
 
 // The grid coordinates (x, y) where x < columns and y < rows
 layout (location = 0) in vec2 grid_coord;
@@ -37,6 +39,10 @@ flat out vec4 color;
 
 // The x/y coordinate for the glyph representing the font.
 out vec2 glyph_tex_coords;
+
+// The position of the cell top-left corner in screen cords. z and w
+// are width and height.
+flat out vec2 screen_cell_pos;
 
 // Pass the mode forward to the fragment shader.
 flat out uint mode;
@@ -120,6 +126,25 @@ void main() {
 
         // Set our foreground color output
         color = fg_color_in / 255.;
+        break;
+
+    case MODE_CURSOR_RECT:
+        // Same as background since we're taking up the whole cell.
+        cell_pos = cell_pos + cell_size * position;
+
+        gl_Position = projection * vec4(cell_pos, 0.0, 1.0);
+        color = bg_color_in / 255.0;
+        break;
+
+    case MODE_CURSOR_RECT_HOLLOW:
+        // Top-left position of this cell is needed for the hollow rect.
+        screen_cell_pos = cell_pos;
+
+        // Same as background since we're taking up the whole cell.
+        cell_pos = cell_pos + cell_size * position;
+
+        gl_Position = projection * vec4(cell_pos, 0.0, 1.0);
+        color = bg_color_in / 255.0;
         break;
     }
 }

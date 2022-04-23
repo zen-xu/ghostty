@@ -221,10 +221,13 @@ fn keyCallback(
 fn focusCallback(window: glfw.Window, focused: bool) void {
     const win = window.getUserPointer(Window) orelse return;
     if (focused) {
-        win.cursor_timer.start(cursorTimerCallback, 800, 800) catch unreachable;
         win.wakeup = true;
-    } else {
+        win.cursor_timer.start(cursorTimerCallback, 0, 800) catch unreachable;
+        win.grid.cursor_style = .box;
         win.grid.cursor_visible = false;
+    } else {
+        win.grid.cursor_visible = true;
+        win.grid.cursor_style = .box_hollow;
         win.grid.updateCells(win.terminal) catch unreachable;
         win.cursor_timer.stop() catch unreachable;
     }

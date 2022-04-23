@@ -37,6 +37,12 @@ font_atlas: FontAtlas,
 /// Whether the cursor is visible or not. This is used to control cursor
 /// blinking.
 cursor_visible: bool,
+cursor_style: CursorStyle,
+
+const CursorStyle = enum(u8) {
+    box = 3,
+    box_hollow = 4,
+};
 
 /// The raw structure that maps directly to the buffer sent to the vertex shader.
 const GPUCell = struct {
@@ -211,6 +217,7 @@ pub fn init(alloc: Allocator) !Grid {
         .texture = tex,
         .font_atlas = font,
         .cursor_visible = true,
+        .cursor_style = .box,
     };
 }
 
@@ -295,7 +302,7 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
     // Draw the cursor
     if (self.cursor_visible) {
         self.cells.appendAssumeCapacity(.{
-            .mode = 1,
+            .mode = @enumToInt(self.cursor_style),
             .grid_col = @intCast(u16, term.cursor.x),
             .grid_row = @intCast(u16, term.cursor.y),
             .fg_r = 0,
