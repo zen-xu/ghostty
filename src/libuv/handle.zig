@@ -1,6 +1,7 @@
 const c = @import("c.zig");
 
 const Loop = @import("Loop.zig");
+const errors = @import("error.zig");
 
 /// Returns a struct that has all the shared handle functions for the
 /// given handle type T. The type T must have a field named "handle".
@@ -48,6 +49,16 @@ pub fn Handle(comptime T: type) type {
         pub fn loop(self: T) Loop {
             const handle = @ptrCast(*c.uv_handle_t, self.handle);
             return .{ .loop = c.uv_handle_get_loop(handle) };
+        }
+
+        /// Returns non-zero if the handle is active, zero if it’s inactive.
+        /// Rule of thumb: if a handle of type uv_foo_t has a uv_foo_start()
+        /// function, then it’s active from the moment that function is called.
+        /// Likewise, uv_foo_stop() deactivates the handle again.
+        pub fn isActive(self: T) !bool {
+            const res = c.uv_is_active(@ptrCast(*c.uv_handle_t, self.handle));
+            try errors.convertError(res);
+            return res > 0;
         }
 
         /// Sets handle->data to data.

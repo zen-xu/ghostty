@@ -107,7 +107,7 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
     errdefer timer.deinit(alloc);
     errdefer timer.close(null);
     timer.setData(self);
-    try timer.start(cursorTimerCallback, 800, 800);
+    try timer.start(cursorTimerCallback, 600, 600);
 
     self.* = .{
         .alloc = alloc,
@@ -196,6 +196,13 @@ fn charCallback(window: glfw.Window, codepoint: u21) void {
     // Append this character to the terminal
     win.terminal.appendChar(win.alloc, @intCast(u8, codepoint)) catch unreachable;
 
+    // Whenever a character is typed, we ensure the cursor is visible
+    // and we restart the cursor timer.
+    win.grid.cursor_visible = true;
+    if (win.cursor_timer.isActive() catch false) {
+        _ = win.cursor_timer.again() catch null;
+    }
+
     // Update the cells for drawing
     win.grid.updateCells(win.terminal) catch unreachable;
 }
@@ -222,7 +229,7 @@ fn focusCallback(window: glfw.Window, focused: bool) void {
     const win = window.getUserPointer(Window) orelse return;
     if (focused) {
         win.wakeup = true;
-        win.cursor_timer.start(cursorTimerCallback, 0, 800) catch unreachable;
+        win.cursor_timer.start(cursorTimerCallback, 0, win.cursor_timer.getRepeat()) catch unreachable;
         win.grid.cursor_style = .box;
         win.grid.cursor_visible = false;
     } else {
