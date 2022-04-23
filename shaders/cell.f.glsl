@@ -46,7 +46,7 @@ void main() {
         // rectangle so we take the slowdown for that one.
 
         // Default to no color.
-        gl_FragColor = vec4(0., 0., 0, 0.0);
+        gl_FragColor = vec4(0., 0., 0., 0.);
 
         // We subtracted one from cell size because our coordinates start at 0.
         // So a width of 50 means max pixel of 49.
