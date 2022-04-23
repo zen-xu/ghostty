@@ -17,7 +17,10 @@ pub fn build(b: *std.build.Builder) !void {
     exe.addIncludeDir("src/");
     exe.addCSourceFile("src/gb_math.c", &.{});
     exe.addPackagePath("glfw", "vendor/mach/glfw/src/main.zig");
-    glfw.link(b, exe, .{});
+    glfw.link(b, exe, .{
+        .metal = false,
+        .opengl = true,
+    });
 
     // GLAD
     exe.addIncludeDir("vendor/glad/include/");
