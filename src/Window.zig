@@ -225,6 +225,7 @@ fn focusCallback(window: glfw.Window, focused: bool) void {
         win.wakeup = true;
     } else {
         win.grid.cursor_visible = false;
+        win.grid.updateCells(win.terminal) catch unreachable;
         win.cursor_timer.stop() catch unreachable;
     }
 }
