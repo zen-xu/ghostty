@@ -14,7 +14,7 @@ flat in vec2 screen_cell_pos;
 layout(origin_upper_left) in vec4 gl_FragCoord;
 
 // Must declare this output for some versions of OpenGL.
-layout(location = 0) out vec4 FragColor;
+layout(location = 0) out vec4 out_FragColor;
 
 // Font texture
 uniform sampler2D text;
@@ -31,16 +31,16 @@ const uint MODE_CURSOR_RECT_HOLLOW = 4u;
 void main() {
     switch (mode) {
     case MODE_BG:
-        FragColor = color;
+        out_FragColor = color;
         break;
 
     case MODE_FG:
         float a = texture(text, glyph_tex_coords).r;
-        FragColor = vec4(color.rgb, color.a*a);
+        out_FragColor = vec4(color.rgb, color.a*a);
         break;
 
     case MODE_CURSOR_RECT:
-        FragColor = color;
+        out_FragColor = color;
         break;
 
     case MODE_CURSOR_RECT_HOLLOW:
@@ -49,7 +49,7 @@ void main() {
         // rectangle so we take the slowdown for that one.
 
         // Default to no color.
-        FragColor = vec4(0., 0., 0., 0.);
+        out_FragColor = vec4(0., 0., 0., 0.);
 
         // We subtracted one from cell size because our coordinates start at 0.
         // So a width of 50 means max pixel of 49.
@@ -73,7 +73,7 @@ void main() {
                     abs(cell_frag_coord.x - cell_size_coords.x) < eps ||
                     abs(cell_frag_coord.y) < eps ||
                     abs(cell_frag_coord.y - cell_size_coords.y) < eps) {
-                FragColor = color;
+                out_FragColor = color;
             }
         }
 

@@ -6,6 +6,7 @@
 const Window = @This();
 
 const std = @import("std");
+const builtin = @import("builtin");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 const Grid = @import("Grid.zig");
@@ -55,6 +56,7 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
         .context_version_minor = 3,
         .opengl_profile = .opengl_core_profile,
         .opengl_forward_compat = true,
+        .cocoa_graphics_switching = builtin.os.tag == .macos,
     });
     errdefer window.destroy();
 

@@ -105,7 +105,7 @@ fn threadMain(self: *Embed) void {
             .macos, .dragonfly, .freebsd, .openbsd, .netbsd => {
                 var ts: std.os.timespec = .{
                     .tv_sec = @divTrunc(timeout, 1000),
-                    .tv_nsec = @mod(timeout, 1000) * 1000,
+                    .tv_nsec = @mod(timeout, 1000) * 1000000,
                 };
 
                 var ev: [0]std.os.Kevent = undefined;
