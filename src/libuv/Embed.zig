@@ -108,8 +108,16 @@ fn threadMain(self: *Embed) void {
                     .tv_nsec = @mod(timeout, 1000) * 1000000,
                 };
 
-                var ev: [0]std.os.Kevent = undefined;
-                _ = std.os.kevent(fd, &ev, &ev, &ts) catch |err| blk: {
+                // Important: for kevent to block properly, it needs an
+                // EMPTY changeset and a NON-EMPTY event set.
+                var changes: [0]std.os.Kevent = undefined;
+                var events: [1]std.os.Kevent = undefined;
+                _ = std.os.kevent(
+                    fd,
+                    &changes,
+                    &events,
+                    if (timeout < 0) null else &ts,
+                ) catch |err| blk: {
                     log.err("kevent error: {}", .{err});
                     break :blk 0;
                 };
