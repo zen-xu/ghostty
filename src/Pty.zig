@@ -14,6 +14,7 @@ const c = switch (builtin.os.tag) {
         @cInclude("util.h"); // openpty()
     }),
     else => @cImport({
+        @cInclude("sys/ioctl.h"); // ioctl and constants
         @cInclude("pty.h");
     }),
 };
@@ -26,6 +27,8 @@ const winsize = extern struct {
     ws_xpixel: u16,
     ws_ypixel: u16,
 };
+
+pub extern "c" fn setsid() std.c.pid_t;
 
 /// The file descriptors for the master and slave side of the pty.
 master: fd_t,
@@ -71,6 +74,23 @@ pub fn getSize(self: Pty) !winsize {
 pub fn setSize(self: Pty, size: winsize) !void {
     if (c.ioctl(self.master, c.TIOCSWINSZ, @ptrToInt(&size)) < 0)
         return error.IoctlFailed;
+}
+
+/// This should be called prior to exec in the forked child process
+/// in order to setup the tty properly.
+pub fn childPreExec(self: Pty) !void {
+    // Create a new process group
+    if (setsid() < 0) return error.ProcessGroupFailed;
+
+    // Set controlling terminal
+    if (std.os.linux.ioctl(self.slave, c.TIOCSCTTY, 0) < 0)
+        return error.SetControllingTerminalFailed;
+
+    // Can close master/slave pair now
+    std.os.close(self.slave);
+    std.os.close(self.master);
+
+    // TODO: reset signals
 }
 
 test {

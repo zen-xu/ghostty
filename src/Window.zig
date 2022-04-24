@@ -14,6 +14,7 @@ const glfw = @import("glfw");
 const gl = @import("opengl.zig");
 const libuv = @import("libuv/main.zig");
 const Pty = @import("Pty.zig");
+const Command = @import("Command.zig");
 const Terminal = @import("terminal/Terminal.zig");
 
 const log = std.log.scoped(.window);
@@ -29,6 +30,9 @@ grid: Grid,
 
 /// The underlying pty for this window.
 pty: Pty,
+
+/// The command we're running for our tty.
+command: Command,
 
 /// The terminal emulator internal state. This is the abstract "terminal"
 /// that manages input, grid updating, etc. and is renderer-agnostic. It
@@ -104,6 +108,36 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
     });
     errdefer pty.deinit();
 
+    // Create our child process
+    const path = (try Command.expandPath(alloc, "sh")) orelse
+        return error.CommandNotFound;
+    defer alloc.free(path);
+
+    var env = std.BufMap.init(alloc);
+    defer env.deinit();
+    try env.put("TERM", "dumb");
+
+    var cmd: Command = .{
+        .path = path,
+        .args = &[_][]const u8{path},
+        .env = &env,
+        .pre_exec = (struct {
+            fn callback(c: *Command) void {
+                const p = c.getData(Pty) orelse unreachable;
+                p.childPreExec() catch |err|
+                    log.err("error initializing child: {}", .{err});
+            }
+        }).callback,
+        .data = &pty,
+    };
+    // note: can't set these in the struct initializer because it
+    // sets the handle to "0". Probably a stage1 zig bug.
+    cmd.stdin = std.fs.File{ .handle = pty.slave };
+    cmd.stdout = cmd.stdin;
+    cmd.stderr = cmd.stdin;
+    try cmd.start(alloc);
+    log.debug("started subcommand path={s} pid={}", .{ path, cmd.pid });
+
     // Create our terminal
     var term = Terminal.init(grid.size.columns, grid.size.rows);
     errdefer term.deinit(alloc);
@@ -121,6 +155,7 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
         .window = window,
         .grid = grid,
         .pty = pty,
+        .command = cmd,
         .terminal = term,
         .cursor_timer = timer,
     };
@@ -142,8 +177,14 @@ pub fn destroy(self: *Window) void {
             t.deinit(alloc);
         }
     }).callback);
-    self.terminal.deinit(self.alloc);
+
+    // Deinitialize the pty. This closes the pty handles. This should
+    // cause a close in the our subprocess so just wait for that.
     self.pty.deinit();
+    _ = self.command.wait() catch |err|
+        log.err("error waiting for command to exit: {}", .{err});
+
+    self.terminal.deinit(self.alloc);
     self.grid.deinit();
     self.window.destroy();
     self.alloc.destroy(self);

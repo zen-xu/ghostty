@@ -49,7 +49,11 @@ stderr: ?File = null,
 /// If set, this will be executed /in the child process/ after fork but
 /// before exec. This is useful to setup some state in the child before the
 /// exec process takes over, such as signal handlers, setsid, setuid, etc.
-pre_exec: ?fn () void = null,
+pre_exec: ?fn (*Command) void = null,
+
+/// User data that is sent to the callback. Set with setData and getData
+/// for a more user-friendly API.
+data: ?*anyopaque = null,
 
 /// Process ID is set after start is called.
 pid: ?i32 = null,
@@ -121,7 +125,7 @@ pub fn start(self: *Command, alloc: Allocator) !void {
     if (self.stderr) |f| try setupFd(f.handle, os.STDERR_FILENO);
 
     // If the user requested a pre exec callback, call it now.
-    if (self.pre_exec) |f| f();
+    if (self.pre_exec) |f| f(self);
 
     // Finally, replace our process.
     _ = std.os.execveZ(pathZ, argsZ, envp) catch null;
@@ -138,6 +142,19 @@ fn setupFd(src: File.Handle, target: i32) !void {
 pub fn wait(self: Command) !Exit {
     const res = std.os.waitpid(self.pid.?, 0);
     return Exit.init(res.status);
+}
+
+/// Sets command->data to data.
+pub fn setData(self: *Command, pointer: ?*anyopaque) void {
+    self.data = pointer;
+}
+
+/// Returns command->data.
+pub fn getData(self: Command, comptime DT: type) ?*DT {
+    return if (self.data) |ptr|
+        @ptrCast(?*DT, @alignCast(@alignOf(DT), ptr))
+    else
+        null;
 }
 
 /// Search for "cmd" in the PATH and return the absolute path. This will
