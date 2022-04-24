@@ -6,16 +6,25 @@ const Pty = @This();
 const std = @import("std");
 const builtin = @import("builtin");
 const testing = std.testing;
-const linux = std.os.linux;
 const fd_t = std.os.fd_t;
-const winsize = linux.winsize;
+
 const c = switch (builtin.os.tag) {
     .macos => @cImport({
-        @cInclude("util.h");
+        @cInclude("sys/ioctl.h"); // ioctl and constants
+        @cInclude("util.h"); // openpty()
     }),
     else => @cImport({
         @cInclude("pty.h");
     }),
+};
+
+/// Redeclare this winsize struct so we can just use a Zig struct. This
+/// layout should be correct on all tested platforms.
+const winsize = extern struct {
+    ws_row: u16,
+    ws_col: u16,
+    ws_xpixel: u16,
+    ws_ypixel: u16,
 };
 
 /// The file descriptors for the master and slave side of the pty.
@@ -52,7 +61,7 @@ pub fn deinit(self: *Pty) void {
 /// Return the size of the pty.
 pub fn getSize(self: Pty) !winsize {
     var ws: winsize = undefined;
-    if (linux.ioctl(self.master, linux.T.IOCGWINSZ, @ptrToInt(&ws)) < 0)
+    if (c.ioctl(self.master, c.TIOCGWINSZ, @ptrToInt(&ws)) < 0)
         return error.IoctlFailed;
 
     return ws;
@@ -60,7 +69,7 @@ pub fn getSize(self: Pty) !winsize {
 
 /// Set the size of the pty.
 pub fn setSize(self: Pty, size: winsize) !void {
-    if (linux.ioctl(self.master, linux.T.IOCSWINSZ, @ptrToInt(&size)) < 0)
+    if (c.ioctl(self.master, c.TIOCSWINSZ, @ptrToInt(&size)) < 0)
         return error.IoctlFailed;
 }
 
