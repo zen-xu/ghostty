@@ -57,6 +57,11 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
         .opengl_profile = .opengl_core_profile,
         .opengl_forward_compat = true,
         .cocoa_graphics_switching = builtin.os.tag == .macos,
+
+        // We need to disable this for now since this causes all sorts
+        // of artifacts and issues to debug. This probably SHOULD be re-enable
+        // at some point but only when we're ready to debug.
+        .cocoa_retina_framebuffer = false,
     });
     errdefer window.destroy();
 
