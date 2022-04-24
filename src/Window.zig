@@ -195,6 +195,10 @@ fn sizeCallback(window: glfw.Window, width: i32, height: i32) void {
     // Update our viewport for this context to be the entire window
     gl.viewport(0, 0, width, height) catch |err|
         log.err("error updating OpenGL viewport err={}", .{err});
+
+    // Draw
+    win.run() catch |err|
+        log.err("error redrawing window during resize err={}", .{err});
 }
 
 fn charCallback(window: glfw.Window, codepoint: u21) void {
