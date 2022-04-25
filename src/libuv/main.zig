@@ -1,5 +1,6 @@
 pub const Loop = @import("Loop.zig");
 pub const Async = @import("Async.zig");
+pub const Pipe = @import("Pipe.zig");
 pub const Timer = @import("Timer.zig");
 pub const Tty = @import("Tty.zig");
 pub const Sem = @import("Sem.zig");
@@ -13,6 +14,7 @@ test {
 
     _ = Loop;
     _ = Async;
+    _ = Pipe;
     _ = Timer;
     _ = Tty;
     _ = Sem;
