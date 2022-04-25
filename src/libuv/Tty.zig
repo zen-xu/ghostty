@@ -9,11 +9,13 @@ const c = @import("c.zig");
 const errors = @import("error.zig");
 const Loop = @import("Loop.zig");
 const Handle = @import("handle.zig").Handle;
+const Stream = @import("stream.zig").Stream;
 const Pty = @import("../Pty.zig");
 
 handle: *c.uv_tty_t,
 
 pub usingnamespace Handle(Tty);
+pub usingnamespace Stream(Tty);
 
 pub fn init(alloc: Allocator, loop: Loop, fd: fd_t) !Tty {
     var tty = try alloc.create(c.uv_tty_t);
@@ -40,6 +42,9 @@ test "Tty" {
     defer loop.deinit(testing.allocator);
     var tty = try init(testing.allocator, loop, pty.slave);
     defer tty.deinit(testing.allocator);
+
+    try testing.expect(try tty.isReadable());
+    try testing.expect(try tty.isWritable());
 
     tty.close(null);
     _ = try loop.run(.default);
