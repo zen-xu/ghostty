@@ -295,7 +295,7 @@ test "Command: pre exec" {
         .path = "/usr/bin/env",
         .args = &.{ "/usr/bin/env", "--version" },
         .pre_exec = (struct {
-            fn do() void {
+            fn do(_: *Command) void {
                 // This runs in the child, so we can exit and it won't
                 // kill the test runner.
                 os.exit(42);

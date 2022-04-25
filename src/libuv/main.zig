@@ -1,6 +1,7 @@
 pub const Loop = @import("Loop.zig");
 pub const Async = @import("Async.zig");
 pub const Timer = @import("Timer.zig");
+pub const Tty = @import("Tty.zig");
 pub const Sem = @import("Sem.zig");
 pub const Thread = @import("Thread.zig");
 pub const Error = @import("error.zig").Error;
@@ -13,6 +14,7 @@ test {
     _ = Loop;
     _ = Async;
     _ = Timer;
+    _ = Tty;
     _ = Sem;
     _ = Thread;
     _ = Error;
