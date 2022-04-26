@@ -142,7 +142,11 @@ pub fn Stream(comptime T: type) type {
 /// behaviour. It is safe to reuse the uv_write_t object only after the
 /// callback passed to uv_write is fired.
 pub const WriteReq = struct {
-    req: *c.uv_write_t,
+    /// This is the underlying type that WriteReq wraps. This is exposed
+    /// so that you can pre-allocate the type and wrap it in a WrapReq.
+    pub const T = c.uv_write_t;
+
+    req: *T,
 
     pub fn init(alloc: Allocator) !WriteReq {
         var req = try alloc.create(c.uv_write_t);
@@ -157,12 +161,12 @@ pub const WriteReq = struct {
 
     /// Pointer to the stream where this write request is running.
     /// T should be a high-level handle type such as "Pipe".
-    pub fn handle(self: WriteReq, comptime T: type) ?T {
-        const tInfo = @typeInfo(T).Struct;
+    pub fn handle(self: WriteReq, comptime HT: type) ?HT {
+        const tInfo = @typeInfo(HT).Struct;
         const HandleType = tInfo.fields[0].field_type;
 
         return if (self.req.handle) |ptr|
-            return T{ .handle = @ptrCast(HandleType, ptr) }
+            return HT{ .handle = @ptrCast(HandleType, ptr) }
         else
             null;
     }
