@@ -10,7 +10,9 @@ const c = @import("c.zig");
 const errors = @import("error.zig");
 const Loop = @import("Loop.zig");
 const Handle = @import("handle.zig").Handle;
-const Stream = @import("stream.zig").Stream;
+const stream = @import("stream.zig");
+const Stream = stream.Stream;
+const WriteReq = stream.WriteReq;
 
 handle: *c.uv_pipe_t,
 
@@ -33,17 +35,23 @@ pub const Flags = packed struct {
     }
 };
 
+/// Pair is a pair of ends to a single pipe.
+pub const Pair = struct {
+    read: c.uv_file,
+    write: c.uv_file,
+};
+
 /// Create a pair of connected pipe handles. Data may be written to fds[1] and
 /// read from fds[0]. The resulting handles can be passed to uv_pipe_open,
 /// used with uv_spawn, or for any other purpose.
-pub fn pipe(read_flags: Flags, write_flags: Flags) ![2]c.uv_file {
+pub fn pipe(read_flags: Flags, write_flags: Flags) !Pair {
     var res: [2]c.uv_file = undefined;
     try errors.convertError(c.uv_pipe(
         &res,
         read_flags.toInt(c_int),
         write_flags.toInt(c_int),
     ));
-    return res;
+    return Pair{ .read = res[0], .write = res[1] };
 }
 
 pub fn init(alloc: Allocator, loop: Loop, ipc: bool) !Pipe {
@@ -68,18 +76,61 @@ test {
 }
 
 test "Pipe" {
-    const pipes = try pipe(.{ .nonblock = true }, .{ .nonblock = true });
-    defer std.os.close(pipes[1]);
+    const pair = try pipe(.{ .nonblock = true }, .{ .nonblock = true });
 
     var loop = try Loop.init(testing.allocator);
     defer loop.deinit(testing.allocator);
-    var h = try init(testing.allocator, loop, false);
-    defer h.deinit(testing.allocator);
 
-    try h.open(pipes[0]);
-    try testing.expect(try h.isReadable());
-    try testing.expect(!try h.isWritable());
+    // Read side
+    var reader = try init(testing.allocator, loop, false);
+    defer reader.deinit(testing.allocator);
 
-    h.close(null);
+    try reader.open(pair.read);
+    try testing.expect(try reader.isReadable());
+    try testing.expect(!try reader.isWritable());
+
+    // Write side
+    var writer = try init(testing.allocator, loop, false);
+    defer writer.deinit(testing.allocator);
+
+    try writer.open(pair.write);
+    try testing.expect(!try writer.isReadable());
+    try testing.expect(try writer.isWritable());
+
+    // Set our data that we'll use to assert
+    var data: TestData = .{};
+    writer.setData(&data);
+
+    // Write
+    var writeReq = try WriteReq.init(testing.allocator);
+    defer writeReq.deinit(testing.allocator);
+
+    try writer.write(
+        writeReq,
+        &[_][]const u8{
+            "hello",
+        },
+        callback,
+    );
+
+    // Run write and verify success
+    _ = try loop.run(.once);
+    try testing.expectEqual(@as(u8, 1), data.count);
+    try testing.expectEqual(@as(i32, 0), data.status);
+
+    // End
+    reader.close(null);
+    writer.close(null);
     _ = try loop.run(.default);
+}
+
+const TestData = struct {
+    count: u8 = 0,
+    status: i32 = 0,
+};
+
+fn callback(req: *WriteReq, status: i32) void {
+    var data = req.handle(Pipe).?.getData(TestData).?;
+    data.count += 1;
+    data.status = status;
 }

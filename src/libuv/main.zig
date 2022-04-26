@@ -10,6 +10,7 @@ pub const Error = @import("error.zig").Error;
 pub const Embed = @import("Embed.zig");
 
 test {
+    _ = @import("stream.zig");
     _ = @import("tests.zig");
 
     _ = Loop;
