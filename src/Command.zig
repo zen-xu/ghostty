@@ -132,10 +132,41 @@ pub fn start(self: *Command, alloc: Allocator) !void {
 }
 
 fn setupFd(src: File.Handle, target: i32) !void {
-    // We use dup3 so that we can clear CLO_ON_EXEC. We do NOT want this
-    // file descriptor to be closed on exec since we're exactly exec-ing after
-    // this.
-    if (os.linux.dup3(src, target, 0) < 0) return error.Dup3Failed;
+    switch (builtin.os.tag) {
+        .linux => {
+            // We use dup3 so that we can clear CLO_ON_EXEC. We do NOT want this
+            // file descriptor to be closed on exec since we're exactly exec-ing after
+            // this.
+            while (true) {
+                const rc = os.linux.dup3(src, target, 0);
+                switch (os.errno(rc)) {
+                    .SUCCESS => break,
+                    .INTR => continue,
+                    .AGAIN, .ACCES => return error.Locked,
+                    .BADF => unreachable,
+                    .BUSY => return error.FileBusy,
+                    .INVAL => unreachable, // invalid parameters
+                    .PERM => return error.PermissionDenied,
+                    .MFILE => return error.ProcessFdQuotaExceeded,
+                    .NOTDIR => unreachable, // invalid parameter
+                    .DEADLK => return error.DeadLock,
+                    .NOLCK => return error.LockedRegionLimitExceeded,
+                    else => |err| return os.unexpectedErrno(err),
+                }
+            }
+        },
+        .macos => {
+            // Mac doesn't support dup3 so we use dup2. We purposely clear
+            // CLO_ON_EXEC for this fd.
+            const flags = try os.fcntl(src, os.F.GETFD, 0);
+            if (flags & os.FD_CLOEXEC != 0) {
+                try os.fcntl(src, os.F.SETFD, flags & ~@as(u32, os.FD_CLOEXEC));
+            }
+
+            try os.dup2(src, target);
+        },
+        else => @compileError("unsupported platform"),
+    }
 }
 
 /// Wait for the command to exit and return information about how it exited.
