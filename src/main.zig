@@ -27,6 +27,7 @@ test {
     _ = @import("TempDir.zig");
     _ = @import("terminal/Terminal.zig");
 
-    // TEMP
+    // Libraries
+    _ = @import("segmented_pool.zig");
     _ = @import("libuv/main.zig");
 }
