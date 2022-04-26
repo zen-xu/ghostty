@@ -62,6 +62,65 @@ pub fn Stream(comptime T: type) type {
                 Wrapper.callback,
             ));
         }
+
+        /// Read data from an incoming stream. The uv_read_cb callback will
+        /// be made several times until there is no more data to read or
+        /// uv_read_stop() is called.
+        pub fn readStart(
+            self: T,
+            comptime alloc_cb: fn (self: *T, size: usize) ?[]u8,
+            comptime read_cb: fn (self: *T, nread: isize, buf: []const u8) void,
+        ) !void {
+            const Wrapper = struct {
+                fn alloc(
+                    cbhandle: [*c]c.uv_handle_t,
+                    cbsize: usize,
+                    buf: [*c]c.uv_buf_t,
+                ) callconv(.C) void {
+                    var param: T = .{ .handle = @ptrCast(HandleType, cbhandle) };
+                    const result = @call(.{ .modifier = .always_inline }, alloc_cb, .{
+                        &param,
+                        cbsize,
+                    });
+
+                    if (result) |slice| {
+                        buf.* = @bitCast(c.uv_buf_t, slice);
+                    } else {
+                        buf.*.base = null;
+                        buf.*.len = 0;
+                    }
+                }
+
+                fn read(
+                    cbhandle: [*c]c.uv_stream_t,
+                    cbnread: isize,
+                    cbbuf: [*c]const c.uv_buf_t,
+                ) callconv(.C) void {
+                    var param: T = .{ .handle = @ptrCast(HandleType, cbhandle) };
+                    @call(.{ .modifier = .always_inline }, read_cb, .{
+                        &param,
+                        cbnread,
+                        @bitCast([]const u8, cbbuf.*),
+                    });
+                }
+            };
+
+            try errors.convertError(c.uv_read_start(
+                @ptrCast(*c.uv_stream_t, self.handle),
+                Wrapper.alloc,
+                Wrapper.read,
+            ));
+        }
+
+        /// Stop reading data from the stream. The uv_read_cb callback will
+        /// no longer be called.
+        ///
+        /// This function is idempotent and may be safely called on a stopped
+        /// stream.
+        pub fn readStop(self: T) void {
+            // Docs say we can ignore this result.
+            _ = c.uv_read_stop(@ptrCast(*c.uv_stream_t, self.handle));
+        }
     };
 }
 

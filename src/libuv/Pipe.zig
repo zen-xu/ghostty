@@ -99,6 +99,7 @@ test "Pipe" {
 
     // Set our data that we'll use to assert
     var data: TestData = .{};
+    defer data.deinit();
     writer.setData(&data);
 
     // Write
@@ -110,7 +111,7 @@ test "Pipe" {
         &[_][]const u8{
             "hello",
         },
-        callback,
+        TestData.write,
     );
 
     // Run write and verify success
@@ -118,19 +119,49 @@ test "Pipe" {
     try testing.expectEqual(@as(u8, 1), data.count);
     try testing.expectEqual(@as(i32, 0), data.status);
 
+    // Read
+    try reader.readStart(TestData.alloc, TestData.read);
+    reader.setData(&data);
+    _ = try loop.run(.once);
+
+    // Check our data
+    try testing.expectEqual(@as(usize, 5), data.data.items.len);
+    try testing.expectEqualStrings("hello", data.data.items);
+
     // End
+    reader.readStop();
     reader.close(null);
     writer.close(null);
     _ = try loop.run(.default);
 }
 
+/// Logic for testing read/write of pipes.
 const TestData = struct {
     count: u8 = 0,
     status: i32 = 0,
-};
+    data: std.ArrayListUnmanaged(u8) = .{},
 
-fn callback(req: *WriteReq, status: i32) void {
-    var data = req.handle(Pipe).?.getData(TestData).?;
-    data.count += 1;
-    data.status = status;
-}
+    fn deinit(self: *TestData) void {
+        self.data.deinit(testing.allocator);
+        self.* = undefined;
+    }
+
+    fn write(req: *WriteReq, status: i32) void {
+        var data = req.handle(Pipe).?.getData(TestData).?;
+        data.count += 1;
+        data.status = status;
+    }
+
+    fn alloc(_: *Pipe, size: usize) ?[]u8 {
+        return testing.allocator.alloc(u8, size) catch null;
+    }
+
+    fn read(h: *Pipe, n: isize, buf: []const u8) void {
+        var data = h.getData(TestData).?;
+        data.data.appendSlice(
+            testing.allocator,
+            buf[0..@intCast(usize, n)],
+        ) catch unreachable;
+        testing.allocator.free(buf);
+    }
+};
