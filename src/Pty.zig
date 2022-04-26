@@ -57,7 +57,7 @@ pub fn open(size: winsize) !Pty {
 }
 
 pub fn deinit(self: *Pty) void {
-    std.os.close(self.master);
+    _ = std.os.system.close(self.master);
     self.* = undefined;
 }
 

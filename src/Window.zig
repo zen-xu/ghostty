@@ -43,6 +43,9 @@ terminal: Terminal,
 /// Timer that blinks the cursor.
 cursor_timer: libuv.Timer,
 
+/// The reader stream for the pty.
+pty_reader: libuv.Tty,
+
 /// Set this to true whenver an event occurs that we may want to wake up
 /// the event loop. Only set this from the main thread.
 wakeup: bool = false,
@@ -138,6 +141,11 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
     try cmd.start(alloc);
     log.debug("started subcommand path={s} pid={}", .{ path, cmd.pid });
 
+    // Read data
+    var reader = try libuv.Tty.init(alloc, loop, pty.master);
+    errdefer reader.deinit(alloc);
+    try reader.readStart(ttyReadAlloc, ttyRead);
+
     // Create our terminal
     var term = Terminal.init(grid.size.columns, grid.size.rows);
     errdefer term.deinit(alloc);
@@ -158,6 +166,7 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
         .command = cmd,
         .terminal = term,
         .cursor_timer = timer,
+        .pty_reader = reader,
     };
 
     // Setup our callbacks and user data
@@ -173,6 +182,14 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
 pub fn destroy(self: *Window) void {
     self.cursor_timer.close((struct {
         fn callback(t: *libuv.Timer) void {
+            const alloc = t.loop().getData(Allocator).?.*;
+            t.deinit(alloc);
+        }
+    }).callback);
+
+    self.pty_reader.readStop();
+    self.pty_reader.close((struct {
+        fn callback(t: *libuv.Tty) void {
             const alloc = t.loop().getData(Allocator).?.*;
             t.deinit(alloc);
         }
@@ -296,4 +313,17 @@ fn cursorTimerCallback(t: *libuv.Timer) void {
     const win = t.getData(Window) orelse return;
     win.grid.cursor_visible = !win.grid.cursor_visible;
     win.grid.updateCells(win.terminal) catch unreachable;
+}
+
+fn ttyReadAlloc(t: *libuv.Tty, size: usize) ?[]u8 {
+    const alloc = t.loop().getData(Allocator).?.*;
+    return alloc.alloc(u8, size) catch null;
+}
+
+fn ttyRead(t: *libuv.Tty, n: isize, buf: []const u8) void {
+    const alloc = t.loop().getData(Allocator).?.*;
+    defer alloc.free(buf);
+
+    // TODO: actually handle this
+    log.info("DATA: {s}", .{buf[0..@intCast(usize, n)]});
 }
