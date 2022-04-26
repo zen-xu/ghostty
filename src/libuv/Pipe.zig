@@ -127,6 +127,13 @@ test "Pipe" {
     // Check our data
     try testing.expectEqual(@as(usize, 5), data.data.items.len);
     try testing.expectEqualStrings("hello", data.data.items);
+    data.data.clearRetainingCapacity();
+
+    // Try writing directly
+    _ = try writer.tryWrite(&[_][]const u8{"world"});
+    _ = try loop.run(.once);
+    try testing.expectEqual(@as(usize, 5), data.data.items.len);
+    try testing.expectEqualStrings("world", data.data.items);
 
     // End
     reader.readStop();

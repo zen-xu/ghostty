@@ -63,6 +63,18 @@ pub fn Stream(comptime T: type) type {
             ));
         }
 
+        /// Same as uv_write(), but won’t queue a write request if it can’t
+        /// be completed immediately.
+        pub fn tryWrite(self: T, bufs: []const []const u8) !usize {
+            const res = c.uv_try_write(
+                @ptrCast(*c.uv_stream_t, self.handle),
+                @ptrCast([*c]const c.uv_buf_t, bufs.ptr),
+                @intCast(c_uint, bufs.len),
+            );
+            try errors.convertError(res);
+            return @intCast(usize, res);
+        }
+
         /// Read data from an incoming stream. The uv_read_cb callback will
         /// be made several times until there is no more data to read or
         /// uv_read_stop() is called.
