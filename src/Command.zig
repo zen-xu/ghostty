@@ -8,6 +8,12 @@
 //! so if we want to replatform onto std.ChildProcess I'd love to do that.
 //! This was just the fastest way to get something built.
 //!
+//! Issues with std.ChildProcess:
+//!
+//!   * No pre_exec callback for logic after fork but before exec.
+//!   * posix_spawn is used for Mac, but doesn't support the necessary
+//!     features for tty setup.
+//!
 //! TODO:
 //!
 //!   * Windows
