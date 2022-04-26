@@ -83,7 +83,7 @@ pub fn childPreExec(self: Pty) !void {
     if (setsid() < 0) return error.ProcessGroupFailed;
 
     // Set controlling terminal
-    if (std.os.linux.ioctl(self.slave, c.TIOCSCTTY, 0) < 0)
+    if (std.c.ioctl(self.slave, c.TIOCSCTTY, @as(c_ulong, 0)) < 0)
         return error.SetControllingTerminalFailed;
 
     // Can close master/slave pair now
