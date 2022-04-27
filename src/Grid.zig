@@ -261,6 +261,7 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
     // we have plus a full width. This is very likely too much but its
     // the probably close enough while guaranteeing no more allocations.
     self.cells.clearRetainingCapacity();
+    if (term.screen.items.len == 0) return;
     try self.cells.ensureTotalCapacity(
         self.alloc,
         term.screen.items.len * term.cols,

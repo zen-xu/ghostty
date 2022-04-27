@@ -7,10 +7,11 @@ pub const Timer = @import("Timer.zig");
 pub const Tty = @import("Tty.zig");
 pub const Sem = @import("Sem.zig");
 pub const Thread = @import("Thread.zig");
-pub const Error = @import("error.zig").Error;
 pub const WriteReq = stream.WriteReq;
 
 pub const Embed = @import("Embed.zig");
+
+pub usingnamespace @import("error.zig");
 
 test {
     _ = @import("tests.zig");
@@ -23,7 +24,6 @@ test {
     _ = Tty;
     _ = Sem;
     _ = Thread;
-    _ = Error;
 
     _ = Embed;
 }

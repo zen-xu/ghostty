@@ -16,8 +16,13 @@ const libuv = @import("libuv/main.zig");
 const Pty = @import("Pty.zig");
 const Command = @import("Command.zig");
 const Terminal = @import("terminal/Terminal.zig");
+const SegmentedPool = @import("segmented_pool.zig").SegmentedPool;
 
 const log = std.log.scoped(.window);
+
+// The preallocation size for the write request pool. This should be big
+// enough to satisfy most write requests. It must be a power of 2.
+const WRITE_REQ_PREALLOC = std.math.pow(usize, 2, 5);
 
 /// Allocator
 alloc: Allocator,
@@ -43,8 +48,16 @@ terminal: Terminal,
 /// Timer that blinks the cursor.
 cursor_timer: libuv.Timer,
 
-/// The reader stream for the pty.
-pty_reader: libuv.Tty,
+/// The reader/writer stream for the pty.
+pty_stream: libuv.Tty,
+
+/// This is the pool of available (unused) write requests. If you grab
+/// one from the pool, you must put it back when you're done!
+write_req_pool: SegmentedPool(libuv.WriteReq.T, WRITE_REQ_PREALLOC) = .{},
+
+/// The pool of available buffers for writing to the pty.
+/// TODO: [1]u8 is probably not right.
+buf_pool: SegmentedPool([1]u8, WRITE_REQ_PREALLOC) = .{},
 
 /// Set this to true whenver an event occurs that we may want to wake up
 /// the event loop. Only set this from the main thread.
@@ -142,14 +155,14 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
     log.debug("started subcommand path={s} pid={}", .{ path, cmd.pid });
 
     // Read data
-    var reader = try libuv.Tty.init(alloc, loop, pty.master);
-    errdefer reader.deinit(alloc);
-    try reader.readStart(ttyReadAlloc, ttyRead);
+    var stream = try libuv.Tty.init(alloc, loop, pty.master);
+    errdefer stream.deinit(alloc);
+    stream.setData(self);
+    try stream.readStart(ttyReadAlloc, ttyRead);
 
     // Create our terminal
     var term = Terminal.init(grid.size.columns, grid.size.rows);
     errdefer term.deinit(alloc);
-    try term.append(alloc, "> ");
 
     // Setup a timer for blinking the cursor
     var timer = try libuv.Timer.init(alloc, loop);
@@ -166,7 +179,7 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
         .command = cmd,
         .terminal = term,
         .cursor_timer = timer,
-        .pty_reader = reader,
+        .pty_stream = stream,
     };
 
     // Setup our callbacks and user data
@@ -180,21 +193,6 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
 }
 
 pub fn destroy(self: *Window) void {
-    self.cursor_timer.close((struct {
-        fn callback(t: *libuv.Timer) void {
-            const alloc = t.loop().getData(Allocator).?.*;
-            t.deinit(alloc);
-        }
-    }).callback);
-
-    self.pty_reader.readStop();
-    self.pty_reader.close((struct {
-        fn callback(t: *libuv.Tty) void {
-            const alloc = t.loop().getData(Allocator).?.*;
-            t.deinit(alloc);
-        }
-    }).callback);
-
     // Deinitialize the pty. This closes the pty handles. This should
     // cause a close in the our subprocess so just wait for that.
     self.pty.deinit();
@@ -204,7 +202,28 @@ pub fn destroy(self: *Window) void {
     self.terminal.deinit(self.alloc);
     self.grid.deinit();
     self.window.destroy();
-    self.alloc.destroy(self);
+
+    self.cursor_timer.close((struct {
+        fn callback(t: *libuv.Timer) void {
+            const alloc = t.loop().getData(Allocator).?.*;
+            t.deinit(alloc);
+        }
+    }).callback);
+
+    // We have to dealloc our window in the close callback because
+    // we can't free some of the memory associated with the window
+    // until the stream is closed.
+    self.pty_stream.readStop();
+    self.pty_stream.close((struct {
+        fn callback(t: *libuv.Tty) void {
+            const win = t.getData(Window).?;
+            const alloc = win.alloc;
+            t.deinit(alloc);
+            win.write_req_pool.deinit(alloc);
+            win.buf_pool.deinit(alloc);
+            win.alloc.destroy(win);
+        }
+    }).callback);
 }
 
 pub fn shouldClose(self: Window) bool {
@@ -262,18 +281,15 @@ fn sizeCallback(window: glfw.Window, width: i32, height: i32) void {
 fn charCallback(window: glfw.Window, codepoint: u21) void {
     const win = window.getUserPointer(Window) orelse return;
 
-    // Append this character to the terminal
-    win.terminal.appendChar(win.alloc, @intCast(u8, codepoint)) catch unreachable;
-
-    // Whenever a character is typed, we ensure the cursor is visible
-    // and we restart the cursor timer.
-    win.grid.cursor_visible = true;
-    if (win.cursor_timer.isActive() catch false) {
-        _ = win.cursor_timer.again() catch null;
-    }
-
-    // Update the cells for drawing
-    win.grid.updateCells(win.terminal) catch unreachable;
+    // Write the character to the pty
+    const req = win.write_req_pool.get() catch unreachable;
+    const buf = win.buf_pool.get() catch unreachable;
+    buf[0] = @intCast(u8, codepoint);
+    win.pty_stream.write(
+        .{ .req = req },
+        &[1][]u8{buf[0..1]},
+        ttyWrite,
+    ) catch unreachable;
 }
 
 fn keyCallback(
@@ -321,9 +337,34 @@ fn ttyReadAlloc(t: *libuv.Tty, size: usize) ?[]u8 {
 }
 
 fn ttyRead(t: *libuv.Tty, n: isize, buf: []const u8) void {
-    const alloc = t.loop().getData(Allocator).?.*;
-    defer alloc.free(buf);
+    const win = t.getData(Window).?;
+    defer win.alloc.free(buf);
 
-    // TODO: actually handle this
-    log.info("DATA: {s}", .{buf[0..@intCast(usize, n)]});
+    // log.info("DATA: {s}", .{buf[0..@intCast(usize, n)]});
+
+    win.terminal.append(win.alloc, buf[0..@intCast(usize, n)]) catch |err|
+        log.err("error writing terminal data: {}", .{err});
+    win.grid.updateCells(win.terminal) catch unreachable;
+
+    // Whenever a character is typed, we ensure the cursor is visible
+    // and we restart the cursor timer.
+    win.grid.cursor_visible = true;
+    if (win.cursor_timer.isActive() catch false) {
+        _ = win.cursor_timer.again() catch null;
+    }
+
+    // Update the cells for drawing
+    win.grid.updateCells(win.terminal) catch unreachable;
+}
+
+fn ttyWrite(req: *libuv.WriteReq, status: i32) void {
+    const tty = req.handle(libuv.Tty).?;
+    const win = tty.getData(Window).?;
+    win.write_req_pool.put();
+    win.buf_pool.put();
+
+    libuv.convertError(status) catch |err|
+        log.err("write error: {}", .{err});
+
+    //log.info("WROTE: {d}", .{status});
 }
