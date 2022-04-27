@@ -57,7 +57,7 @@ write_req_pool: SegmentedPool(libuv.WriteReq.T, WRITE_REQ_PREALLOC) = .{},
 
 /// The pool of available buffers for writing to the pty.
 /// TODO: [1]u8 is probably not right.
-buf_pool: SegmentedPool([1]u8, WRITE_REQ_PREALLOC) = .{},
+write_buf_pool: SegmentedPool([1]u8, WRITE_REQ_PREALLOC) = .{},
 
 /// Set this to true whenver an event occurs that we may want to wake up
 /// the event loop. Only set this from the main thread.
@@ -220,7 +220,7 @@ pub fn destroy(self: *Window) void {
             const alloc = win.alloc;
             t.deinit(alloc);
             win.write_req_pool.deinit(alloc);
-            win.buf_pool.deinit(alloc);
+            win.write_buf_pool.deinit(alloc);
             win.alloc.destroy(win);
         }
     }).callback);
@@ -283,7 +283,7 @@ fn charCallback(window: glfw.Window, codepoint: u21) void {
 
     // Write the character to the pty
     const req = win.write_req_pool.get() catch unreachable;
-    const buf = win.buf_pool.get() catch unreachable;
+    const buf = win.write_buf_pool.get() catch unreachable;
     buf[0] = @intCast(u8, codepoint);
     win.pty_stream.write(
         .{ .req = req },
@@ -312,7 +312,7 @@ fn keyCallback(
 
         const win = window.getUserPointer(Window) orelse return;
         const req = win.write_req_pool.get() catch unreachable;
-        const buf = win.buf_pool.get() catch unreachable;
+        const buf = win.write_buf_pool.get() catch unreachable;
         buf[0] = c;
         win.pty_stream.write(
             .{ .req = req },
@@ -373,7 +373,7 @@ fn ttyWrite(req: *libuv.WriteReq, status: i32) void {
     const tty = req.handle(libuv.Tty).?;
     const win = tty.getData(Window).?;
     win.write_req_pool.put();
-    win.buf_pool.put();
+    win.write_buf_pool.put();
 
     libuv.convertError(status) catch |err|
         log.err("write error: {}", .{err});
