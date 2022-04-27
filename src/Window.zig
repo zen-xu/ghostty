@@ -302,12 +302,18 @@ fn keyCallback(
     _ = scancode;
     _ = mods;
 
-    //log.info("KEY {} {}", .{ key, action });
-    if (key == .enter and (action == .press or action == .repeat)) {
+    //log.info("KEY {} {} {} {}", .{ key, scancode, mods, action });
+    if (action == .press or action == .repeat) {
+        const c: u8 = switch (key) {
+            .backspace => 0x08,
+            .enter => '\n',
+            else => return,
+        };
+
         const win = window.getUserPointer(Window) orelse return;
         const req = win.write_req_pool.get() catch unreachable;
         const buf = win.buf_pool.get() catch unreachable;
-        buf[0] = @intCast(u8, '\n');
+        buf[0] = c;
         win.pty_stream.write(
             .{ .req = req },
             &[1][]u8{buf[0..1]},
@@ -346,7 +352,7 @@ fn ttyRead(t: *libuv.Tty, n: isize, buf: []const u8) void {
     const win = t.getData(Window).?;
     defer win.alloc.free(buf);
 
-    // log.info("DATA: {s}", .{buf[0..@intCast(usize, n)]});
+    // log.info("DATA: {any}", .{buf[0..@intCast(usize, n)]});
 
     win.terminal.append(win.alloc, buf[0..@intCast(usize, n)]) catch |err|
         log.err("error writing terminal data: {}", .{err});
