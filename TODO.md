@@ -7,3 +7,7 @@ Performance:
 Correctness:
 
 * `exit` in the shell should close the window
+
+Visual:
+
+* bell

@@ -4,10 +4,13 @@
 const Terminal = @This();
 
 const std = @import("std");
+const builtin = @import("builtin");
 const testing = std.testing;
 const Allocator = std.mem.Allocator;
 const ansi = @import("ansi.zig");
 const Parser = @import("Parser.zig");
+
+const log = std.log.scoped(.terminal);
 
 /// Screen is the current screen state.
 screen: Screen,
@@ -105,6 +108,7 @@ pub fn append(self: *Terminal, alloc: Allocator, str: []const u8) !void {
 ///
 /// This may allocate if necessary to store the character in the grid.
 pub fn appendChar(self: *Terminal, alloc: Allocator, c: u8) !void {
+    log.debug("char: {}", .{c});
     const actions = self.parser.next(c);
     for (actions) |action_opt| {
         switch (action_opt orelse continue) {
@@ -127,10 +131,17 @@ fn print(self: *Terminal, alloc: Allocator, c: u8) !void {
 
 fn execute(self: *Terminal, c: u8) !void {
     switch (@intToEnum(ansi.C0, c)) {
+        .BEL => self.bell(),
         .BS => self.backspace(),
         .LF => self.linefeed(),
         .CR => self.carriage_return(),
     }
+}
+
+pub fn bell(self: *Terminal) void {
+    // TODO: bell
+    _ = self;
+    log.info("bell", .{});
 }
 
 /// Backspace moves the cursor back a column (but not less than 0).
