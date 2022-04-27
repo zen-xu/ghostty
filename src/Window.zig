@@ -305,8 +305,14 @@ fn keyCallback(
     //log.info("KEY {} {}", .{ key, action });
     if (key == .enter and (action == .press or action == .repeat)) {
         const win = window.getUserPointer(Window) orelse return;
-        win.terminal.append(win.alloc, "\r\n> ") catch unreachable;
-        win.grid.updateCells(win.terminal) catch unreachable;
+        const req = win.write_req_pool.get() catch unreachable;
+        const buf = win.buf_pool.get() catch unreachable;
+        buf[0] = @intCast(u8, '\n');
+        win.pty_stream.write(
+            .{ .req = req },
+            &[1][]u8{buf[0..1]},
+            ttyWrite,
+        ) catch unreachable;
     }
 }
 
