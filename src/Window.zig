@@ -354,9 +354,20 @@ fn ttyRead(t: *libuv.Tty, n: isize, buf: []const u8) void {
 
     // log.info("DATA: {any}", .{buf[0..@intCast(usize, n)]});
 
+    // First check for errors in the case n is less than 0.
+    libuv.convertError(@intCast(i32, n)) catch |err| {
+        switch (err) {
+            // ignore EOF because it should end the process.
+            libuv.Error.EOF => {},
+            else => log.err("read error: {}", .{err}),
+        }
+
+        return;
+    };
+
+    // Add this character to the terminal buffer.
     win.terminal.append(win.alloc, buf[0..@intCast(usize, n)]) catch |err|
         log.err("error writing terminal data: {}", .{err});
-    win.grid.updateCells(win.terminal) catch unreachable;
 
     // Whenever a character is typed, we ensure the cursor is visible
     // and we restart the cursor timer.
