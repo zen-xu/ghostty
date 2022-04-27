@@ -166,7 +166,7 @@ fn setupFd(src: File.Handle, target: i32) !void {
             // CLO_ON_EXEC for this fd.
             const flags = try os.fcntl(src, os.F.GETFD, 0);
             if (flags & os.FD_CLOEXEC != 0) {
-                try os.fcntl(src, os.F.SETFD, flags & ~@as(u32, os.FD_CLOEXEC));
+                _ = try os.fcntl(src, os.F.SETFD, flags & ~@as(u32, os.FD_CLOEXEC));
             }
 
             try os.dup2(src, target);
