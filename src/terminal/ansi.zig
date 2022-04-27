@@ -7,6 +7,8 @@ pub const C0 = enum(u7) {
     BEL = 0x07,
     /// Backspace
     BS = 0x08,
+    // Horizontal tab
+    HT = 0x09,
     /// Line feed
     LF = 0x0A,
     /// Carriage return

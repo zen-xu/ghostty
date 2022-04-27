@@ -133,6 +133,7 @@ fn execute(self: *Terminal, c: u8) !void {
     switch (@intToEnum(ansi.C0, c)) {
         .BEL => self.bell(),
         .BS => self.backspace(),
+        .HT => self.horizontal_tab(),
         .LF => self.linefeed(),
         .CR => self.carriage_return(),
     }
@@ -147,6 +148,11 @@ pub fn bell(self: *Terminal) void {
 /// Backspace moves the cursor back a column (but not less than 0).
 pub fn backspace(self: *Terminal) void {
     self.cursor.x -|= 1;
+}
+
+/// TODO
+pub fn horizontal_tab(self: *Terminal) void {
+    _ = self;
 }
 
 /// Carriage return moves the cursor to the first column.
