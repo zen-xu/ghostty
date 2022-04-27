@@ -129,7 +129,7 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
         return error.CommandNotFound;
     defer alloc.free(path);
 
-    var env = std.BufMap.init(alloc);
+    var env = try std.process.getEnvMap(alloc);
     defer env.deinit();
     try env.put("TERM", "dumb");
 
