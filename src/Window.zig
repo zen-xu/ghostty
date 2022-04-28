@@ -161,7 +161,7 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
     try stream.readStart(ttyReadAlloc, ttyRead);
 
     // Create our terminal
-    var term = Terminal.init(grid.size.columns, grid.size.rows);
+    var term = try Terminal.init(alloc, grid.size.columns, grid.size.rows);
     errdefer term.deinit(alloc);
 
     // Setup a timer for blinking the cursor

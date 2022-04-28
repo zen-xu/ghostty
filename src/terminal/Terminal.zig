@@ -9,6 +9,7 @@ const testing = std.testing;
 const Allocator = std.mem.Allocator;
 const ansi = @import("ansi.zig");
 const Parser = @import("Parser.zig");
+const Tabstops = @import("Tabstops.zig");
 
 const log = std.log.scoped(.terminal);
 
@@ -17,6 +18,9 @@ screen: Screen,
 
 /// Cursor position.
 cursor: Cursor,
+
+/// Where the tabstops are.
+tabstops: Tabstops,
 
 /// The size of the terminal.
 rows: usize,
@@ -49,17 +53,19 @@ const Cursor = struct {
 };
 
 /// Initialize a new terminal.
-pub fn init(cols: usize, rows: usize) Terminal {
-    return .{
+pub fn init(alloc: Allocator, cols: usize, rows: usize) !Terminal {
+    return Terminal{
         .cols = cols,
         .rows = rows,
         .screen = .{},
         .cursor = .{ .x = 0, .y = 0 },
+        .tabstops = try Tabstops.init(alloc, cols, 8),
         .parser = Parser.init(),
     };
 }
 
 pub fn deinit(self: *Terminal, alloc: Allocator) void {
+    self.tabstops.deinit(alloc);
     for (self.screen.items) |*line| line.deinit(alloc);
     self.screen.deinit(alloc);
     self.* = undefined;
@@ -113,7 +119,7 @@ pub fn appendChar(self: *Terminal, alloc: Allocator, c: u8) !void {
     for (actions) |action_opt| {
         switch (action_opt orelse continue) {
             .print => |p| try self.print(alloc, p),
-            .execute => |code| try self.execute(code),
+            .execute => |code| try self.execute(alloc, code),
         }
     }
 }
@@ -129,11 +135,11 @@ fn print(self: *Terminal, alloc: Allocator, c: u8) !void {
     self.cursor.x += 1;
 }
 
-fn execute(self: *Terminal, c: u8) !void {
+fn execute(self: *Terminal, alloc: Allocator, c: u8) !void {
     switch (@intToEnum(ansi.C0, c)) {
         .BEL => self.bell(),
         .BS => self.backspace(),
-        .HT => self.horizontal_tab(),
+        .HT => try self.horizontal_tab(alloc),
         .LF => self.linefeed(),
         .CR => self.carriage_return(),
     }
@@ -150,9 +156,16 @@ pub fn backspace(self: *Terminal) void {
     self.cursor.x -|= 1;
 }
 
-/// TODO
-pub fn horizontal_tab(self: *Terminal) void {
-    _ = self;
+/// Horizontal tab moves the cursor to the next tabstop, clearing
+/// the screen to the left the tabstop.
+pub fn horizontal_tab(self: *Terminal, alloc: Allocator) !void {
+    while (self.cursor.x < self.cols) {
+        // Clear
+        try self.print(alloc, ' ');
+
+        // If this is the tabstop, then we're done.
+        if (self.tabstops.get(self.cursor.x)) return;
+    }
 }
 
 /// Carriage return moves the cursor to the first column.
@@ -184,10 +197,11 @@ fn getOrPutCell(self: *Terminal, alloc: Allocator, x: usize, y: usize) !*Cell {
 
 test {
     _ = Parser;
+    _ = Tabstops;
 }
 
 test "Terminal: input with no control characters" {
-    var t = init(80, 80);
+    var t = try init(testing.allocator, 80, 80);
     defer t.deinit(testing.allocator);
 
     // Basic grid writing
@@ -202,7 +216,7 @@ test "Terminal: input with no control characters" {
 }
 
 test "Terminal: C0 control LF and CR" {
-    var t = init(80, 80);
+    var t = try init(testing.allocator, 80, 80);
     defer t.deinit(testing.allocator);
 
     // Basic grid writing
@@ -217,7 +231,7 @@ test "Terminal: C0 control LF and CR" {
 }
 
 test "Terminal: C0 control BS" {
-    var t = init(80, 80);
+    var t = try init(testing.allocator, 80, 80);
     defer t.deinit(testing.allocator);
 
     // BS
