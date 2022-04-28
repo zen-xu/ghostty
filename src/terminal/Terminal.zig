@@ -114,7 +114,7 @@ pub fn append(self: *Terminal, alloc: Allocator, str: []const u8) !void {
 ///
 /// This may allocate if necessary to store the character in the grid.
 pub fn appendChar(self: *Terminal, alloc: Allocator, c: u8) !void {
-    //log.debug("char: {}", .{c});
+    log.debug("char: {}", .{c});
     const actions = self.parser.next(c);
     for (actions) |action_opt| {
         switch (action_opt orelse continue) {
@@ -163,8 +163,10 @@ pub fn horizontal_tab(self: *Terminal, alloc: Allocator) !void {
         // Clear
         try self.print(alloc, ' ');
 
-        // If this is the tabstop, then we're done.
-        if (self.tabstops.get(self.cursor.x)) return;
+        // If the last cursor position was a tabstop we return. We do
+        // "last cursor position" because we want a space to be written
+        // at the tabstop unless we're at the end (the while condition).
+        if (self.tabstops.get(self.cursor.x - 1)) return;
     }
 }
 
@@ -245,4 +247,17 @@ test "Terminal: C0 control BS" {
         defer testing.allocator.free(str);
         try testing.expectEqualStrings("helly", str);
     }
+}
+
+test "Terminal: horizontal tabs" {
+    var t = try init(testing.allocator, 80, 5);
+    defer t.deinit(testing.allocator);
+
+    // HT
+    try t.append(testing.allocator, "1\t");
+    try testing.expectEqual(@as(usize, 8), t.cursor.x);
+
+    // HT
+    try t.append(testing.allocator, "\t");
+    try testing.expectEqual(@as(usize, 16), t.cursor.x);
 }
