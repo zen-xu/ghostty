@@ -305,6 +305,8 @@ fn keyCallback(
     //log.info("KEY {} {} {} {}", .{ key, scancode, mods, action });
     if (action == .press or action == .repeat) {
         const c: u8 = switch (key) {
+            // Ctrl-L form-feed
+            .l => if (mods.control) 0x0C else return,
             .backspace => 0x08,
             .enter => '\n',
             else => return,

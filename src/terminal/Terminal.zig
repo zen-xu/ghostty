@@ -114,7 +114,7 @@ pub fn append(self: *Terminal, alloc: Allocator, str: []const u8) !void {
 ///
 /// This may allocate if necessary to store the character in the grid.
 pub fn appendChar(self: *Terminal, alloc: Allocator, c: u8) !void {
-    log.debug("char: {}", .{c});
+    //log.debug("char: {}", .{c});
     const actions = self.parser.next(c);
     for (actions) |action_opt| {
         switch (action_opt orelse continue) {
