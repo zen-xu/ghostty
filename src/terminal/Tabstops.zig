@@ -38,6 +38,10 @@ const masks = blk: {
     break :blk res;
 };
 
+/// The number of columns this tabstop is set to manage. Use resize()
+/// to change this number.
+cols: usize = 0,
+
 /// Preallocated tab stops.
 prealloc_stops: [prealloc_count]Unit = [1]Unit{0} ** prealloc_count,
 
@@ -65,7 +69,7 @@ pub fn deinit(self: *Tabstops, alloc: Allocator) void {
     self.* = undefined;
 }
 
-/// Set the tabstop at a certain column.
+/// Set the tabstop at a certain column. The columns are 0-indexed.
 pub fn set(self: *Tabstops, col: usize) void {
     const i = entry(col);
     const idx = index(col);
@@ -79,7 +83,7 @@ pub fn set(self: *Tabstops, col: usize) void {
     self.dynamic_stops[dynamic_i] |= masks[idx];
 }
 
-/// Get the value of a tabstop at a specific column.
+/// Get the value of a tabstop at a specific column. The columns are 0-indexed.
 pub fn get(self: Tabstops, col: usize) bool {
     const i = entry(col);
     const idx = index(col);
@@ -97,6 +101,9 @@ pub fn get(self: Tabstops, col: usize) bool {
 
 /// Resize this to support up to cols columns.
 pub fn resize(self: *Tabstops, alloc: Allocator, cols: usize) !void {
+    // Set our new value
+    self.cols = cols;
+
     // Do nothing if it fits.
     if (cols <= prealloc_columns) return;
 
@@ -114,9 +121,9 @@ pub fn resize(self: *Tabstops, alloc: Allocator, cols: usize) !void {
     self.dynamic_stops = new;
 }
 
-/// Return the total number of columns this can support currently.
+/// Return the maximum number of columns this can support currently.
 pub fn capacity(self: Tabstops) usize {
-    return prealloc_count + self.dynamic_stops.len;
+    return (prealloc_count + self.dynamic_stops.len) * unit_bits;
 }
 
 /// Unset all tabstops and then reset the initial tabstops to the given
@@ -126,9 +133,8 @@ pub fn reset(self: *Tabstops, interval: usize) void {
     std.mem.set(Unit, self.dynamic_stops, 0);
 
     if (interval > 0) {
-        const cap = self.capacity();
         var i: usize = interval - 1;
-        while (i < cap) : (i += interval) {
+        while (i < self.cols - 1) : (i += interval) {
             self.set(i);
         }
     }
@@ -138,7 +144,10 @@ test "Tabstops: basic" {
     var t: Tabstops = .{};
     defer t.deinit(testing.allocator);
     try testing.expectEqual(@as(usize, 0), entry(4));
-    try testing.expectEqual(@as(usize, 1), entry(9));
+    try testing.expectEqual(@as(usize, 1), entry(8));
+    try testing.expectEqual(@as(usize, 0), index(0));
+    try testing.expectEqual(@as(usize, 1), index(1));
+    try testing.expectEqual(@as(usize, 1), index(9));
 
     try testing.expectEqual(@as(Unit, 0b00001000), masks[3]);
     try testing.expectEqual(@as(Unit, 0b00010000), masks[4]);
@@ -176,4 +185,26 @@ test "Tabstops: interval" {
     try testing.expect(t.get(3));
     try testing.expect(!t.get(4));
     try testing.expect(t.get(7));
+}
+
+test "Tabstops: count on 80" {
+    // https://superuser.com/questions/710019/why-there-are-11-tabstops-on-a-80-column-console
+
+    var t: Tabstops = try init(testing.allocator, 80, 8);
+    defer t.deinit(testing.allocator);
+
+    // Count the tabstops
+    var count: usize = count: {
+        var v: usize = 0;
+        var i: usize = 0;
+        while (i < 80) : (i += 1) {
+            if (t.get(i)) {
+                v += 1;
+            }
+        }
+
+        break :count v;
+    };
+
+    try testing.expectEqual(@as(usize, 9), count);
 }
