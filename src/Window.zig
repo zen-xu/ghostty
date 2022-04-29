@@ -381,6 +381,7 @@ fn ttyRead(t: *libuv.Tty, n: isize, buf: []const u8) void {
     const win = t.getData(Window).?;
     defer win.alloc.free(buf);
 
+    // log.info("DATA: {d}", .{n});
     // log.info("DATA: {any}", .{buf[0..@intCast(usize, n)]});
 
     // First check for errors in the case n is less than 0.
