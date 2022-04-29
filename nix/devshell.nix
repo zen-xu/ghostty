@@ -4,6 +4,7 @@
 , glxinfo
 , pkg-config
 , scdoc
+, tracy
 , vulkan-loader
 , vttest
 , zig
@@ -26,6 +27,7 @@
     gdb
     pkg-config
     scdoc
+    tracy
     zig
 
     glxinfo
