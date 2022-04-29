@@ -7,9 +7,6 @@
 [submodule "vendor/freetype"]
 	path = vendor/freetype
 	url = https://github.com/freetype/freetype.git
-[submodule "vendor/cglm"]
-	path = vendor/cglm
-	url = https://github.com/recp/cglm.git
 [submodule "vendor/libuv"]
 	path = vendor/libuv
 	url = https://github.com/libuv/libuv.git
