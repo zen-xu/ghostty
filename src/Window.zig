@@ -309,6 +309,7 @@ fn keyCallback(
             .l => if (mods.control) 0x0C else return,
             .backspace => 0x08,
             .enter => '\n',
+            .tab => '\t',
             else => return,
         };
 
