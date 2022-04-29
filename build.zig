@@ -4,15 +4,25 @@ const LibExeObjStep = std.build.LibExeObjStep;
 const glfw = @import("vendor/mach/glfw/build.zig");
 const ft = @import("src/freetype/build.zig");
 const uv = @import("src/libuv/build.zig");
+const tracylib = @import("src/tracy/build.zig");
 const system_sdk = @import("vendor/mach/glfw/system_sdk.zig");
 
 pub fn build(b: *std.build.Builder) !void {
     const target = b.standardTargetOptions(.{});
     const mode = b.standardReleaseOptions();
+    const tracy = b.option(
+        bool,
+        "tracy",
+        "Enable Tracy integration (default true in Debug)",
+    ) orelse (mode == .Debug);
+
+    const exe_options = b.addOptions();
+    exe_options.addOption(bool, "tracy_enabled", tracy);
 
     const exe = b.addExecutable("ghostty", "src/main.zig");
     exe.setTarget(target);
     exe.setBuildMode(mode);
+    exe.addOptions("build_options", exe_options);
     exe.install();
     exe.addIncludeDir("src/");
     exe.addCSourceFile("src/gb_math.c", &.{});
@@ -21,6 +31,9 @@ pub fn build(b: *std.build.Builder) !void {
         .metal = false,
         .opengl = true,
     });
+
+    // Tracy
+    if (tracy) try tracylib.link(b, exe, target);
 
     // GLAD
     exe.addIncludeDir("vendor/glad/include/");
