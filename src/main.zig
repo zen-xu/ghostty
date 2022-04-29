@@ -30,4 +30,5 @@ test {
     // Libraries
     _ = @import("segmented_pool.zig");
     _ = @import("libuv/main.zig");
+    _ = @import("terminal/main.zig");
 }

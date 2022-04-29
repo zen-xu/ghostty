@@ -140,7 +140,7 @@ fn execute(self: *Terminal, alloc: Allocator, c: u8) !void {
         .BEL => self.bell(),
         .BS => self.backspace(),
         .HT => try self.horizontal_tab(alloc),
-        .LF => self.linefeed(),
+        .LF => self.linefeed(alloc),
         .CR => self.carriage_return(),
     }
 }
@@ -176,9 +176,34 @@ pub fn carriage_return(self: *Terminal) void {
 }
 
 /// Linefeed moves the cursor to the next line.
-pub fn linefeed(self: *Terminal) void {
-    // TODO: end of screen
+pub fn linefeed(self: *Terminal, alloc: Allocator) void {
+    // If we're at the end of the screen, scroll up. This is surprisingly
+    // common because most terminals live with a full screen so we do this
+    // check first.
+    if (self.cursor.y == self.rows - 1) {
+        self.scroll_up(alloc);
+        return;
+    }
+
+    // Increase cursor by 1
     self.cursor.y += 1;
+}
+
+/// Scroll the text up by one row.
+pub fn scroll_up(self: *Terminal, alloc: Allocator) void {
+    // TODO: this is horribly expensive. we need to optimize the screen repr
+
+    // If we have no items, scrolling does nothing.
+    if (self.screen.items.len == 0) return;
+
+    // Clear the first line
+    self.screen.items[0].deinit(alloc);
+
+    var i: usize = 0;
+    while (i < self.screen.items.len - 1) : (i += 1) {
+        self.screen.items[i] = self.screen.items[i + 1];
+    }
+    self.screen.items.len -= 1;
 }
 
 fn getOrPutCell(self: *Terminal, alloc: Allocator, x: usize, y: usize) !*Cell {
