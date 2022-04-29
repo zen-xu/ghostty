@@ -3,19 +3,22 @@ const std = @import("std");
 const glfw = @import("glfw");
 
 const App = @import("App.zig");
-const trace = @import("tracy/tracy.zig").trace;
+const tracy = @import("tracy/tracy.zig");
 
 pub fn main() !void {
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
     const gpa = general_purpose_allocator.allocator();
     defer _ = general_purpose_allocator.deinit();
 
+    // If we're tracing, then wrap memory so we can trace allocations
+    const alloc = if (!tracy.enabled) gpa else tracy.allocator(gpa, null).allocator();
+
     // Initialize glfw
     try glfw.init(.{});
     defer glfw.terminate();
 
     // Run our app
-    var app = try App.init(gpa);
+    var app = try App.init(alloc);
     defer app.deinit();
     try app.run();
 }

@@ -21,6 +21,7 @@ const Impl = struct {
 
     const has_callstack_support = @hasDecl(c, "TRACY_HAS_CALLSTACK") and @hasDecl(c, "TRACY_CALLSTACK");
     const callstack_enabled: c_int = if (has_callstack_support) c.TRACY_CALLSTACK else 0;
+    const callstack_depth = 10; // TODO configurable
 
     /// A zone represents the lifetime of a special on-stack profiler variable.
     /// Typically it would exist for the duration of a whole scope of the
@@ -66,10 +67,92 @@ const Impl = struct {
         };
     }
 
+    /// allocator returns an allocator that tracks allocs/frees.
+    pub fn allocator(
+        parent: std.mem.Allocator,
+        comptime name: ?[:0]const u8,
+    ) Allocator(name) {
+        return Allocator(name).init(parent);
+    }
+
+    /// Returns an allocator type with the given name.
+    pub fn Allocator(comptime name: ?[:0]const u8) type {
+        return struct {
+            parent: std.mem.Allocator,
+
+            const Self = @This();
+
+            pub fn init(parent: std.mem.Allocator) Self {
+                return .{ .parent = parent };
+            }
+
+            pub fn allocator(self: *Self) std.mem.Allocator {
+                return std.mem.Allocator.init(self, allocFn, resizeFn, freeFn);
+            }
+
+            fn allocFn(
+                self: *Self,
+                len: usize,
+                ptr_align: u29,
+                len_align: u29,
+                ret_addr: usize,
+            ) std.mem.Allocator.Error![]u8 {
+                const result = self.parent.rawAlloc(len, ptr_align, len_align, ret_addr);
+                if (result) |data| {
+                    if (data.len != 0) {
+                        if (name) |n| {
+                            allocNamed(data.ptr, data.len, n);
+                        } else {
+                            alloc(data.ptr, data.len);
+                        }
+                    }
+                } else |_| {
+                    //messageColor("allocation failed", 0xFF0000);
+                }
+                return result;
+            }
+
+            fn resizeFn(
+                self: *Self,
+                buf: []u8,
+                buf_align: u29,
+                new_len: usize,
+                len_align: u29,
+                ret_addr: usize,
+            ) ?usize {
+                if (self.parent.rawResize(buf, buf_align, new_len, len_align, ret_addr)) |resized_len| {
+                    if (name) |n| {
+                        freeNamed(buf.ptr, n);
+                        allocNamed(buf.ptr, resized_len, n);
+                    } else {
+                        free(buf.ptr);
+                        alloc(buf.ptr, resized_len);
+                    }
+
+                    return resized_len;
+                }
+
+                // during normal operation the compiler hits this case thousands of times due to this
+                // emitting messages for it is both slow and causes clutter
+                return null;
+            }
+
+            fn freeFn(self: *Self, buf: []u8, buf_align: u29, ret_addr: usize) void {
+                self.parent.rawFree(buf, buf_align, ret_addr);
+
+                if (buf.len != 0) {
+                    if (name) |n| {
+                        freeNamed(buf.ptr, n);
+                    } else {
+                        free(buf.ptr);
+                    }
+                }
+            }
+        };
+    }
+
     /// Start a trace. Defer calling end() to end the trace.
     pub inline fn trace(comptime src: SourceLocation) Zone {
-        const callstack_depth = 10; // TODO configurable
-
         const static = struct {
             var loc: c.___tracy_source_location_data = undefined;
         };
@@ -100,6 +183,38 @@ const Impl = struct {
         c.___tracy_emit_frame_mark_start(name.ptr);
         return .{};
     }
+
+    inline fn alloc(ptr: [*]u8, len: usize) void {
+        if (has_callstack_support) {
+            c.___tracy_emit_memory_alloc_callstack(ptr, len, callstack_depth, 0);
+        } else {
+            c.___tracy_emit_memory_alloc(ptr, len, 0);
+        }
+    }
+
+    inline fn allocNamed(ptr: [*]u8, len: usize, comptime name: [:0]const u8) void {
+        if (has_callstack_support) {
+            c.___tracy_emit_memory_alloc_callstack_named(ptr, len, callstack_depth, 0, name.ptr);
+        } else {
+            c.___tracy_emit_memory_alloc_named(ptr, len, 0, name.ptr);
+        }
+    }
+
+    inline fn free(ptr: [*]u8) void {
+        if (has_callstack_support) {
+            c.___tracy_emit_memory_free_callstack(ptr, callstack_depth, 0);
+        } else {
+            c.___tracy_emit_memory_free(ptr, 0);
+        }
+    }
+
+    inline fn freeNamed(ptr: [*]u8, comptime name: [:0]const u8) void {
+        if (has_callstack_support) {
+            c.___tracy_emit_memory_free_callstack_named(ptr, callstack_depth, 0, name.ptr);
+        } else {
+            c.___tracy_emit_memory_free_named(ptr, 0, name.ptr);
+        }
+    }
 };
 
 const Noop = struct {
@@ -124,7 +239,7 @@ const Noop = struct {
 
     pub inline fn frameMark() void {}
 
-    pub inline fn frame(comptime name: [*:0]const u8) Frame(name) {
+    pub inline fn frame(comptime name: [:0]const u8) Frame(name) {
         return .{};
     }
 };
