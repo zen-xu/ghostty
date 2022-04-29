@@ -17,6 +17,7 @@ const Pty = @import("Pty.zig");
 const Command = @import("Command.zig");
 const Terminal = @import("terminal/Terminal.zig");
 const SegmentedPool = @import("segmented_pool.zig").SegmentedPool;
+const trace = @import("tracy/tracy.zig").trace;
 
 const log = std.log.scoped(.window);
 
@@ -231,6 +232,9 @@ pub fn shouldClose(self: Window) bool {
 }
 
 pub fn run(self: Window) !void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
     // Set our background
     gl.clearColor(0.2, 0.3, 0.3, 1.0);
     gl.clear(gl.c.GL_COLOR_BUFFER_BIT);
@@ -243,6 +247,9 @@ pub fn run(self: Window) !void {
 }
 
 fn sizeCallback(window: glfw.Window, width: i32, height: i32) void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
     // glfw gives us signed integers, but negative width/height is n
     // non-sensical so we use unsigned throughout, so assert.
     assert(width >= 0);
@@ -279,6 +286,9 @@ fn sizeCallback(window: glfw.Window, width: i32, height: i32) void {
 }
 
 fn charCallback(window: glfw.Window, codepoint: u21) void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
     const win = window.getUserPointer(Window) orelse return;
 
     // Write the character to the pty
@@ -299,6 +309,9 @@ fn keyCallback(
     action: glfw.Action,
     mods: glfw.Mods,
 ) void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
     _ = scancode;
     _ = mods;
 
@@ -352,6 +365,9 @@ fn keyCallback(
 }
 
 fn focusCallback(window: glfw.Window, focused: bool) void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
     const win = window.getUserPointer(Window) orelse return;
     if (focused) {
         win.wakeup = true;
@@ -367,17 +383,27 @@ fn focusCallback(window: glfw.Window, focused: bool) void {
 }
 
 fn cursorTimerCallback(t: *libuv.Timer) void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
     const win = t.getData(Window) orelse return;
     win.grid.cursor_visible = !win.grid.cursor_visible;
     win.grid.updateCells(win.terminal) catch unreachable;
 }
 
 fn ttyReadAlloc(t: *libuv.Tty, size: usize) ?[]u8 {
+    const tracy = trace(@src());
+    defer tracy.end();
+
     const alloc = t.loop().getData(Allocator).?.*;
     return alloc.alloc(u8, size) catch null;
 }
 
 fn ttyRead(t: *libuv.Tty, n: isize, buf: []const u8) void {
+    const tracy = trace(@src());
+    tracy.color(0xEAEA7F); // yellow-ish
+    defer tracy.end();
+
     const win = t.getData(Window).?;
     defer win.alloc.free(buf);
 
@@ -411,6 +437,9 @@ fn ttyRead(t: *libuv.Tty, n: isize, buf: []const u8) void {
 }
 
 fn ttyWrite(req: *libuv.WriteReq, status: i32) void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
     const tty = req.handle(libuv.Tty).?;
     const win = tty.getData(Window).?;
     win.write_req_pool.put();

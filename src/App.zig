@@ -8,6 +8,7 @@ const Allocator = std.mem.Allocator;
 const glfw = @import("glfw");
 const Window = @import("Window.zig");
 const libuv = @import("libuv/main.zig");
+const tracy = @import("tracy/tracy.zig");
 
 const log = std.log.scoped(.app);
 
@@ -84,7 +85,15 @@ pub fn run(self: App) !void {
     }).callback);
 
     while (!self.window.shouldClose()) {
-        try self.window.run();
+        // Mark this so we're in a totally different "frame"
+        tracy.frameMark();
+
+        // Track the render part of the frame separately.
+        {
+            const frame = tracy.frame("render");
+            defer frame.end();
+            try self.window.run();
+        }
 
         // Block for any glfw events. This may also be an "empty" event
         // posted by the libuv watcher so that we trigger a libuv loop tick.
@@ -103,6 +112,8 @@ pub fn run(self: App) !void {
         }
 
         // Run the libuv loop
+        const frame = tracy.frame("libuv");
+        defer frame.end();
         try embed.loopRun();
     }
 

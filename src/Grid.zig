@@ -10,6 +10,7 @@ const FontAtlas = @import("FontAtlas.zig");
 const Terminal = @import("terminal/Terminal.zig");
 const gl = @import("opengl.zig");
 const gb = @import("gb_math.zig");
+const trace = @import("tracy/tracy.zig").trace;
 
 const log = std.log.scoped(.grid);
 
@@ -343,6 +344,9 @@ pub fn setScreenSize(self: *Grid, dim: ScreenSize) !void {
 }
 
 pub fn render(self: Grid) !void {
+    const t = trace(@src());
+    defer t.end();
+
     // If we have no cells to render, then we render nothing.
     if (self.cells.items.len == 0) return;
 

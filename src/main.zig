@@ -6,9 +6,6 @@ const App = @import("App.zig");
 const trace = @import("tracy/tracy.zig").trace;
 
 pub fn main() !void {
-    const tracy = trace(@src());
-    defer tracy.end();
-
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
     const gpa = general_purpose_allocator.allocator();
     defer _ = general_purpose_allocator.deinit();
