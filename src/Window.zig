@@ -305,8 +305,34 @@ fn keyCallback(
     //log.info("KEY {} {} {} {}", .{ key, scancode, mods, action });
     if (action == .press or action == .repeat) {
         const c: u8 = switch (key) {
-            // Ctrl-L form-feed
-            .l => if (mods.control) 0x0C else return,
+            // Lots more of these:
+            // https://www.physics.udel.edu/~watson/scen103/ascii.html
+            .a => if (mods.control and !mods.shift) 0x01 else return,
+            .b => if (mods.control and !mods.shift) 0x02 else return,
+            .c => if (mods.control and !mods.shift) 0x03 else return,
+            .d => if (mods.control and !mods.shift) 0x04 else return,
+            .e => if (mods.control and !mods.shift) 0x05 else return,
+            .f => if (mods.control and !mods.shift) 0x06 else return,
+            .g => if (mods.control and !mods.shift) 0x07 else return,
+            .h => if (mods.control and !mods.shift) 0x08 else return,
+            .i => if (mods.control and !mods.shift) 0x09 else return,
+            .j => if (mods.control and !mods.shift) 0x0A else return,
+            .k => if (mods.control and !mods.shift) 0x0B else return,
+            .l => if (mods.control and !mods.shift) 0x0C else return,
+            .m => if (mods.control and !mods.shift) 0x0D else return,
+            .n => if (mods.control and !mods.shift) 0x0E else return,
+            .o => if (mods.control and !mods.shift) 0x0F else return,
+            .p => if (mods.control and !mods.shift) 0x10 else return,
+            .q => if (mods.control and !mods.shift) 0x11 else return,
+            .r => if (mods.control and !mods.shift) 0x12 else return,
+            .s => if (mods.control and !mods.shift) 0x13 else return,
+            .t => if (mods.control and !mods.shift) 0x14 else return,
+            .u => if (mods.control and !mods.shift) 0x15 else return,
+            .v => if (mods.control and !mods.shift) 0x16 else return,
+            .x => if (mods.control and !mods.shift) 0x17 else return,
+            .y => if (mods.control and !mods.shift) 0x18 else return,
+            .z => if (mods.control and !mods.shift) 0x19 else return,
+
             .backspace => 0x08,
             .enter => '\n',
             .tab => '\t',
