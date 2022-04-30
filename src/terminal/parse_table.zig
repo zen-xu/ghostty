@@ -34,16 +34,12 @@ fn genTable() Table {
     @setEvalBranchQuota(15000);
     var result: Table = undefined;
 
-    // In debug mode, we initialize everything so that we can detect if
-    // anything is overwritten. No value should be set more than once
-    // since the state machine diagram is exact.
-    if (builtin.mode == .Debug) {
-        var i: u8 = 0;
-        while (i < result.len) : (i += 1) {
-            var j: u8 = 0;
-            while (j < result[0].len) : (j += 1) {
-                result[i][j] = transition(.anywhere, .none);
-            }
+    // Initialize everything so every state transition exists
+    var i: u8 = 0;
+    while (i < result.len) : (i += 1) {
+        var j: u8 = 0;
+        while (j < result[0].len) : (j += 1) {
+            result[i][j] = transition(.anywhere, .none);
         }
     }
 
