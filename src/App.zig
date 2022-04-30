@@ -85,31 +85,12 @@ pub fn run(self: App) !void {
     }).callback);
 
     while (!self.window.shouldClose()) {
-        // Mark this so we're in a totally different "frame"
-        tracy.frameMark();
-
-        // Track the render part of the frame separately.
-        {
-            const frame = tracy.frame("render");
-            defer frame.end();
-            try self.window.run();
-        }
-
         // Block for any glfw events. This may also be an "empty" event
         // posted by the libuv watcher so that we trigger a libuv loop tick.
         try glfw.waitEvents();
 
-        // If the window wants the event loop to wakeup, then we "kick" the
-        // embed thread to wake up. I'm not sure why we have to do this in a
-        // loop, this is surely a lacking in my understanding of libuv. But
-        // this works.
-        if (self.window.wakeup) {
-            self.window.wakeup = false;
-            while (embed.sleeping.load(.SeqCst) and embed.terminate.load(.SeqCst) == false) {
-                try async_h.send();
-                try embed.loopRun();
-            }
-        }
+        // Mark this so we're in a totally different "frame"
+        tracy.frameMark();
 
         // Run the libuv loop
         const frame = tracy.frame("libuv");

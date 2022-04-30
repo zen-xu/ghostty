@@ -17,7 +17,11 @@ const Pty = @import("Pty.zig");
 const Command = @import("Command.zig");
 const Terminal = @import("terminal/Terminal.zig");
 const SegmentedPool = @import("segmented_pool.zig").SegmentedPool;
+const frame = @import("tracy/tracy.zig").frame;
 const trace = @import("tracy/tracy.zig").trace;
+const max_timer = @import("max_timer.zig");
+
+const RenderTimer = max_timer.MaxTimer(renderTimerCallback);
 
 const log = std.log.scoped(.window);
 
@@ -48,6 +52,9 @@ terminal: Terminal,
 
 /// Timer that blinks the cursor.
 cursor_timer: libuv.Timer,
+
+/// Render at least 60fps.
+render_timer: RenderTimer,
 
 /// The reader/writer stream for the pty.
 pty_stream: libuv.Tty,
@@ -180,6 +187,7 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
         .command = cmd,
         .terminal = term,
         .cursor_timer = timer,
+        .render_timer = try RenderTimer.init(loop, self, 16, 64),
         .pty_stream = stream,
     };
 
@@ -211,6 +219,8 @@ pub fn destroy(self: *Window) void {
         }
     }).callback);
 
+    self.render_timer.deinit();
+
     // We have to dealloc our window in the close callback because
     // we can't free some of the memory associated with the window
     // until the stream is closed.
@@ -229,21 +239,6 @@ pub fn destroy(self: *Window) void {
 
 pub fn shouldClose(self: Window) bool {
     return self.window.shouldClose();
-}
-
-pub fn run(self: Window) !void {
-    const tracy = trace(@src());
-    defer tracy.end();
-
-    // Set our background
-    gl.clearColor(0.2, 0.3, 0.3, 1.0);
-    gl.clear(gl.c.GL_COLOR_BUFFER_BIT);
-
-    // Render the grid
-    try self.grid.render();
-
-    // Swap
-    try self.window.swapBuffers();
 }
 
 fn sizeCallback(window: glfw.Window, width: i32, height: i32) void {
@@ -281,8 +276,7 @@ fn sizeCallback(window: glfw.Window, width: i32, height: i32) void {
         log.err("error updating OpenGL viewport err={}", .{err});
 
     // Draw
-    win.run() catch |err|
-        log.err("error redrawing window during resize err={}", .{err});
+    win.render_timer.schedule() catch unreachable;
 }
 
 fn charCallback(window: glfw.Window, codepoint: u21) void {
@@ -369,6 +363,7 @@ fn focusCallback(window: glfw.Window, focused: bool) void {
     defer tracy.end();
 
     const win = window.getUserPointer(Window) orelse return;
+    win.render_timer.schedule() catch unreachable;
     if (focused) {
         win.wakeup = true;
         win.cursor_timer.start(cursorTimerCallback, 0, win.cursor_timer.getRepeat()) catch unreachable;
@@ -389,6 +384,7 @@ fn cursorTimerCallback(t: *libuv.Timer) void {
     const win = t.getData(Window) orelse return;
     win.grid.cursor_visible = !win.grid.cursor_visible;
     win.grid.updateCells(win.terminal) catch unreachable;
+    win.render_timer.schedule() catch unreachable;
 }
 
 fn ttyReadAlloc(t: *libuv.Tty, size: usize) ?[]u8 {
@@ -434,6 +430,9 @@ fn ttyRead(t: *libuv.Tty, n: isize, buf: []const u8) void {
 
     // Update the cells for drawing
     win.grid.updateCells(win.terminal) catch unreachable;
+
+    // Schedule a render
+    win.render_timer.schedule() catch unreachable;
 }
 
 fn ttyWrite(req: *libuv.WriteReq, status: i32) void {
@@ -449,4 +448,30 @@ fn ttyWrite(req: *libuv.WriteReq, status: i32) void {
         log.err("write error: {}", .{err});
 
     //log.info("WROTE: {d}", .{status});
+}
+
+fn renderTimerCallback(t: *libuv.Timer) void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
+    const win = t.getData(Window).?;
+
+    // Set our background
+    gl.clearColor(0.2, 0.3, 0.3, 1.0);
+    gl.clear(gl.c.GL_COLOR_BUFFER_BIT);
+
+    // Render the grid
+    win.grid.render() catch |err| {
+        log.err("error rendering grid: {}", .{err});
+        return;
+    };
+
+    // Swap
+    win.window.swapBuffers() catch |err| {
+        log.err("error swapping buffers: {}", .{err});
+        return;
+    };
+
+    // Record our run
+    win.render_timer.tick();
 }
