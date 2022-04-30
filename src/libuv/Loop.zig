@@ -70,6 +70,15 @@ pub fn backendTimeout(self: Loop) c_int {
     return c.uv_backend_timeout(self.loop);
 }
 
+/// Return the current timestamp in milliseconds. The timestamp is cached at
+/// the start of the event loop tick, see uv_update_time() for details and rationale.
+///
+/// The timestamp increases monotonically from some arbitrary point in time.
+/// Don’t make assumptions about the starting point, you will only get disappointed.
+pub fn now(self: Loop) u64 {
+    return c.uv_now(self.loop);
+}
+
 /// Sets loop->data to data.
 pub fn setData(self: Loop, pointer: ?*anyopaque) void {
     c.uv_loop_set_data(self.loop, pointer);
