@@ -260,9 +260,6 @@ fn sizeCallback(window: glfw.Window, width: i32, height: i32) void {
     // Update the size of our terminal state
     win.terminal.resize(win.grid.size.columns, win.grid.size.rows);
 
-    // TODO: this is not the right place for this
-    win.grid.updateCells(win.terminal) catch unreachable;
-
     // Update the size of our pty
     win.pty.setSize(.{
         .ws_row = @intCast(u16, win.grid.size.rows),
@@ -376,7 +373,6 @@ fn focusCallback(window: glfw.Window, focused: bool) void {
     } else {
         win.grid.cursor_visible = true;
         win.grid.cursor_style = .box_hollow;
-        win.grid.updateCells(win.terminal) catch unreachable;
         win.cursor_timer.stop() catch unreachable;
     }
 }
@@ -387,7 +383,6 @@ fn cursorTimerCallback(t: *libuv.Timer) void {
 
     const win = t.getData(Window) orelse return;
     win.grid.cursor_visible = !win.grid.cursor_visible;
-    win.grid.updateCells(win.terminal) catch unreachable;
     win.render_timer.schedule() catch unreachable;
 }
 
@@ -432,9 +427,6 @@ fn ttyRead(t: *libuv.Tty, n: isize, buf: []const u8) void {
         _ = win.cursor_timer.again() catch null;
     }
 
-    // Update the cells for drawing
-    win.grid.updateCells(win.terminal) catch unreachable;
-
     // Schedule a render
     win.render_timer.schedule() catch unreachable;
 }
@@ -456,9 +448,13 @@ fn ttyWrite(req: *libuv.WriteReq, status: i32) void {
 
 fn renderTimerCallback(t: *libuv.Timer) void {
     const tracy = trace(@src());
+    tracy.color(0x006E7F); // blue-ish
     defer tracy.end();
 
     const win = t.getData(Window).?;
+
+    // Update the cells for drawing
+    win.grid.updateCells(win.terminal) catch unreachable;
 
     // Set our background
     gl.clearColor(0.2, 0.3, 0.3, 1.0);

@@ -258,6 +258,9 @@ pub fn demoCells(self: *Grid) !void {
 /// updateCells updates our GPU cells from the current terminal view.
 /// The updated cells will take effect on the next render.
 pub fn updateCells(self: *Grid, term: Terminal) !void {
+    const t = trace(@src());
+    defer t.end();
+
     // For now, we just ensure that we have enough cells for all the lines
     // we have plus a full width. This is very likely too much but its
     // the probably close enough while guaranteeing no more allocations.

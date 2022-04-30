@@ -10,6 +10,7 @@ const Allocator = std.mem.Allocator;
 const ansi = @import("ansi.zig");
 const Parser = @import("Parser.zig");
 const Tabstops = @import("Tabstops.zig");
+const trace = @import("../tracy/tracy.zig").trace;
 
 const log = std.log.scoped(.terminal);
 
@@ -105,6 +106,9 @@ pub fn plainString(self: Terminal, alloc: Allocator) ![]const u8 {
 
 /// Append a string of characters. See appendChar.
 pub fn append(self: *Terminal, alloc: Allocator, str: []const u8) !void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
     for (str) |c| {
         try self.appendChar(alloc, c);
     }
@@ -114,6 +118,9 @@ pub fn append(self: *Terminal, alloc: Allocator, str: []const u8) !void {
 ///
 /// This may allocate if necessary to store the character in the grid.
 pub fn appendChar(self: *Terminal, alloc: Allocator, c: u8) !void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
     //log.debug("char: {}", .{c});
     const actions = self.parser.next(c);
     for (actions) |action_opt| {
@@ -125,6 +132,9 @@ pub fn appendChar(self: *Terminal, alloc: Allocator, c: u8) !void {
 }
 
 fn print(self: *Terminal, alloc: Allocator, c: u8) !void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
     // Build our cell
     const cell = try self.getOrPutCell(alloc, self.cursor.x, self.cursor.y);
     cell.* = .{
@@ -141,6 +151,9 @@ fn print(self: *Terminal, alloc: Allocator, c: u8) !void {
 }
 
 fn execute(self: *Terminal, alloc: Allocator, c: u8) !void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
     switch (@intToEnum(ansi.C0, c)) {
         .BEL => self.bell(),
         .BS => self.backspace(),
@@ -158,12 +171,18 @@ pub fn bell(self: *Terminal) void {
 
 /// Backspace moves the cursor back a column (but not less than 0).
 pub fn backspace(self: *Terminal) void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
     self.cursor.x -|= 1;
 }
 
 /// Horizontal tab moves the cursor to the next tabstop, clearing
 /// the screen to the left the tabstop.
 pub fn horizontal_tab(self: *Terminal, alloc: Allocator) !void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
     while (self.cursor.x < self.cols) {
         // Clear
         try self.print(alloc, ' ');
@@ -177,11 +196,17 @@ pub fn horizontal_tab(self: *Terminal, alloc: Allocator) !void {
 
 /// Carriage return moves the cursor to the first column.
 pub fn carriage_return(self: *Terminal) void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
     self.cursor.x = 0;
 }
 
 /// Linefeed moves the cursor to the next line.
 pub fn linefeed(self: *Terminal, alloc: Allocator) void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
     // If we're at the end of the screen, scroll up. This is surprisingly
     // common because most terminals live with a full screen so we do this
     // check first.
@@ -196,6 +221,9 @@ pub fn linefeed(self: *Terminal, alloc: Allocator) void {
 
 /// Scroll the text up by one row.
 pub fn scroll_up(self: *Terminal, alloc: Allocator) void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
     // TODO: this is horribly expensive. we need to optimize the screen repr
 
     // If we have no items, scrolling does nothing.
@@ -212,6 +240,9 @@ pub fn scroll_up(self: *Terminal, alloc: Allocator) void {
 }
 
 fn getOrPutCell(self: *Terminal, alloc: Allocator, x: usize, y: usize) !*Cell {
+    const tracy = trace(@src());
+    defer tracy.end();
+
     // If we don't have enough lines to get to y, then add it.
     if (self.screen.items.len < y + 1) {
         try self.screen.ensureTotalCapacity(alloc, y + 1);
