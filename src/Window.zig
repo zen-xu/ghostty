@@ -363,7 +363,11 @@ fn focusCallback(window: glfw.Window, focused: bool) void {
     defer tracy.end();
 
     const win = window.getUserPointer(Window) orelse return;
+
+    // We have to schedule a render because no matter what we're changing
+    // the cursor.
     win.render_timer.schedule() catch unreachable;
+
     if (focused) {
         win.wakeup = true;
         win.cursor_timer.start(cursorTimerCallback, 0, win.cursor_timer.getRepeat()) catch unreachable;
