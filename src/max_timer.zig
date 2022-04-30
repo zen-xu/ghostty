@@ -47,8 +47,7 @@ pub fn MaxTimer(comptime cb: fn (*libuv.Timer) void) type {
             }).callback);
 
             // The maximum time can't be less than the interval otherwise this
-            // will just constantly fire.
-            if (max < min) return error.MaxShorterThanTimer;
+            // will just constantly fire. if (max < min) return error.MaxShorterThanTimer;
             return Self{
                 .timer = timer,
                 .min = min,
@@ -98,13 +97,13 @@ pub fn MaxTimer(comptime cb: fn (*libuv.Timer) void) type {
             // If we are past the max time, we run the timer now.
             try self.timer.stop();
             self.timer.loop().updateTime();
-            if (self.timer.loop().now() - self.last > self.max) {
-                @call(.{ .modifier = .always_inline }, cb, .{&self.timer});
-                return;
-            }
+            const timeout = if (self.timer.loop().now() - self.last > self.max)
+                0
+            else
+                self.min;
 
             // We still have time, restart the timer so that it is min time away.
-            try self.timer.start(cb, self.min, 0);
+            try self.timer.start(cb, timeout, 0);
         }
     };
 }
