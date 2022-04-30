@@ -79,6 +79,17 @@ pub fn now(self: Loop) u64 {
     return c.uv_now(self.loop);
 }
 
+/// Update the event loop’s concept of “now”. Libuv caches the current time at
+/// the start of the event loop tick in order to reduce the number of time-related
+/// system calls.
+///
+/// You won’t normally need to call this function unless you have callbacks
+/// that block the event loop for longer periods of time, where “longer” is
+/// somewhat subjective but probably on the order of a millisecond or more.
+pub fn updateTime(self: Loop) void {
+    return c.uv_update_time(self.loop);
+}
+
 /// Sets loop->data to data.
 pub fn setData(self: Loop, pointer: ?*anyopaque) void {
     c.uv_loop_set_data(self.loop, pointer);

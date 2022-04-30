@@ -6,6 +6,7 @@ const Allocator = std.mem.Allocator;
 const testing = std.testing;
 const c = @import("c.zig");
 const errors = @import("error.zig");
+const Mutex = @import("Mutex.zig");
 
 cond: *c.uv_cond_t,
 
@@ -29,8 +30,12 @@ pub fn broadcast(self: Cond) void {
     c.uv_cond_broadcast(self.cond);
 }
 
-pub fn wait(self: Cond) void {
-    c.uv_cond_wait(self.cond);
+pub fn wait(self: Cond, mutex: Mutex) void {
+    c.uv_cond_wait(self.cond, mutex.mutex);
+}
+
+pub fn timedwait(self: Cond, mutex: Mutex, timeout: u64) c_int {
+    return c.uv_cond_timedwait(self.cond, mutex.mutex, timeout);
 }
 
 test {
