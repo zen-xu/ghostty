@@ -187,7 +187,7 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
         .command = cmd,
         .terminal = term,
         .cursor_timer = timer,
-        .render_timer = try RenderTimer.init(loop, self, 16, 64),
+        .render_timer = try RenderTimer.init(loop, self, 16, 96),
         .pty_stream = stream,
     };
 
