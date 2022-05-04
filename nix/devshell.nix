@@ -24,25 +24,24 @@
   name = "ghostty";
 
   nativeBuildInputs = [
-    gdb
+    # For builds
     pkg-config
     scdoc
-    tracy
     zig
 
+    # Utilities
     glxinfo
     vttest
+
+    # Testing
+    gdb
+    tracy
   ];
 
   buildInputs = [
     # TODO: non-linux
   ] ++ lib.optionals stdenv.isLinux [
     libGL
-
-    fontconfig
-    freetype
-    libpng
-    bzip2
 
     libX11
     libXcursor
