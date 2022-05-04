@@ -7,7 +7,7 @@ const root = @import("root");
 const SourceLocation = std.builtin.SourceLocation;
 
 // Tracy is enabled if the root function tracy_enabled returns true.
-pub const enabled = @import("root").tracy_enabled();
+pub const enabled = @hasDecl(root, "tracy_enabled") and root.tracy_enabled();
 
 // Bring in the correct implementation depending on if we're enabled or not.
 // See Impl for all the real doc comments.
