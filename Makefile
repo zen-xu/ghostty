@@ -1,3 +1,8 @@
+# Init initializes the repo for development.
+init:
+	git submodule update --init --recursive
+.PHONY: init
+
 # glad updates the GLAD loader. To use this, place the generated glad.zip
 # in this directory next to the Makefile, remove vendor/glad and run this target.
 #
