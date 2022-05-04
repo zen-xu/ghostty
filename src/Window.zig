@@ -197,6 +197,7 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
     window.setCharCallback(charCallback);
     window.setKeyCallback(keyCallback);
     window.setFocusCallback(focusCallback);
+    window.setRefreshCallback(refreshCallback);
 
     return self;
 }
@@ -375,6 +376,16 @@ fn focusCallback(window: glfw.Window, focused: bool) void {
         win.grid.cursor_style = .box_hollow;
         win.cursor_timer.stop() catch unreachable;
     }
+}
+
+fn refreshCallback(window: glfw.Window) void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
+    const win = window.getUserPointer(Window) orelse return;
+
+    // The point of this callback is to schedule a render, so do that.
+    win.render_timer.schedule() catch unreachable;
 }
 
 fn cursorTimerCallback(t: *libuv.Timer) void {
