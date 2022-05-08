@@ -139,7 +139,7 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
 
     var env = try std.process.getEnvMap(alloc);
     defer env.deinit();
-    try env.put("TERM", "dumb");
+    try env.put("TERM", "xterm-256color");
 
     var cmd: Command = .{
         .path = path,

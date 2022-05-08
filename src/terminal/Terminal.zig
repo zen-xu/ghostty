@@ -8,6 +8,7 @@ const builtin = @import("builtin");
 const testing = std.testing;
 const Allocator = std.mem.Allocator;
 const ansi = @import("ansi.zig");
+const csi = @import("csi.zig");
 const Parser = @import("Parser.zig");
 const Tabstops = @import("Tabstops.zig");
 const trace = @import("../tracy/tracy.zig").trace;
@@ -127,8 +128,49 @@ pub fn appendChar(self: *Terminal, alloc: Allocator, c: u8) !void {
         switch (action_opt orelse continue) {
             .print => |p| try self.print(alloc, p),
             .execute => |code| try self.execute(alloc, code),
-            .csi_dispatch => |csi| log.warn("CSI: {}", .{csi}),
+            .csi_dispatch => |csi| try self.csiDispatch(alloc, csi),
         }
+    }
+}
+
+fn csiDispatch(
+    self: *Terminal,
+    alloc: Allocator,
+    action: Parser.Action.CSI,
+) !void {
+    switch (action.final) {
+        // Set Cursor Position (TODO: docs)
+        'H' => {
+            switch (action.params.len) {
+                0 => try self.setCursorPosition(1, 1),
+                1 => try self.setCursorPosition(action.params[0], 1),
+                2 => try self.setCursorPosition(action.params[0], action.params[1]),
+                else => log.warn("unimplemented CSI: {}", .{csi}),
+            }
+        },
+
+        // Erase Display
+        'J' => try self.eraseDisplay(alloc, switch (action.params.len) {
+            0 => .below,
+            1 => mode: {
+                // TODO: use meta to get enum max
+                if (action.params[0] > 3) {
+                    log.warn("invalid erase display command: {}", .{csi});
+                    return;
+                }
+
+                break :mode @intToEnum(
+                    csi.EraseDisplayMode,
+                    action.params[0],
+                );
+            },
+            else => {
+                log.warn("invalid erase display command: {}", .{csi});
+                return;
+            },
+        }),
+
+        else => log.warn("unimplemented CSI: {}", .{csi}),
     }
 }
 
@@ -169,6 +211,32 @@ pub fn bell(self: *Terminal) void {
     // TODO: bell
     _ = self;
     log.info("bell", .{});
+}
+
+/// Set the cursor position. Row and column are 1-based.
+/// TODO: test
+pub fn setCursorPosition(self: *Terminal, row: usize, col: usize) !void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
+    self.cursor.x = col - 1;
+    self.cursor.y = row - 1;
+}
+
+/// Erase the display.
+/// TODO: test
+pub fn eraseDisplay(
+    self: *Terminal,
+    alloc: Allocator,
+    mode: csi.EraseDisplayMode,
+) !void {
+    switch (mode) {
+        .complete => {
+            for (self.screen.items) |*line| line.deinit(alloc);
+            self.screen.clearRetainingCapacity();
+        },
+        else => @panic("unimplemented"),
+    }
 }
 
 /// Backspace moves the cursor back a column (but not less than 0).
