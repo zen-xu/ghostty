@@ -64,6 +64,7 @@ pub const Action = union(enum) {
     csi_dispatch: CSI,
 
     pub const CSI = struct {
+        intermediates: []u8,
         params: []u16,
         final: u8,
     };
@@ -77,8 +78,8 @@ const MAX_PARAMS = 16;
 state: State = .ground,
 
 /// Intermediate tracking.
-intermediate: [MAX_INTERMEDIATE]u8 = undefined,
-intermediate_idx: u8 = 0,
+intermediates: [MAX_INTERMEDIATE]u8 = undefined,
+intermediates_idx: u8 = 0,
 
 /// Param tracking, building
 params: [MAX_PARAMS]u16 = undefined,
@@ -144,7 +145,7 @@ fn doAction(self: *Parser, action: TransitionAction, c: u8) ?Action {
         .print => Action{ .print = c },
         .execute => Action{ .execute = c },
         .collect => collect: {
-            self.intermediate[self.intermediate_idx] = c;
+            self.intermediates[self.intermediates_idx] = c;
             // TODO: incr, bounds check
 
             // The client is expected to perform no action.
@@ -185,6 +186,7 @@ fn doAction(self: *Parser, action: TransitionAction, c: u8) ?Action {
 
             break :csi_dispatch Action{
                 .csi_dispatch = .{
+                    .intermediates = self.intermediates[0..self.intermediates_idx],
                     .params = self.params[0..self.params_idx],
                     .final = c,
                 },
@@ -198,7 +200,7 @@ fn doAction(self: *Parser, action: TransitionAction, c: u8) ?Action {
 }
 
 fn clear(self: *Parser) void {
-    self.intermediate_idx = 0;
+    self.intermediates_idx = 0;
     self.params_idx = 0;
     self.param_acc = 0;
     self.param_acc_idx = 0;
@@ -253,7 +255,7 @@ test "csi: ESC [ 1 ; 4 H" {
     _ = p.next(0x31); // 1
     _ = p.next(0x3B); // ;
     _ = p.next(0x34); // 4
-    //
+
     {
         const a = p.next(0x48); // H
         try testing.expect(p.state == .ground);

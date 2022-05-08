@@ -127,6 +127,7 @@ pub fn appendChar(self: *Terminal, alloc: Allocator, c: u8) !void {
         switch (action_opt orelse continue) {
             .print => |p| try self.print(alloc, p),
             .execute => |code| try self.execute(alloc, code),
+            .csi_dispatch => |csi| log.warn("CSI: {}", .{csi}),
         }
     }
 }
@@ -155,6 +156,7 @@ fn execute(self: *Terminal, alloc: Allocator, c: u8) !void {
     defer tracy.end();
 
     switch (@intToEnum(ansi.C0, c)) {
+        .NUL => {},
         .BEL => self.bell(),
         .BS => self.backspace(),
         .HT => try self.horizontal_tab(alloc),

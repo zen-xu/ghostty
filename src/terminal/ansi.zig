@@ -3,6 +3,8 @@
 /// This is not complete, control characters are only added to this
 /// as the terminal emulator handles them.
 pub const C0 = enum(u7) {
+    /// Null
+    NUL = 0x00,
     /// Bell
     BEL = 0x07,
     /// Backspace
