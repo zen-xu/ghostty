@@ -8,6 +8,8 @@ const std = @import("std");
 const testing = std.testing;
 const table = @import("parse_table.zig").table;
 
+const log = std.log.scoped(.parser);
+
 /// States for the state machine
 pub const State = enum {
     anywhere,
@@ -56,10 +58,33 @@ pub const Action = union(enum) {
 
     /// Execute the C0 or C1 function.
     execute: u8,
+
+    /// Execute the CSI command. Note that pointers within this
+    /// structure are only valid until the next call to "next".
+    csi_dispatch: CSI,
+
+    pub const CSI = struct {
+        params: []u16,
+        final: u8,
+    };
 };
+
+/// Maximum number of intermediate characters during parsing.
+const MAX_INTERMEDIATE = 2;
+const MAX_PARAMS = 16;
 
 /// Current state of the state machine
 state: State = .ground,
+
+/// Intermediate tracking.
+intermediate: [MAX_INTERMEDIATE]u8 = undefined,
+intermediate_idx: u8 = 0,
+
+/// Param tracking, building
+params: [MAX_PARAMS]u16 = undefined,
+params_idx: u8 = 0,
+param_acc: u16 = 0,
+param_acc_idx: u8 = 0,
 
 pub fn init() Parser {
     return .{};
@@ -77,6 +102,8 @@ pub fn next(self: *Parser, c: u8) [3]?Action {
         // If we don't have any transition from anywhere, use our state.
         break :effect table[c][@enumToInt(self.state)];
     };
+
+    log.info("next: {x}", .{c});
 
     const next_state = effect.state;
     const action = effect.action;
@@ -98,8 +125,11 @@ pub fn next(self: *Parser, c: u8) [3]?Action {
 
         self.doAction(action, c),
 
-        switch (self.state) {
-            .escape, .dcs_entry, .csi_entry => @panic("TODO"), // TODO: clear
+        switch (next_state) {
+            .escape, .dcs_entry, .csi_entry => clear: {
+                self.clear();
+                break :clear null;
+            },
             .osc_string => @panic("TODO"), // TODO: osc_start
             .dcs_passthrough => @panic("TODO"), // TODO: hook
             else => null,
@@ -111,10 +141,67 @@ fn doAction(self: *Parser, action: TransitionAction, c: u8) ?Action {
     _ = self;
     return switch (action) {
         .none, .ignore => null,
-        .print => return Action{ .print = c },
-        .execute => return Action{ .execute = c },
-        else => @panic("TODO"),
+        .print => Action{ .print = c },
+        .execute => Action{ .execute = c },
+        .collect => collect: {
+            self.intermediate[self.intermediate_idx] = c;
+            // TODO: incr, bounds check
+
+            // The client is expected to perform no action.
+            break :collect null;
+        },
+        .param => param: {
+            // TODO: bounds check
+
+            // Semicolon separates parameters. If we encounter a semicolon
+            // we need to store and move on to the next parameter.
+            if (c == ';') {
+                // Set param final value
+                self.params[self.params_idx] = self.param_acc;
+                self.params_idx += 1;
+
+                // Reset current param value to 0
+                self.param_acc = 0;
+                self.param_acc_idx = 0;
+                break :param null;
+            }
+
+            // A numeric value. Add it to our accumulator.
+            if (self.param_acc_idx > 0) {
+                self.param_acc *|= 10;
+            }
+            self.param_acc +|= c - '0';
+            self.param_acc_idx += 1;
+
+            // The client is expected to perform no action.
+            break :param null;
+        },
+        .csi_dispatch => csi_dispatch: {
+            // Finalize parameters if we have one
+            if (self.param_acc_idx > 0) {
+                self.params[self.params_idx] = self.param_acc;
+                self.params_idx += 1;
+            }
+
+            break :csi_dispatch Action{
+                .csi_dispatch = .{
+                    .params = self.params[0..self.params_idx],
+                    .final = c,
+                },
+            };
+        },
+        else => {
+            std.log.err("unimplemented action: {}", .{action});
+            @panic("TODO");
+        },
     };
+}
+
+fn clear(self: *Parser) void {
+    self.intermediate_idx = 0;
+    self.params_idx = 0;
+    self.param_acc = 0;
+    self.param_acc_idx = 0;
 }
 
 test {
@@ -138,5 +225,46 @@ test {
         try testing.expect(a[0] == null);
         try testing.expect(a[1].? == .execute);
         try testing.expect(a[2] == null);
+    }
+}
+
+test "csi: ESC [ H" {
+    var p = init();
+    _ = p.next(0x1B);
+    _ = p.next(0x5B);
+
+    {
+        const a = p.next(0x48);
+        try testing.expect(p.state == .ground);
+        try testing.expect(a[0] == null);
+        try testing.expect(a[1].? == .csi_dispatch);
+        try testing.expect(a[2] == null);
+
+        const d = a[1].?.csi_dispatch;
+        try testing.expect(d.final == 0x48);
+        try testing.expect(d.params.len == 0);
+    }
+}
+
+test "csi: ESC [ 1 ; 4 H" {
+    var p = init();
+    _ = p.next(0x1B);
+    _ = p.next(0x5B);
+    _ = p.next(0x31); // 1
+    _ = p.next(0x3B); // ;
+    _ = p.next(0x34); // 4
+    //
+    {
+        const a = p.next(0x48); // H
+        try testing.expect(p.state == .ground);
+        try testing.expect(a[0] == null);
+        try testing.expect(a[1].? == .csi_dispatch);
+        try testing.expect(a[2] == null);
+
+        const d = a[1].?.csi_dispatch;
+        try testing.expect(d.final == 'H');
+        try testing.expect(d.params.len == 2);
+        try testing.expectEqual(@as(u16, 1), d.params[0]);
+        try testing.expectEqual(@as(u16, 4), d.params[1]);
     }
 }
