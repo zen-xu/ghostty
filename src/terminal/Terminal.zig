@@ -1,4 +1,5 @@
 //! The primary terminal emulation structure. This represents a single
+//!
 //! "terminal" containing a grid of characters and exposes various operations
 //! on that grid. This also maintains the scrollback buffer.
 const Terminal = @This();
@@ -50,8 +51,12 @@ const Cell = struct {
 
 /// Cursor represents the cursor state.
 const Cursor = struct {
+    // x, y where the cursor currently exists (0-indexed).
     x: usize,
     y: usize,
+
+    // Bold specifies that text written should be bold
+    bold: bool = false,
 };
 
 /// Initialize a new terminal.
@@ -212,6 +217,20 @@ fn csiDispatch(
             },
         }),
 
+        // SGR - Select Graphic Rendition
+        'm' => if (action.params.len == 0) {
+            // No values defaults to code 0
+            try self.selectGraphicRendition(.default);
+        } else {
+            // Each parameter sets a separate aspect
+            for (action.params) |param| {
+                try self.selectGraphicRendition(@intToEnum(
+                    ansi.RenditionAspect,
+                    param,
+                ));
+            }
+        },
+
         else => log.warn("unimplemented CSI: {}", .{action}),
     }
 }
@@ -253,6 +272,16 @@ pub fn bell(self: *Terminal) void {
     // TODO: bell
     _ = self;
     log.info("bell", .{});
+}
+
+pub fn selectGraphicRendition(self: *Terminal, aspect: ansi.RenditionAspect) !void {
+    switch (aspect) {
+        .default => self.cursor.bold = false,
+        .bold => self.cursor.bold = true,
+        .default_fg => {}, // TODO
+        .default_bg => {}, // TODO
+        else => log.warn("invalid or unimplemented rendition aspect: {}", .{aspect}),
+    }
 }
 
 // Set Cursor Position. Move cursor to the position indicated

@@ -16,3 +16,16 @@ pub const C0 = enum(u7) {
     /// Carriage return
     CR = 0x0D,
 };
+
+/// The SGR rendition aspects that can be set, sometimes known as attributes.
+/// The value corresponds to the parameter value for the SGR command (ESC [ m).
+pub const RenditionAspect = enum(u16) {
+    default = 0,
+    bold = 1,
+    default_fg = 39,
+    default_bg = 49,
+
+    // Non-exhaustive so that @intToEnum never fails since the inputs are
+    // user-generated.
+    _,
+};
