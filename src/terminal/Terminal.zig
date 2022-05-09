@@ -156,6 +156,13 @@ fn csiDispatch(
             },
         }),
 
+        // HPA - Cursor Horizontal Position Absolute (Alias, see '`')
+        'G' => if (action.params.len == 0) {
+            try self.setCursorPosition(self.cursor.x + 1, 1);
+        } else {
+            try self.setCursorPosition(self.cursor.x + 1, action.params[0]);
+        },
+
         // CUP - Set Cursor Position.
         'H' => {
             switch (action.params.len) {
@@ -217,6 +224,20 @@ fn csiDispatch(
                 return;
             },
         }),
+
+        // HPA - Cursor Horizontal Position Absolute
+        '`' => if (action.params.len == 0) {
+            try self.setCursorPosition(self.cursor.x + 1, 1);
+        } else {
+            try self.setCursorPosition(self.cursor.x + 1, action.params[0]);
+        },
+
+        // VPA - Cursor Vertical Position Absolute
+        'd' => if (action.params.len == 0) {
+            try self.setCursorPosition(1, self.cursor.y + 1);
+        } else {
+            try self.setCursorPosition(action.params[0], self.cursor.y + 1);
+        },
 
         // SGR - Select Graphic Rendition
         'm' => if (action.params.len == 0) {
@@ -345,7 +366,7 @@ pub fn eraseLine(
             var line = &self.screen.items[self.cursor.y];
 
             // Clear up to our cursor
-            const end = @minimum(line.items.len - 1, self.cursor.x);
+            const end = @minimum(line.items.len, self.cursor.x);
             for (line.items[0..end]) |*cell|
                 cell.char = 0;
         },
