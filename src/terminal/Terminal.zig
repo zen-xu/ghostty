@@ -191,6 +191,16 @@ fn csiDispatch(
             },
         }),
 
+        // Delete Character (DCH)
+        'P' => try self.deleteChars(switch (action.params.len) {
+            0 => 1,
+            1 => action.params[0],
+            else => {
+                log.warn("invalid delete characters command: {}", .{action});
+                return;
+            },
+        }),
+
         else => log.warn("unimplemented CSI: {}", .{action}),
     }
 }
@@ -274,6 +284,38 @@ pub fn eraseLine(
                 cell.char = 0;
         },
         else => @panic("unimplemented"),
+    }
+}
+
+/// Removes amount characters from the current cursor position to the right.
+/// The remaining characters are shifted to the left and space from the right
+/// margin is filled with spaces.
+///
+/// If amount is greater than the remaining number of characters in the
+/// scrolling region, it is adjusted down.
+///
+/// Does not change the cursor position.
+///
+/// TODO: test
+pub fn deleteChars(self: *Terminal, count: usize) !void {
+    var line = &self.screen.items[self.cursor.y];
+
+    // Our last index is at most the end of the number of chars we have
+    // in the current line.
+    const end = @minimum(line.items.len, self.cols - count);
+
+    // Do nothing if we have no values.
+    if (self.cursor.x >= line.items.len) return;
+
+    // Shift
+    var i: usize = self.cursor.x;
+    while (i < end) : (i += 1) {
+        const j = i + count;
+        if (j < line.items.len) {
+            line.items[i] = line.items[j];
+        } else {
+            line.items[i].char = 0;
+        }
     }
 }
 
