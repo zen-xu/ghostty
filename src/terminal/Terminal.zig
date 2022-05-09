@@ -220,9 +220,6 @@ pub fn bell(self: *Terminal) void {
 // greater than the bottom-most row it is adjusted to the bottom-most
 // row.
 pub fn setCursorPosition(self: *Terminal, row: usize, col: usize) !void {
-    const tracy = trace(@src());
-    defer tracy.end();
-
     self.cursor.x = @minimum(self.cols, col) -| 1;
     self.cursor.y = @minimum(self.rows, row) -| 1;
 }
