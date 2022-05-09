@@ -129,6 +129,7 @@ pub fn appendChar(self: *Terminal, alloc: Allocator, c: u8) !void {
             .print => |p| try self.print(alloc, p),
             .execute => |code| try self.execute(alloc, code),
             .csi_dispatch => |csi| try self.csiDispatch(alloc, csi),
+            .esc_dispatch => |esc| log.warn("unhandled esc: {}", .{esc}),
         }
     }
 }
@@ -289,7 +290,13 @@ pub fn eraseLine(
 ) !void {
     switch (mode) {
         .right => {
+            // If our cursor is outside our screen, we can't erase anything.
+            if (self.cursor.y >= self.screen.items.len) return;
             var line = &self.screen.items[self.cursor.y];
+
+            // If our cursor is outside our screen, we can't erase anything.
+            if (self.cursor.x >= line.items.len) return;
+
             for (line.items[self.cursor.x..line.items.len]) |*cell|
                 cell.char = 0;
         },

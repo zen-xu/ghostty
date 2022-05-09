@@ -63,9 +63,17 @@ pub const Action = union(enum) {
     /// structure are only valid until the next call to "next".
     csi_dispatch: CSI,
 
+    /// Execute the ESC command.
+    esc_dispatch: ESC,
+
     pub const CSI = struct {
         intermediates: []u8,
         params: []u16,
+        final: u8,
+    };
+
+    pub const ESC = struct {
+        intermediates: []u8,
         final: u8,
     };
 };
@@ -191,6 +199,12 @@ fn doAction(self: *Parser, action: TransitionAction, c: u8) ?Action {
                     .final = c,
                 },
             };
+        },
+        .esc_dispatch => Action{
+            .esc_dispatch = .{
+                .intermediates = self.intermediates[0..self.intermediates_idx],
+                .final = c,
+            },
         },
         else => {
             std.log.err("unimplemented action: {}", .{action});
