@@ -222,9 +222,9 @@ fn execute(self: *Terminal, alloc: Allocator, c: u8) !void {
         .NUL => {},
         .BEL => self.bell(),
         .BS => self.backspace(),
-        .HT => try self.horizontal_tab(alloc),
+        .HT => try self.horizontalTab(alloc),
         .LF => self.linefeed(alloc),
-        .CR => self.carriage_return(),
+        .CR => self.carriageReturn(),
     }
 }
 
@@ -287,7 +287,7 @@ pub fn backspace(self: *Terminal) void {
 
 /// Horizontal tab moves the cursor to the next tabstop, clearing
 /// the screen to the left the tabstop.
-pub fn horizontal_tab(self: *Terminal, alloc: Allocator) !void {
+pub fn horizontalTab(self: *Terminal, alloc: Allocator) !void {
     const tracy = trace(@src());
     defer tracy.end();
 
@@ -303,7 +303,7 @@ pub fn horizontal_tab(self: *Terminal, alloc: Allocator) !void {
 }
 
 /// Carriage return moves the cursor to the first column.
-pub fn carriage_return(self: *Terminal) void {
+pub fn carriageReturn(self: *Terminal) void {
     const tracy = trace(@src());
     defer tracy.end();
 
@@ -319,7 +319,7 @@ pub fn linefeed(self: *Terminal, alloc: Allocator) void {
     // common because most terminals live with a full screen so we do this
     // check first.
     if (self.cursor.y == self.rows - 1) {
-        self.scroll_up(alloc);
+        self.scrollUp(alloc);
         return;
     }
 
@@ -328,7 +328,7 @@ pub fn linefeed(self: *Terminal, alloc: Allocator) void {
 }
 
 /// Scroll the text up by one row.
-pub fn scroll_up(self: *Terminal, alloc: Allocator) void {
+pub fn scrollUp(self: *Terminal, alloc: Allocator) void {
     const tracy = trace(@src());
     defer tracy.end();
 
