@@ -139,13 +139,13 @@ fn csiDispatch(
     action: Parser.Action.CSI,
 ) !void {
     switch (action.final) {
-        // Set Cursor Position (TODO: docs)
+        // CUP - Set Cursor Position.
         'H' => {
             switch (action.params.len) {
                 0 => try self.setCursorPosition(1, 1),
                 1 => try self.setCursorPosition(action.params[0], 1),
                 2 => try self.setCursorPosition(action.params[0], action.params[1]),
-                else => log.warn("unimplemented CSI: {}", .{csi}),
+                else => log.warn("unimplemented CSI: {}", .{action}),
             }
         },
 
@@ -155,7 +155,7 @@ fn csiDispatch(
             1 => mode: {
                 // TODO: use meta to get enum max
                 if (action.params[0] > 3) {
-                    log.warn("invalid erase display command: {}", .{csi});
+                    log.warn("invalid erase display command: {}", .{action});
                     return;
                 }
 
@@ -165,12 +165,12 @@ fn csiDispatch(
                 );
             },
             else => {
-                log.warn("invalid erase display command: {}", .{csi});
+                log.warn("invalid erase display command: {}", .{action});
                 return;
             },
         }),
 
-        else => log.warn("unimplemented CSI: {}", .{csi}),
+        else => log.warn("unimplemented CSI: {}", .{action}),
     }
 }
 
@@ -213,14 +213,18 @@ pub fn bell(self: *Terminal) void {
     log.info("bell", .{});
 }
 
-/// Set the cursor position. Row and column are 1-based.
-/// TODO: test
+// Set Cursor Position. Move cursor to the position indicated
+// by row and column (1-indexed). If column is 0, it is adjusted to 1.
+// If column is greater than the right-most column it is adjusted to
+// the right-most column. If row is 0, it is adjusted to 1. If row is
+// greater than the bottom-most row it is adjusted to the bottom-most
+// row.
 pub fn setCursorPosition(self: *Terminal, row: usize, col: usize) !void {
     const tracy = trace(@src());
     defer tracy.end();
 
-    self.cursor.x = col - 1;
-    self.cursor.y = row - 1;
+    self.cursor.x = @minimum(self.cols, col) -| 1;
+    self.cursor.y = @minimum(self.rows, row) -| 1;
 }
 
 /// Erase the display.
@@ -391,4 +395,47 @@ test "Terminal: horizontal tabs" {
     // HT
     try t.append(testing.allocator, "\t");
     try testing.expectEqual(@as(usize, 16), t.cursor.x);
+}
+
+test "Terminal: CUP (ESC [ H)" {
+    var t = try init(testing.allocator, 80, 80);
+    defer t.deinit(testing.allocator);
+
+    // X, Y both specified
+    try t.append(testing.allocator, "\x1B[5;10H");
+    try testing.expectEqual(@as(usize, 4), t.cursor.y);
+    try testing.expectEqual(@as(usize, 9), t.cursor.x);
+
+    // Y only
+    try t.append(testing.allocator, "\x1B[5H");
+    try testing.expectEqual(@as(usize, 4), t.cursor.y);
+    try testing.expectEqual(@as(usize, 0), t.cursor.x);
+
+    // 0, 0 default
+    try t.append(testing.allocator, "\x1B[H");
+    try testing.expectEqual(@as(usize, 0), t.cursor.y);
+    try testing.expectEqual(@as(usize, 0), t.cursor.x);
+
+    // invalid
+    try t.append(testing.allocator, "\x1B[1;2;3H");
+    try testing.expectEqual(@as(usize, 0), t.cursor.y);
+    try testing.expectEqual(@as(usize, 0), t.cursor.x);
+}
+
+test "Terminal: setCursorPosition" {
+    var t = try init(testing.allocator, 80, 80);
+    defer t.deinit(testing.allocator);
+
+    try testing.expectEqual(@as(usize, 0), t.cursor.x);
+    try testing.expectEqual(@as(usize, 0), t.cursor.y);
+
+    // Setting it to 0 should keep it zero (1 based)
+    try t.setCursorPosition(0, 0);
+    try testing.expectEqual(@as(usize, 0), t.cursor.x);
+    try testing.expectEqual(@as(usize, 0), t.cursor.y);
+
+    // Should clamp to size
+    try t.setCursorPosition(81, 81);
+    try testing.expectEqual(@as(usize, 79), t.cursor.x);
+    try testing.expectEqual(@as(usize, 79), t.cursor.y);
 }
