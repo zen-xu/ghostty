@@ -160,12 +160,33 @@ fn csiDispatch(
                 }
 
                 break :mode @intToEnum(
-                    csi.EraseDisplayMode,
+                    csi.EraseDisplay,
                     action.params[0],
                 );
             },
             else => {
                 log.warn("invalid erase display command: {}", .{action});
+                return;
+            },
+        }),
+
+        // Erase Line
+        'K' => try self.eraseLine(switch (action.params.len) {
+            0 => .right,
+            1 => mode: {
+                // TODO: use meta to get enum max
+                if (action.params[0] > 3) {
+                    log.warn("invalid erase line command: {}", .{action});
+                    return;
+                }
+
+                break :mode @intToEnum(
+                    csi.EraseLine,
+                    action.params[0],
+                );
+            },
+            else => {
+                log.warn("invalid erase line command: {}", .{action});
                 return;
             },
         }),
@@ -229,12 +250,28 @@ pub fn setCursorPosition(self: *Terminal, row: usize, col: usize) !void {
 pub fn eraseDisplay(
     self: *Terminal,
     alloc: Allocator,
-    mode: csi.EraseDisplayMode,
+    mode: csi.EraseDisplay,
 ) !void {
     switch (mode) {
         .complete => {
             for (self.screen.items) |*line| line.deinit(alloc);
             self.screen.clearRetainingCapacity();
+        },
+        else => @panic("unimplemented"),
+    }
+}
+
+/// Erase the line.
+/// TODO: test
+pub fn eraseLine(
+    self: *Terminal,
+    mode: csi.EraseLine,
+) !void {
+    switch (mode) {
+        .right => {
+            var line = &self.screen.items[self.cursor.y];
+            for (line.items[self.cursor.x..line.items.len]) |*cell|
+                cell.char = 0;
         },
         else => @panic("unimplemented"),
     }

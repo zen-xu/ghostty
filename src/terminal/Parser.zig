@@ -104,7 +104,7 @@ pub fn next(self: *Parser, c: u8) [3]?Action {
         break :effect table[c][@enumToInt(self.state)];
     };
 
-    log.info("next: {x}", .{c});
+    // log.info("next: {x}", .{c});
 
     const next_state = effect.state;
     const action = effect.action;
