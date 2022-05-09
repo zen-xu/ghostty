@@ -334,9 +334,10 @@ fn keyCallback(
             .t => if (mods.control and !mods.shift) 0x14 else return,
             .u => if (mods.control and !mods.shift) 0x15 else return,
             .v => if (mods.control and !mods.shift) 0x16 else return,
-            .x => if (mods.control and !mods.shift) 0x17 else return,
-            .y => if (mods.control and !mods.shift) 0x18 else return,
-            .z => if (mods.control and !mods.shift) 0x19 else return,
+            .w => if (mods.control and !mods.shift) 0x17 else return,
+            .x => if (mods.control and !mods.shift) 0x18 else return,
+            .y => if (mods.control and !mods.shift) 0x19 else return,
+            .z => if (mods.control and !mods.shift) 0x1A else return,
 
             .backspace => 0x08,
             .enter => '\n',
