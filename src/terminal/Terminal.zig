@@ -139,6 +139,16 @@ fn csiDispatch(
     action: Parser.Action.CSI,
 ) !void {
     switch (action.final) {
+        // CUF - Cursor Right
+        'C' => self.cursorRight(switch (action.params.len) {
+            0 => 1,
+            1 => action.params[0],
+            else => {
+                log.warn("invalid cursor right command: {}", .{action});
+                return;
+            },
+        }),
+
         // CUP - Set Cursor Position.
         'H' => {
             switch (action.params.len) {
@@ -316,6 +326,21 @@ pub fn deleteChars(self: *Terminal, count: usize) !void {
         } else {
             line.items[i].char = 0;
         }
+    }
+}
+
+/// Move the cursor right amount columns. If amount is greater than the
+/// maximum move distance then it is internally adjusted to the maximum.
+/// This sequence will not scroll the screen or scroll region. If amount is
+/// 0, adjust it to 1.
+/// TODO: test
+pub fn cursorRight(self: *Terminal, count: usize) void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
+    self.cursor.x += count;
+    if (self.cursor.x == self.cols) {
+        self.cursor.x -= 1;
     }
 }
 
