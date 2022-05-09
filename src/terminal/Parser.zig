@@ -153,18 +153,24 @@ fn doAction(self: *Parser, action: TransitionAction, c: u8) ?Action {
         .print => Action{ .print = c },
         .execute => Action{ .execute = c },
         .collect => collect: {
+            if (self.intermediates_idx >= MAX_INTERMEDIATE) {
+                log.warn("invalid intermediates count", .{});
+                break :collect null;
+            }
+
             self.intermediates[self.intermediates_idx] = c;
-            // TODO: incr, bounds check
+            self.intermediates_idx += 1;
 
             // The client is expected to perform no action.
             break :collect null;
         },
         .param => param: {
-            // TODO: bounds check
-
             // Semicolon separates parameters. If we encounter a semicolon
             // we need to store and move on to the next parameter.
             if (c == ';') {
+                // Ignore too many parameters
+                if (self.params_idx >= MAX_PARAMS) break :param null;
+
                 // Set param final value
                 self.params[self.params_idx] = self.param_acc;
                 self.params_idx += 1;
@@ -241,6 +247,25 @@ test {
         try testing.expect(a[0] == null);
         try testing.expect(a[1].? == .execute);
         try testing.expect(a[2] == null);
+    }
+}
+
+test "esc: ESC ( B" {
+    var p = init();
+    _ = p.next(0x1B);
+    _ = p.next('(');
+
+    {
+        const a = p.next('B');
+        try testing.expect(p.state == .ground);
+        try testing.expect(a[0] == null);
+        try testing.expect(a[1].? == .esc_dispatch);
+        try testing.expect(a[2] == null);
+
+        const d = a[1].?.esc_dispatch;
+        try testing.expect(d.final == 'B');
+        try testing.expect(d.intermediates.len == 1);
+        try testing.expect(d.intermediates[0] == '(');
     }
 }
 

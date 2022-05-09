@@ -56,6 +56,7 @@ const Cursor = struct {
     y: usize,
 
     // Bold specifies that text written should be bold
+    // TODO: connect to render
     bold: bool = false,
 };
 
@@ -307,7 +308,15 @@ pub fn eraseDisplay(
             for (self.screen.items) |*line| line.deinit(alloc);
             self.screen.clearRetainingCapacity();
         },
-        else => @panic("unimplemented"),
+
+        .below => {
+            log.warn("TODO: below eraseDisplay", .{});
+        },
+
+        else => {
+            log.err("unimplemented display mode: {}", .{mode});
+            @panic("unimplemented");
+        },
     }
 }
 
@@ -329,7 +338,22 @@ pub fn eraseLine(
             for (line.items[self.cursor.x..line.items.len]) |*cell|
                 cell.char = 0;
         },
-        else => @panic("unimplemented"),
+
+        .left => {
+            // If our cursor is outside our screen, we can't erase anything.
+            if (self.cursor.y >= self.screen.items.len) return;
+            var line = &self.screen.items[self.cursor.y];
+
+            // Clear up to our cursor
+            const end = @minimum(line.items.len - 1, self.cursor.x);
+            for (line.items[0..end]) |*cell|
+                cell.char = 0;
+        },
+
+        else => {
+            log.err("unimplemented erase line mode: {}", .{mode});
+            @panic("unimplemented");
+        },
     }
 }
 
