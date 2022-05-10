@@ -131,7 +131,7 @@ pub fn appendChar(self: *Terminal, alloc: Allocator, c: u8) !void {
     //log.debug("char: {}", .{c});
     const actions = self.parser.next(c);
     for (actions) |action_opt| {
-        if (action_opt) |action| log.info("action: {}", .{action});
+        //if (action_opt) |action| log.info("action: {}", .{action});
         switch (action_opt orelse continue) {
             .print => |p| try self.print(alloc, p),
             .execute => |code| try self.execute(alloc, code),
@@ -222,6 +222,16 @@ fn csiDispatch(
             1 => action.params[0],
             else => {
                 log.warn("invalid delete characters command: {}", .{action});
+                return;
+            },
+        }),
+
+        // Erase Characters (ECH)
+        'X' => try self.eraseChars(switch (action.params.len) {
+            0 => 1,
+            1 => action.params[0],
+            else => {
+                log.warn("invalid erase characters command: {}", .{action});
                 return;
             },
         }),
@@ -457,6 +467,25 @@ pub fn deleteChars(self: *Terminal, count: usize) !void {
         } else {
             line.items[i].char = 0;
         }
+    }
+}
+
+// TODO: test, docs
+pub fn eraseChars(self: *Terminal, count: usize) !void {
+    var line = &self.screen.items[self.cursor.y];
+
+    // Our last index is at most the end of the number of chars we have
+    // in the current line.
+    const end = @minimum(line.items.len, self.cursor.x + count);
+
+    // Do nothing if we have no values.
+    if (self.cursor.x >= line.items.len) return;
+
+    // Shift
+    var i: usize = self.cursor.x;
+    while (i < end) : (i += 1) {
+        line.items[i].char = 0;
+        // TODO: retain graphical attributes
     }
 }
 
