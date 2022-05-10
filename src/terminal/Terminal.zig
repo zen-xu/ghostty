@@ -131,6 +131,7 @@ pub fn appendChar(self: *Terminal, alloc: Allocator, c: u8) !void {
     //log.debug("char: {}", .{c});
     const actions = self.parser.next(c);
     for (actions) |action_opt| {
+        if (action_opt) |action| log.info("action: {}", .{action});
         switch (action_opt orelse continue) {
             .print => |p| try self.print(alloc, p),
             .execute => |code| try self.execute(alloc, code),
@@ -267,7 +268,7 @@ fn escDispatch(
     switch (action.final) {
         // RI - Reverse Index
         'M' => switch (action.intermediates.len) {
-            0 => self.reverseIndex(),
+            0 => try self.reverseIndex(alloc),
             else => {
                 log.warn("invalid reverse index command: {}", .{action});
                 return;
@@ -331,8 +332,11 @@ pub fn selectGraphicRendition(self: *Terminal, aspect: ansi.RenditionAspect) !vo
 }
 
 // TODO: test
-pub fn reverseIndex(self: *Terminal) void {
-    self.cursor.y -|= 1;
+pub fn reverseIndex(self: *Terminal, alloc: Allocator) !void {
+    if (self.cursor.y == 0)
+        try self.scrollDown(alloc)
+    else
+        self.cursor.y -|= 1;
 }
 
 // Set Cursor Position. Move cursor to the position indicated
@@ -533,6 +537,34 @@ pub fn scrollUp(self: *Terminal, alloc: Allocator) void {
         self.screen.items[i] = self.screen.items[i + 1];
     }
     self.screen.items.len -= 1;
+}
+
+/// Scroll the text down by one row.
+/// TODO: test
+pub fn scrollDown(self: *Terminal, alloc: Allocator) !void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
+    // TODO: this is horribly expensive. we need to optimize the screen repr
+
+    // We need space for one more row if we aren't at the max.
+    if (self.screen.capacity < self.rows) {
+        try self.screen.ensureTotalCapacity(alloc, self.screen.items.len + 1);
+    }
+
+    // Add one more item if we aren't at the max
+    if (self.screen.items.len < self.rows) {
+        self.screen.items.len += 1;
+    }
+
+    // Shift everything down
+    var i: usize = self.screen.items.len - 1;
+    while (i > 0) : (i -= 1) {
+        self.screen.items[i] = self.screen.items[i - 1];
+    }
+
+    // Clear this row
+    self.screen.items[0] = .{};
 }
 
 fn getOrPutCell(self: *Terminal, alloc: Allocator, x: usize, y: usize) !*Cell {

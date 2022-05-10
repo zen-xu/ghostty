@@ -1,10 +1,25 @@
-//! Reverse Index (RI) - ESC M at the top of the screen.
+//! Reverse Index (RI) - ESC M
+//! Case: test that if the cursor is at the top, it scrolls down.
 const std = @import("std");
 
 pub fn main() !void {
     const stdout = std.io.getStdOut().writer();
-    try stdout.print("\x1B[H", .{}); // move to top-left
-    try stdout.print("\x1B[J", .{}); // clear screen
-    try stdout.print("\x1BM", .{});
-    try stdout.print("D\n", .{});
+    try stdout.print("A\nB\n", .{});
+
+    try stdout.print("\x0D", .{}); // CR
+    try stdout.print("\x0A", .{}); // LF
+    try stdout.print("\x1B[H", .{}); // Top-left
+    try stdout.print("\x1BM", .{}); // Reverse-Index
+    try stdout.print("D", .{});
+
+    try stdout.print("\x0D", .{}); // CR
+    try stdout.print("\x0A", .{}); // LF
+    try stdout.print("\x1B[H", .{}); // Top-left
+    try stdout.print("\x1BM", .{}); // Reverse-Index
+    try stdout.print("E", .{});
+
+    try stdout.print("\n", .{});
+
+    // const stdin = std.io.getStdIn().reader();
+    // _ = try stdin.readByte();
 }
