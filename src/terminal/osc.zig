@@ -57,23 +57,26 @@ pub const Parser = struct {
     /// Current command of the parser, this accumulates.
     command: Command = undefined,
 
-    /// Current string parameter being populated
-    param_str: *[]const u8 = undefined,
-
-    /// Current numeric parameter being populated
-    param_num: u16 = 0,
-
     /// Buffer that stores the input we see for a single OSC command.
     /// Slices in Command are offsets into this buffer.
     buf: [MAX_BUF]u8 = undefined,
     buf_start: usize = 0,
     buf_idx: usize = 0,
 
-    /// Temporary state for key/value pairs
-    key: []const u8 = undefined,
-
     /// True when a command is complete/valid to return.
     complete: bool = false,
+
+    /// Temporary state that is dependent on the current state.
+    temp_state: union {
+        /// Current string parameter being populated
+        str: *[]const u8,
+
+        /// Current numeric parameter being populated
+        num: u16,
+
+        /// Temporary state for key/value pairs
+        key: []const u8,
+    } = undefined,
 
     // Maximum length of a single OSC command. This is the full OSC command
     // sequence length (excluding ESC ]). This is arbitrary, I couldn't find
@@ -138,7 +141,7 @@ pub const Parser = struct {
                     self.command = .{ .change_window_title = undefined };
 
                     self.state = .string;
-                    self.param_str = &self.command.change_window_title;
+                    self.temp_state = .{ .str = &self.command.change_window_title };
                     self.buf_start = self.buf_idx;
                 },
                 else => self.state = .invalid,
@@ -190,7 +193,7 @@ pub const Parser = struct {
 
             .semantic_option_key => switch (c) {
                 '=' => {
-                    self.key = self.buf[self.buf_start .. self.buf_idx - 1];
+                    self.temp_state = .{ .key = self.buf[self.buf_start .. self.buf_idx - 1] };
                     self.state = .semantic_option_value;
                     self.buf_start = self.buf_idx;
                 },
@@ -211,6 +214,7 @@ pub const Parser = struct {
                     // No longer complete, if ';' shows up we expect some code.
                     self.complete = false;
                     self.state = .semantic_exit_code;
+                    self.temp_state = .{ .num = 0 };
                     self.buf_start = self.buf_idx;
                 },
                 else => self.state = .invalid,
@@ -221,8 +225,8 @@ pub const Parser = struct {
                     self.complete = true;
 
                     const idx = self.buf_idx - self.buf_start;
-                    if (idx > 0) self.param_num *|= 10;
-                    self.param_num +|= c - '0';
+                    if (idx > 0) self.temp_state.num *|= 10;
+                    self.temp_state.num +|= c - '0';
                 },
                 ';' => {
                     self.endSemanticExitCode();
@@ -243,17 +247,17 @@ pub const Parser = struct {
     fn endSemanticOptionValue(self: *Parser) void {
         const value = self.buf[self.buf_start..self.buf_idx];
 
-        if (mem.eql(u8, self.key, "aid")) {
+        if (mem.eql(u8, self.temp_state.key, "aid")) {
             switch (self.command) {
                 .prompt_start => |*v| v.aid = value,
                 else => {},
             }
-        } else log.info("unknown semantic prompts option: {s}", .{self.key});
+        } else log.info("unknown semantic prompts option: {s}", .{self.temp_state.key});
     }
 
     fn endSemanticExitCode(self: *Parser) void {
         switch (self.command) {
-            .end_of_command => |*v| v.exit_code = @truncate(u8, self.param_num),
+            .end_of_command => |*v| v.exit_code = @truncate(u8, self.temp_state.num),
             else => {},
         }
     }
@@ -270,7 +274,7 @@ pub const Parser = struct {
         switch (self.state) {
             .semantic_exit_code => self.endSemanticExitCode(),
             .semantic_option_value => self.endSemanticOptionValue(),
-            .string => self.param_str.* = self.buf[self.buf_start..self.buf_idx],
+            .string => self.temp_state.str.* = self.buf[self.buf_start..self.buf_idx],
             else => {},
         }
 
