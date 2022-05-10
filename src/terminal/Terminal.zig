@@ -159,9 +159,9 @@ fn csiDispatch(
 
         // HPA - Cursor Horizontal Position Absolute (Alias, see '`')
         'G' => if (action.params.len == 0) {
-            try self.setCursorPosition(self.cursor.x + 1, 1);
+            try self.setCursorPosition(self.cursor.y + 1, 1);
         } else {
-            try self.setCursorPosition(self.cursor.x + 1, action.params[0]);
+            try self.setCursorPosition(self.cursor.y + 1, action.params[0]);
         },
 
         // CUP - Set Cursor Position.
@@ -228,16 +228,16 @@ fn csiDispatch(
 
         // HPA - Cursor Horizontal Position Absolute
         '`' => if (action.params.len == 0) {
-            try self.setCursorPosition(self.cursor.x + 1, 1);
+            try self.setCursorPosition(self.cursor.y + 1, 1);
         } else {
-            try self.setCursorPosition(self.cursor.x + 1, action.params[0]);
+            try self.setCursorPosition(self.cursor.y + 1, action.params[0]);
         },
 
         // VPA - Cursor Vertical Position Absolute
         'd' => if (action.params.len == 0) {
-            try self.setCursorPosition(1, self.cursor.y + 1);
+            try self.setCursorPosition(1, self.cursor.x + 1);
         } else {
-            try self.setCursorPosition(action.params[0], self.cursor.y + 1);
+            try self.setCursorPosition(action.params[0], self.cursor.x + 1);
         },
 
         // SGR - Select Graphic Rendition
