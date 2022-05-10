@@ -340,7 +340,7 @@ fn keyCallback(
             .z => if (mods.control and !mods.shift) 0x1A else return,
 
             .backspace => 0x08,
-            .enter => '\n',
+            .enter => '\r',
             .tab => '\t',
             else => return,
         };
