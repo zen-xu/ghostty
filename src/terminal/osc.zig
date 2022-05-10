@@ -98,6 +98,7 @@ pub const Parser = struct {
         @"11",
         @"13",
         @"133",
+        @"2",
 
         // We're in a semantic prompt OSC command but we aren't sure
         // what the command is yet, i.e. `133;`
@@ -138,6 +139,7 @@ pub const Parser = struct {
             .empty => switch (c) {
                 '0' => self.state = .@"0",
                 '1' => self.state = .@"1",
+                '2' => self.state = .@"2",
                 else => self.state = .invalid,
             },
 
@@ -174,6 +176,17 @@ pub const Parser = struct {
 
             .@"133" => switch (c) {
                 ';' => self.state = .semantic_prompt,
+                else => self.state = .invalid,
+            },
+
+            .@"2" => switch (c) {
+                ';' => {
+                    self.command = .{ .change_window_title = undefined };
+
+                    self.state = .string;
+                    self.temp_state = .{ .str = &self.command.change_window_title };
+                    self.buf_start = self.buf_idx;
+                },
                 else => self.state = .invalid,
             },
 
@@ -302,6 +315,19 @@ test "OSC: change_window_title" {
 
     var p: Parser = .{};
     p.next('0');
+    p.next(';');
+    p.next('a');
+    p.next('b');
+    const cmd = p.end().?;
+    try testing.expect(cmd == .change_window_title);
+    try testing.expectEqualStrings("ab", cmd.change_window_title);
+}
+
+test "OSC: change_window_title with 2" {
+    const testing = std.testing;
+
+    var p: Parser = .{};
+    p.next('2');
     p.next(';');
     p.next('a');
     p.next('b');
