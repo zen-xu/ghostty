@@ -631,12 +631,6 @@ fn getOrPutCell(self: *Terminal, alloc: Allocator, x: usize, y: usize) !*Cell {
     return &line.items[x];
 }
 
-test {
-    _ = @import("osc.zig");
-    _ = Parser;
-    _ = Tabstops;
-}
-
 test "Terminal: input with no control characters" {
     var t = try init(testing.allocator, 80, 80);
     defer t.deinit(testing.allocator);
