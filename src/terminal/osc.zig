@@ -27,6 +27,23 @@ pub const Command = union(enum) {
     prompt_start: struct {
         aid: ?[]const u8 = null,
     },
+
+    /// End of current command.
+    ///
+    /// The exit-code need not be specified if  if there are no options,
+    /// or if the command was cancelled (no OSC "133;C"), such as by typing
+    /// an interrupt/cancel character (typically ctrl-C) during line-editing.
+    /// Otherwise, it must be an integer code, where 0 means the command
+    /// succeeded, and other values indicate failure. In additing to the
+    /// exit-code there may be an err= option, which non-legacy terminals
+    /// should give precedence to. The err=_value_ option is more general:
+    /// an empty string is success, and any non-empty value (which need not
+    /// be an integer) is an error code. So to indicate success both ways you
+    /// could send OSC "133;D;0;err=\007", though `OSC "133;D;0\007" is shorter.
+    end_of_command: struct {
+        exit_code: ?u8 = null,
+        // TODO: err option
+    },
 };
 
 pub const Parser = struct {
@@ -36,8 +53,11 @@ pub const Parser = struct {
     /// Current command of the parser, this accumulates.
     command: Command = undefined,
 
-    /// Current string parameter being populated (if non-null).
+    /// Current string parameter being populated
     param_str: *[]const u8 = undefined,
+
+    /// Current numeric parameter being populated
+    param_num: u16 = 0,
 
     /// Buffer that stores the input we see for a single OSC command.
     /// Slices in Command are offsets into this buffer.
@@ -70,10 +90,11 @@ pub const Parser = struct {
         // We're in a semantic prompt OSC command but we aren't sure
         // what the command is yet, i.e. `133;`
         semantic_prompt,
-
         semantic_option_start,
         semantic_option_key,
         semantic_option_value,
+        semantic_exit_code_start,
+        semantic_exit_code,
 
         // Expect a string parameter. param_str must be set as well as
         // buf_start.
@@ -140,6 +161,12 @@ pub const Parser = struct {
                     self.command = .{ .prompt_start = .{} };
                     self.complete = true;
                 },
+
+                'D' => {
+                    self.state = .semantic_exit_code_start;
+                    self.command = .{ .end_of_command = .{} };
+                    self.complete = true;
+                },
                 else => self.state = .invalid,
             },
 
@@ -169,6 +196,32 @@ pub const Parser = struct {
                 else => {},
             },
 
+            .semantic_exit_code_start => switch (c) {
+                ';' => {
+                    // No longer complete, if ';' shows up we expect some code.
+                    self.complete = false;
+                    self.state = .semantic_exit_code;
+                    self.buf_start = self.buf_idx;
+                },
+                else => self.state = .invalid,
+            },
+
+            .semantic_exit_code => switch (c) {
+                '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' => {
+                    self.complete = true;
+
+                    const idx = self.buf_idx - self.buf_start;
+                    if (idx > 0) self.param_num *|= 10;
+                    self.param_num +|= c - '0';
+                },
+                ';' => {
+                    self.endSemanticExitCode();
+                    self.state = .semantic_option_key;
+                    self.buf_start = self.buf_idx;
+                },
+                else => self.state = .invalid,
+            },
+
             .string => {
                 // Complete once we receive one character since we have
                 // at least SOME value for the expected string value.
@@ -188,6 +241,13 @@ pub const Parser = struct {
         } else log.info("unknown semantic prompts option: {s}", .{self.key});
     }
 
+    fn endSemanticExitCode(self: *Parser) void {
+        switch (self.command) {
+            .end_of_command => |*v| v.exit_code = @truncate(u8, self.param_num),
+            else => {},
+        }
+    }
+
     /// End the sequence and return the command, if any. If the return value
     /// is null, then no valid command was found.
     pub fn end(self: *Parser) ?Command {
@@ -198,6 +258,7 @@ pub const Parser = struct {
 
         // Other cleanup we may have to do depending on state.
         switch (self.state) {
+            .semantic_exit_code => self.endSemanticExitCode(),
             .semantic_option_value => self.endSemanticOptionValue(),
             .string => self.param_str.* = self.buf[self.buf_start..self.buf_idx],
             else => {},
@@ -244,4 +305,29 @@ test "OSC: prompt_start with single option" {
     const cmd = p.end().?;
     try testing.expect(cmd == .prompt_start);
     try testing.expectEqualStrings("14", cmd.prompt_start.aid.?);
+}
+
+test "OSC: end_of_command no exit code" {
+    const testing = std.testing;
+
+    var p: Parser = .{};
+
+    const input = "133;D";
+    for (input) |ch| p.next(ch);
+
+    const cmd = p.end().?;
+    try testing.expect(cmd == .end_of_command);
+}
+
+test "OSC: end_of_command with exit code" {
+    const testing = std.testing;
+
+    var p: Parser = .{};
+
+    const input = "133;D;25";
+    for (input) |ch| p.next(ch);
+
+    const cmd = p.end().?;
+    try testing.expect(cmd == .end_of_command);
+    try testing.expectEqual(@as(u8, 25), cmd.end_of_command.exit_code.?);
 }
