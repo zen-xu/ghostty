@@ -48,6 +48,10 @@ pub const Command = union(enum) {
         exit_code: ?u8 = null,
         // TODO: err option
     },
+
+    /// Reset the color for the cursor. This reverts changes made with
+    /// change/read cursor color.
+    reset_cursor_color: void,
 };
 
 pub const Parser = struct {
@@ -91,6 +95,7 @@ pub const Parser = struct {
         // but the state space is small enough that we just build it up this way.
         @"0",
         @"1",
+        @"11",
         @"13",
         @"133",
 
@@ -148,7 +153,17 @@ pub const Parser = struct {
             },
 
             .@"1" => switch (c) {
+                '1' => self.state = .@"11",
                 '3' => self.state = .@"13",
+                else => self.state = .invalid,
+            },
+
+            .@"11" => switch (c) {
+                '2' => {
+                    self.complete = true;
+                    self.command = .{ .reset_cursor_color = {} };
+                    self.state = .invalid;
+                },
                 else => self.state = .invalid,
             },
 
@@ -356,4 +371,16 @@ test "OSC: prompt_end" {
 
     const cmd = p.end().?;
     try testing.expect(cmd == .prompt_end);
+}
+
+test "OSC: reset_cursor_color" {
+    const testing = std.testing;
+
+    var p: Parser = .{};
+
+    const input = "112";
+    for (input) |ch| p.next(ch);
+
+    const cmd = p.end().?;
+    try testing.expect(cmd == .reset_cursor_color);
 }

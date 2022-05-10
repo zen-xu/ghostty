@@ -338,7 +338,9 @@ pub fn selectGraphicRendition(self: *Terminal, aspect: ansi.RenditionAspect) !vo
         .bold => self.cursor.bold = true,
         .default_fg => {}, // TODO
         .default_bg => {}, // TODO
-        else => log.warn("invalid or unimplemented rendition aspect: {}", .{aspect}),
+        else => {
+            //log.warn("invalid or unimplemented rendition aspect: {}", .{aspect});
+        },
     }
 }
 
