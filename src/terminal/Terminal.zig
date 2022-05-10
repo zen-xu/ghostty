@@ -138,6 +138,9 @@ pub fn appendChar(self: *Terminal, alloc: Allocator, c: u8) !void {
             .csi_dispatch => |csi| try self.csiDispatch(alloc, csi),
             .esc_dispatch => |esc| try self.escDispatch(alloc, esc),
             .osc_dispatch => |cmd| log.warn("unhandled OSC: {}", .{cmd}),
+            .dcs_hook => |dcs| log.warn("unhandled DCS hook: {}", .{dcs}),
+            .dcs_put => |code| log.warn("unhandled DCS put: {}", .{code}),
+            .dcs_unhook => log.warn("unhandled DCS unhook", .{}),
         }
     }
 }

@@ -38,17 +38,12 @@ pub const TransitionAction = enum {
     ignore,
     print,
     execute,
-    clear,
     collect,
     param,
     esc_dispatch,
     csi_dispatch,
-    hook,
     put,
-    unhook,
-    osc_start,
     osc_put,
-    osc_end,
 };
 
 /// Action is the action that a caller of the parser is expected to
@@ -70,6 +65,11 @@ pub const Action = union(enum) {
     /// Execute the OSC command.
     osc_dispatch: osc.Command,
 
+    /// DCS-related events.
+    dcs_hook: DCS,
+    dcs_put: u8,
+    dcs_unhook: void,
+
     pub const CSI = struct {
         intermediates: []u8,
         params: []u16,
@@ -78,6 +78,12 @@ pub const Action = union(enum) {
 
     pub const ESC = struct {
         intermediates: []u8,
+        final: u8,
+    };
+
+    pub const DCS = struct {
+        intermediates: []u8,
+        params: []u16,
         final: u8,
     };
 };
@@ -139,7 +145,7 @@ pub fn next(self: *Parser, c: u8) [3]?Action {
                 Action{ .osc_dispatch = cmd }
             else
                 null,
-            .dcs_passthrough => @panic("TODO"), // TODO: unhook
+            .dcs_passthrough => Action{ .dcs_unhook = {} },
             else => null,
         },
 
@@ -155,7 +161,13 @@ pub fn next(self: *Parser, c: u8) [3]?Action {
                 self.osc_parser.reset();
                 break :osc_string null;
             },
-            .dcs_passthrough => @panic("TODO"), // TODO: hook
+            .dcs_passthrough => Action{
+                .dcs_hook = .{
+                    .intermediates = self.intermediates[0..self.intermediates_idx],
+                    .params = self.params[0..self.params_idx],
+                    .final = c,
+                },
+            },
             else => null,
         },
     };
@@ -230,9 +242,8 @@ fn doAction(self: *Parser, action: TransitionAction, c: u8) ?Action {
                 .final = c,
             },
         },
-        else => {
-            std.log.err("unimplemented action: {}", .{action});
-            @panic("TODO");
+        .put => Action{
+            .dcs_put = c,
         },
     };
 }
