@@ -7,6 +7,7 @@ const Parser = @This();
 const std = @import("std");
 const testing = std.testing;
 const table = @import("parse_table.zig").table;
+const osc = @import("osc.zig");
 
 const log = std.log.scoped(.parser);
 
@@ -66,6 +67,9 @@ pub const Action = union(enum) {
     /// Execute the ESC command.
     esc_dispatch: ESC,
 
+    /// Execute the OSC command.
+    osc_dispatch: osc.Command,
+
     pub const CSI = struct {
         intermediates: []u8,
         params: []u16,
@@ -94,6 +98,9 @@ params: [MAX_PARAMS]u16 = undefined,
 params_idx: u8 = 0,
 param_acc: u16 = 0,
 param_acc_idx: u8 = 0,
+
+/// Parser for OSC sequences
+osc_parser: osc.Parser = .{},
 
 pub fn init() Parser {
     return .{};
@@ -126,20 +133,28 @@ pub fn next(self: *Parser, c: u8) [3]?Action {
     // 2. transition action
     // 3. entry action to new state
     return [3]?Action{
-        switch (self.state) {
-            .osc_string => @panic("TODO"), // TODO: osc_end
+        // Exit depends on current state
+        if (self.state == next_state) null else switch (self.state) {
+            .osc_string => if (self.osc_parser.end()) |cmd|
+                Action{ .osc_dispatch = cmd }
+            else
+                null,
             .dcs_passthrough => @panic("TODO"), // TODO: unhook
             else => null,
         },
 
         self.doAction(action, c),
 
-        switch (next_state) {
+        // Entry depends on new state
+        if (self.state == next_state) null else switch (next_state) {
             .escape, .dcs_entry, .csi_entry => clear: {
                 self.clear();
                 break :clear null;
             },
-            .osc_string => @panic("TODO"), // TODO: osc_start
+            .osc_string => osc_string: {
+                self.osc_parser.reset();
+                break :osc_string null;
+            },
             .dcs_passthrough => @panic("TODO"), // TODO: hook
             else => null,
         },
@@ -147,7 +162,6 @@ pub fn next(self: *Parser, c: u8) [3]?Action {
 }
 
 fn doAction(self: *Parser, action: TransitionAction, c: u8) ?Action {
-    _ = self;
     return switch (action) {
         .none, .ignore => null,
         .print => Action{ .print = c },
@@ -190,6 +204,10 @@ fn doAction(self: *Parser, action: TransitionAction, c: u8) ?Action {
 
             // The client is expected to perform no action.
             break :param null;
+        },
+        .osc_put => osc_put: {
+            self.osc_parser.next(c);
+            break :osc_put null;
         },
         .csi_dispatch => csi_dispatch: {
             // Finalize parameters if we have one
@@ -307,5 +325,27 @@ test "csi: ESC [ 1 ; 4 H" {
         try testing.expect(d.params.len == 2);
         try testing.expectEqual(@as(u16, 1), d.params[0]);
         try testing.expectEqual(@as(u16, 4), d.params[1]);
+    }
+}
+
+test "osc: change window title" {
+    var p = init();
+    _ = p.next(0x1B);
+    _ = p.next(']');
+    _ = p.next('0');
+    _ = p.next(';');
+    _ = p.next('a');
+    _ = p.next('b');
+    _ = p.next('c');
+
+    {
+        const a = p.next(0x07); // BEL
+        try testing.expect(p.state == .ground);
+        try testing.expect(a[0].? == .osc_dispatch);
+        try testing.expect(a[1] == null);
+        try testing.expect(a[2] == null);
+
+        const cmd = a[0].?.osc_dispatch;
+        try testing.expect(cmd == .change_window_title);
     }
 }

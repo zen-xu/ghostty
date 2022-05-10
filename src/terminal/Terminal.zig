@@ -137,6 +137,7 @@ pub fn appendChar(self: *Terminal, alloc: Allocator, c: u8) !void {
             .execute => |code| try self.execute(alloc, code),
             .csi_dispatch => |csi| try self.csiDispatch(alloc, csi),
             .esc_dispatch => |esc| try self.escDispatch(alloc, esc),
+            .osc_dispatch => |cmd| log.warn("unhandled OSC: {}", .{cmd}),
         }
     }
 }
@@ -626,6 +627,7 @@ fn getOrPutCell(self: *Terminal, alloc: Allocator, x: usize, y: usize) !*Cell {
 }
 
 test {
+    _ = @import("osc.zig");
     _ = Parser;
     _ = Tabstops;
 }

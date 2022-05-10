@@ -319,11 +319,13 @@ fn genTable() Table {
 
         // events
         single(&result, 0x19, source, source, .ignore);
-        range(&result, 0, 0x17, source, source, .ignore);
+        range(&result, 0, 0x06, source, source, .ignore);
+        range(&result, 0x08, 0x17, source, source, .ignore);
         range(&result, 0x1C, 0x1F, source, source, .ignore);
         range(&result, 0x20, 0x7F, source, source, .osc_put);
 
         // => ground
+        single(&result, 0x07, source, .ground, .none);
         single(&result, 0x9C, source, .ground, .none);
     }
 
