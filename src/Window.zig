@@ -342,6 +342,7 @@ fn keyCallback(
             .backspace => 0x08,
             .enter => '\r',
             .tab => '\t',
+            .escape => 0x1B,
             else => return,
         };
 
