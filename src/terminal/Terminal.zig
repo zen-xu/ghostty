@@ -374,6 +374,12 @@ pub fn eraseDisplay(
                     cell.char = 0;
             }
 
+            // Remaining lines are deallocated
+            if (self.cursor.y + 1 < self.screen.items.len) {
+                for (self.screen.items[self.cursor.y + 1 .. self.screen.items.len]) |*below|
+                    below.deinit(alloc);
+            }
+
             // Shrink
             self.screen.shrinkRetainingCapacity(self.cursor.y + 1);
         },
@@ -555,6 +561,10 @@ pub fn scrollDown(self: *Terminal, alloc: Allocator) !void {
     // Add one more item if we aren't at the max
     if (self.screen.items.len < self.rows) {
         self.screen.items.len += 1;
+    } else {
+        // We have the max, we need to deinitialize the last row because
+        // we're going to overwrite it.
+        self.screen.items[self.screen.items.len - 1].deinit(alloc);
     }
 
     // Shift everything down
