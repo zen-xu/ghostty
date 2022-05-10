@@ -28,6 +28,10 @@ pub const Command = union(enum) {
         aid: ?[]const u8 = null,
     },
 
+    /// End of prompt and start of user input, terminated by a OSC "133;C"
+    /// or another prompt (OSC "133;P").
+    prompt_end: void,
+
     /// End of current command.
     ///
     /// The exit-code need not be specified if  if there are no options,
@@ -159,6 +163,12 @@ pub const Parser = struct {
                 'A' => {
                     self.state = .semantic_option_start;
                     self.command = .{ .prompt_start = .{} };
+                    self.complete = true;
+                },
+
+                'B' => {
+                    self.state = .semantic_option_start;
+                    self.command = .{ .prompt_end = .{} };
                     self.complete = true;
                 },
 
@@ -330,4 +340,16 @@ test "OSC: end_of_command with exit code" {
     const cmd = p.end().?;
     try testing.expect(cmd == .end_of_command);
     try testing.expectEqual(@as(u8, 25), cmd.end_of_command.exit_code.?);
+}
+
+test "OSC: prompt_end" {
+    const testing = std.testing;
+
+    var p: Parser = .{};
+
+    const input = "133;B";
+    for (input) |ch| p.next(ch);
+
+    const cmd = p.end().?;
+    try testing.expect(cmd == .prompt_end);
 }
