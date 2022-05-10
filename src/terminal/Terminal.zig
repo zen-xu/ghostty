@@ -135,7 +135,7 @@ pub fn appendChar(self: *Terminal, alloc: Allocator, c: u8) !void {
             .print => |p| try self.print(alloc, p),
             .execute => |code| try self.execute(alloc, code),
             .csi_dispatch => |csi| try self.csiDispatch(alloc, csi),
-            .esc_dispatch => |esc| log.warn("unhandled esc: {}", .{esc}),
+            .esc_dispatch => |esc| try self.escDispatch(alloc, esc),
         }
     }
 }
@@ -257,6 +257,30 @@ fn csiDispatch(
     }
 }
 
+fn escDispatch(
+    self: *Terminal,
+    alloc: Allocator,
+    action: Parser.Action.ESC,
+) !void {
+    _ = alloc;
+
+    switch (action.final) {
+        // RI - Reverse Index
+        'M' => switch (action.intermediates.len) {
+            0 => self.reverseIndex(),
+            else => {
+                log.warn("invalid reverse index command: {}", .{action});
+                return;
+            },
+        },
+
+        else => {
+            log.warn("unimplemented esc dispatch: {}", .{action});
+            return;
+        },
+    }
+}
+
 fn print(self: *Terminal, alloc: Allocator, c: u8) !void {
     const tracy = trace(@src());
     defer tracy.end();
@@ -306,6 +330,11 @@ pub fn selectGraphicRendition(self: *Terminal, aspect: ansi.RenditionAspect) !vo
     }
 }
 
+// TODO: test
+pub fn reverseIndex(self: *Terminal) void {
+    self.cursor.y -|= 1;
+}
+
 // Set Cursor Position. Move cursor to the position indicated
 // by row and column (1-indexed). If column is 0, it is adjusted to 1.
 // If column is greater than the right-most column it is adjusted to
@@ -331,7 +360,18 @@ pub fn eraseDisplay(
         },
 
         .below => {
-            log.warn("TODO: below eraseDisplay", .{});
+            // If our cursor is outside our screen, we can't erase anything.
+            if (self.cursor.y >= self.screen.items.len) return;
+            var line = &self.screen.items[self.cursor.y];
+
+            // Clear this line right (including the cursor)
+            if (self.cursor.x < line.items.len) {
+                for (line.items[self.cursor.x..line.items.len]) |*cell|
+                    cell.char = 0;
+            }
+
+            // Shrink
+            self.screen.shrinkRetainingCapacity(self.cursor.y + 1);
         },
 
         else => {
