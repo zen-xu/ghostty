@@ -28,9 +28,20 @@ tabstops: Tabstops,
 rows: usize,
 cols: usize,
 
+/// The current scrolling region.
+scrolling_region: ScrollingRegion,
+
 /// Screen represents a presentable terminal screen made up of lines and cells.
 const Screen = std.ArrayListUnmanaged(Line);
 const Line = std.ArrayListUnmanaged(Cell);
+
+/// Scrolling region is the area of the screen designated where scrolling
+/// occurs. Wen scrolling the screen, only this viewport is scrolled.
+const ScrollingRegion = struct {
+    // Precondition: top < bottom
+    top: usize,
+    bottom: usize,
+};
 
 /// Cell is a single cell within the terminal.
 const Cell = struct {
@@ -64,6 +75,10 @@ pub fn init(alloc: Allocator, cols: usize, rows: usize) !Terminal {
         .screen = .{},
         .cursor = .{ .x = 0, .y = 0 },
         .tabstops = try Tabstops.init(alloc, cols, 8),
+        .scrolling_region = .{
+            .top = 0,
+            .bottom = rows - 1,
+        },
     };
 }
 
@@ -151,7 +166,7 @@ pub fn reverseIndex(self: *Terminal, alloc: Allocator) !void {
 // the right-most column. If row is 0, it is adjusted to 1. If row is
 // greater than the bottom-most row it is adjusted to the bottom-most
 // row.
-pub fn setCursorPos(self: *Terminal, row: usize, col: usize) !void {
+pub fn setCursorPos(self: *Terminal, row: usize, col: usize) void {
     self.cursor.x = @minimum(self.cols, col) -| 1;
     self.cursor.y = @minimum(self.rows, row) -| 1;
 }
@@ -427,6 +442,34 @@ pub fn scrollDown(self: *Terminal, alloc: Allocator) !void {
     self.screen.items[0] = .{};
 }
 
+/// Set Top and Bottom Margins If bottom is not specified, 0 or bigger than
+/// the number of the bottom-most row, it is adjusted to the number of the
+/// bottom most row.
+///
+/// If top < bottom set the top and bottom row of the scroll region according
+/// to top and bottom and move the cursor to the top-left cell of the display
+/// (when in cursor origin mode is set to the top-left cell of the scroll region).
+///
+/// Otherwise: Set the top and bottom row of the scroll region to the top-most
+/// and bottom-most line of the screen.
+///
+/// Top and bottom are 1-indexed.
+pub fn setScrollingRegion(self: *Terminal, top: usize, bottom: usize) void {
+    var t = if (top == 0) 1 else top;
+    var b = @minimum(bottom, self.rows);
+    if (t >= b) {
+        t = 1;
+        b = self.rows;
+    }
+
+    self.scrolling_region = .{
+        .top = t - 1,
+        .bottom = b - 1,
+    };
+
+    self.setCursorPos(1, 1);
+}
+
 fn getOrPutCell(self: *Terminal, alloc: Allocator, x: usize, y: usize) !*Cell {
     const tracy = trace(@src());
     defer tracy.end();
@@ -520,12 +563,38 @@ test "Terminal: setCursorPosition" {
     try testing.expectEqual(@as(usize, 0), t.cursor.y);
 
     // Setting it to 0 should keep it zero (1 based)
-    try t.setCursorPos(0, 0);
+    t.setCursorPos(0, 0);
     try testing.expectEqual(@as(usize, 0), t.cursor.x);
     try testing.expectEqual(@as(usize, 0), t.cursor.y);
 
     // Should clamp to size
-    try t.setCursorPos(81, 81);
+    t.setCursorPos(81, 81);
     try testing.expectEqual(@as(usize, 79), t.cursor.x);
     try testing.expectEqual(@as(usize, 79), t.cursor.y);
+}
+
+test "Terminal: setScrollingRegion" {
+    var t = try init(testing.allocator, 80, 80);
+    defer t.deinit(testing.allocator);
+
+    // Initial value
+    try testing.expectEqual(@as(usize, 0), t.scrolling_region.top);
+    try testing.expectEqual(@as(usize, t.rows - 1), t.scrolling_region.bottom);
+
+    // Move our cusor so we can verify we move it back
+    t.setCursorPos(5, 5);
+    t.setScrollingRegion(3, 7);
+
+    // Cursor should move back to top-left
+    try testing.expectEqual(@as(usize, 0), t.cursor.x);
+    try testing.expectEqual(@as(usize, 0), t.cursor.y);
+
+    // Scroll region is set
+    try testing.expectEqual(@as(usize, 2), t.scrolling_region.top);
+    try testing.expectEqual(@as(usize, 6), t.scrolling_region.bottom);
+
+    // Scroll region invalid
+    t.setScrollingRegion(7, 3);
+    try testing.expectEqual(@as(usize, 0), t.scrolling_region.top);
+    try testing.expectEqual(@as(usize, t.rows - 1), t.scrolling_region.bottom);
 }

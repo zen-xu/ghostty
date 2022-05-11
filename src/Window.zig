@@ -534,15 +534,15 @@ pub fn setCursorUp(self: *Window, amount: u16) !void {
 }
 
 pub fn setCursorCol(self: *Window, col: u16) !void {
-    try self.terminal.setCursorPos(self.terminal.cursor.y + 1, col);
+    self.terminal.setCursorPos(self.terminal.cursor.y + 1, col);
 }
 
 pub fn setCursorRow(self: *Window, row: u16) !void {
-    try self.terminal.setCursorPos(row, self.terminal.cursor.x + 1);
+    self.terminal.setCursorPos(row, self.terminal.cursor.x + 1);
 }
 
 pub fn setCursorPos(self: *Window, row: u16, col: u16) !void {
-    try self.terminal.setCursorPos(row, col);
+    self.terminal.setCursorPos(row, col);
 }
 
 pub fn eraseDisplay(self: *Window, mode: terminal.EraseDisplay) !void {
