@@ -258,6 +258,15 @@ pub fn Stream(comptime Handler: type) type {
                     }
                 } else log.warn("unimplemented CSI callback: {}", .{action}),
 
+                // DECSTBM - Set Top and Bottom Margins
+                // TODO: test
+                'r' => if (@hasDecl(T, "setTopAndBottomMargin")) switch (action.params.len) {
+                    0 => try self.handler.setTopAndBottomMargin(1, 0),
+                    1 => try self.handler.setTopAndBottomMargin(action.params[0], 0),
+                    2 => try self.handler.setTopAndBottomMargin(action.params[0], action.params[1]),
+                    else => log.warn("invalid DECSTBM command: {}", .{action}),
+                } else log.warn("unimplemented CSI callback: {}", .{action}),
+
                 else => if (@hasDecl(T, "csiUnimplemented"))
                     try self.handler.csiUnimplemented(action)
                 else

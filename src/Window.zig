@@ -565,6 +565,10 @@ pub fn reverseIndex(self: *Window) !void {
     try self.terminal.reverseIndex(self.alloc);
 }
 
+pub fn setTopAndBottomMargin(self: *Window, top: u16, bot: u16) !void {
+    self.terminal.setScrollingRegion(top, bot);
+}
+
 pub fn setMode(self: *Window, mode: terminal.Mode, enabled: bool) !void {
     switch (mode) {
         .origin => {
