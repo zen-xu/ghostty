@@ -1,9 +1,13 @@
+const stream = @import("stream.zig");
+
 pub const Terminal = @import("Terminal.zig");
 pub const Parser = @import("Parser.zig");
+pub const Stream = stream.Stream;
 
 // Not exported because they're just used for tests.
 
 test {
+    _ = stream;
     _ = Parser;
     _ = Terminal;
 
