@@ -15,11 +15,11 @@ const gl = @import("opengl.zig");
 const libuv = @import("libuv/main.zig");
 const Pty = @import("Pty.zig");
 const Command = @import("Command.zig");
-const Terminal = @import("terminal/Terminal.zig");
 const SegmentedPool = @import("segmented_pool.zig").SegmentedPool;
 const frame = @import("tracy/tracy.zig").frame;
 const trace = @import("tracy/tracy.zig").trace;
 const max_timer = @import("max_timer.zig");
+const terminal = @import("terminal/main.zig");
 
 const RenderTimer = max_timer.MaxTimer(renderTimerCallback);
 
@@ -48,7 +48,10 @@ command: Command,
 /// that manages input, grid updating, etc. and is renderer-agnostic. It
 /// just stores internal state about a grid. This is connected back to
 /// a renderer.
-terminal: Terminal,
+terminal: terminal.Terminal,
+
+/// The stream parser.
+terminal_stream: terminal.Stream(*Window),
 
 /// Timer that blinks the cursor.
 cursor_timer: libuv.Timer,
@@ -169,7 +172,7 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
     try stream.readStart(ttyReadAlloc, ttyRead);
 
     // Create our terminal
-    var term = try Terminal.init(alloc, grid.size.columns, grid.size.rows);
+    var term = try terminal.Terminal.init(alloc, grid.size.columns, grid.size.rows);
     errdefer term.deinit(alloc);
 
     // Setup a timer for blinking the cursor
@@ -186,6 +189,7 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
         .pty = pty,
         .command = cmd,
         .terminal = term,
+        .terminal_stream = .{ .handler = self },
         .cursor_timer = timer,
         .render_timer = try RenderTimer.init(loop, self, 16, 96),
         .pty_stream = stream,
@@ -429,10 +433,6 @@ fn ttyRead(t: *libuv.Tty, n: isize, buf: []const u8) void {
         return;
     };
 
-    // Add this character to the terminal buffer.
-    win.terminal.append(win.alloc, buf[0..@intCast(usize, n)]) catch |err|
-        log.err("error writing terminal data: {}", .{err});
-
     // Whenever a character is typed, we ensure the cursor is visible
     // and we restart the cursor timer.
     win.grid.cursor_visible = true;
@@ -442,6 +442,10 @@ fn ttyRead(t: *libuv.Tty, n: isize, buf: []const u8) void {
 
     // Schedule a render
     win.render_timer.schedule() catch unreachable;
+
+    // Process the terminal data
+    win.terminal_stream.nextSlice(buf[0..@intCast(usize, n)]) catch |err|
+        log.err("error processing terminal data: {}", .{err});
 }
 
 fn ttyWrite(req: *libuv.WriteReq, status: i32) void {
@@ -487,4 +491,68 @@ fn renderTimerCallback(t: *libuv.Timer) void {
 
     // Record our run
     win.render_timer.tick();
+}
+
+//-------------------------------------------------------------------
+// Stream Callbacks
+
+pub fn print(self: *Window, c: u8) !void {
+    try self.terminal.print(self.alloc, c);
+}
+
+pub fn bell(self: Window) !void {
+    _ = self;
+    log.info("BELL", .{});
+}
+
+pub fn backspace(self: *Window) !void {
+    self.terminal.backspace();
+}
+
+pub fn horizontalTab(self: *Window) !void {
+    try self.terminal.horizontalTab(self.alloc);
+}
+
+pub fn linefeed(self: *Window) !void {
+    self.terminal.linefeed(self.alloc);
+}
+
+pub fn carriageReturn(self: *Window) !void {
+    self.terminal.carriageReturn();
+}
+
+pub fn setCursorRight(self: *Window, amount: u16) !void {
+    self.terminal.cursorRight(amount);
+}
+
+pub fn setCursorCol(self: *Window, col: u16) !void {
+    try self.terminal.setCursorPos(self.terminal.cursor.y + 1, col);
+}
+
+pub fn setCursorRow(self: *Window, row: u16) !void {
+    try self.terminal.setCursorPos(row, self.terminal.cursor.x + 1);
+}
+
+pub fn setCursorPos(self: *Window, row: u16, col: u16) !void {
+    try self.terminal.setCursorPos(row, col);
+}
+
+pub fn eraseDisplay(self: *Window, mode: terminal.EraseDisplay) !void {
+    try self.terminal.eraseDisplay(self.alloc, mode);
+}
+
+pub fn eraseLine(self: *Window, mode: terminal.EraseLine) !void {
+    try self.terminal.eraseLine(mode);
+}
+
+pub fn deleteChars(self: *Window, count: usize) !void {
+    try self.terminal.deleteChars(count);
+}
+
+pub fn eraseChars(self: *Window, count: usize) !void {
+    try self.terminal.eraseChars(count);
+}
+
+pub fn reverseIndex(self: *Window) !void {
+    try self.terminal.reverseIndex(self.alloc);
 }

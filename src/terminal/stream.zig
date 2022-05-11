@@ -18,11 +18,18 @@ const log = std.log.scoped(.stream);
 /// This is implemented this way because we purposely do NOT want dynamic
 /// dispatch for performance reasons. The way this is implemented forces
 /// comptime resolution for all function calls.
-pub fn Stream(comptime T: type) type {
+pub fn Stream(comptime Handler: type) type {
     return struct {
         const Self = @This();
 
-        handler: T,
+        // We use T with @hasDecl so it needs to be a struct. Unwrap the
+        // pointer if we were given one.
+        const T = switch (@typeInfo(Handler)) {
+            .Pointer => |p| p.child,
+            else => Handler,
+        };
+
+        handler: Handler,
         parser: Parser = .{},
 
         /// Process a string of characters.
@@ -43,7 +50,7 @@ pub fn Stream(comptime T: type) type {
                 //if (action_opt) |action| log.info("action: {}", .{action});
                 switch (action_opt orelse continue) {
                     .print => |p| if (@hasDecl(T, "print")) try self.handler.print(p),
-                    .execute => |code| if (@hasDecl(T, "execute")) try self.handler.execute(code),
+                    .execute => |code| try self.execute(code),
                     .csi_dispatch => |csi| try self.csiDispatch(csi),
                     .esc_dispatch => |esc| try self.escDispatch(esc),
                     .osc_dispatch => |cmd| log.warn("unhandled OSC: {}", .{cmd}),
@@ -54,10 +61,41 @@ pub fn Stream(comptime T: type) type {
             }
         }
 
+        fn execute(self: *Self, c: u8) !void {
+            switch (@intToEnum(ansi.C0, c)) {
+                .NUL => {},
+
+                .BEL => if (@hasDecl(T, "bell"))
+                    try self.handler.bell()
+                else
+                    log.warn("unimplemented execute: {x}", .{c}),
+
+                .BS => if (@hasDecl(T, "backspace"))
+                    try self.handler.backspace()
+                else
+                    log.warn("unimplemented execute: {x}", .{c}),
+
+                .HT => if (@hasDecl(T, "horizontalTab"))
+                    try self.handler.horizontalTab()
+                else
+                    log.warn("unimplemented execute: {x}", .{c}),
+
+                .LF => if (@hasDecl(T, "linefeed"))
+                    try self.handler.linefeed()
+                else
+                    log.warn("unimplemented execute: {x}", .{c}),
+
+                .CR => if (@hasDecl(T, "carriageReturn"))
+                    try self.handler.carriageReturn()
+                else
+                    log.warn("unimplemented execute: {x}", .{c}),
+            }
+        }
+
         fn csiDispatch(self: *Self, action: Parser.Action.CSI) !void {
             switch (action.final) {
                 // CUF - Cursor Right
-                'C' => if (@hasDecl(T, "cursorRight")) try self.handler.cursorRight(
+                'C' => if (@hasDecl(T, "setCursorRight")) try self.handler.setCursorRight(
                     switch (action.params.len) {
                         0 => 1,
                         1 => action.params[0],
@@ -70,13 +108,11 @@ pub fn Stream(comptime T: type) type {
 
                 // HPA - Cursor Horizontal Position Absolute
                 // TODO: test
-                'G', '`' => if (@hasDecl(T, "setCursorCol")) try self.handler.setCursorCol(
-                    switch (action.params.len) {
-                        0 => 1,
-                        1 => action.params[0],
-                        else => log.warn("invalid HPA command: {}", .{action}),
-                    },
-                ) else log.warn("unimplemented CSI callback: {}", .{action}),
+                'G', '`' => if (@hasDecl(T, "setCursorCol")) switch (action.params.len) {
+                    0 => try self.handler.setCursorCol(1),
+                    1 => try self.handler.setCursorCol(action.params[0]),
+                    else => log.warn("invalid HPA command: {}", .{action}),
+                } else log.warn("unimplemented CSI callback: {}", .{action}),
 
                 // CUP - Set Cursor Position.
                 // TODO: test
@@ -89,7 +125,7 @@ pub fn Stream(comptime T: type) type {
 
                 // Erase Display
                 // TODO: test
-                'J' => if (@hasDecl(T, "eraseDisplay")) try self.eraseDisplay(
+                'J' => if (@hasDecl(T, "eraseDisplay")) try self.handler.eraseDisplay(
                     switch (action.params.len) {
                         0 => .below,
                         1 => mode: {
@@ -163,7 +199,10 @@ pub fn Stream(comptime T: type) type {
                     switch (action.params.len) {
                         0 => 1,
                         1 => action.params[0],
-                        else => log.warn("invalid VPA command: {}", .{action}),
+                        else => {
+                            log.warn("invalid VPA command: {}", .{action});
+                            return;
+                        },
                     },
                 ) else log.warn("unimplemented CSI callback: {}", .{action}),
 
@@ -197,7 +236,7 @@ pub fn Stream(comptime T: type) type {
             switch (action.final) {
                 // RI - Reverse Index
                 'M' => if (@hasDecl(T, "reverseIndex")) switch (action.intermediates.len) {
-                    0 => try self.reverseIndex(),
+                    0 => try self.handler.reverseIndex(),
                     else => {
                         log.warn("invalid reverse index command: {}", .{action});
                         return;
@@ -227,32 +266,11 @@ test "stream: print" {
     try testing.expectEqual(@as(u8, 'x'), s.handler.c.?);
 }
 
-test "stream: execute" {
-    const H = struct {
-        c: ?u8 = 0,
-        p: bool = false,
-
-        pub fn print(self: *@This(), c: u8) !void {
-            _ = c;
-            self.p = true;
-        }
-
-        pub fn execute(self: *@This(), c: u8) !void {
-            self.c = c;
-        }
-    };
-
-    var s: Stream(H) = .{ .handler = .{} };
-    try s.next('\n');
-    try testing.expect(!s.handler.p);
-    try testing.expectEqual(@as(u8, '\n'), s.handler.c.?);
-}
-
 test "stream: cursor right (CUF)" {
     const H = struct {
         amount: u16 = 0,
 
-        pub fn cursorRight(self: *@This(), v: u16) !void {
+        pub fn setCursorRight(self: *@This(), v: u16) !void {
             self.amount = v;
         }
     };
