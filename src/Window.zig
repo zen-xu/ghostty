@@ -564,3 +564,15 @@ pub fn eraseChars(self: *Window, count: usize) !void {
 pub fn reverseIndex(self: *Window) !void {
     try self.terminal.reverseIndex(self.alloc);
 }
+
+pub fn setMode(self: *Window, mode: terminal.Mode, enabled: bool) !void {
+    switch (mode) {
+        .origin => {
+            self.terminal.mode_origin = enabled;
+            self.terminal.setCursorPos(1, 1);
+            unreachable; // TODO: implement
+        },
+
+        else => if (enabled) log.warn("unimplemented mode: {}", .{mode}),
+    }
+}

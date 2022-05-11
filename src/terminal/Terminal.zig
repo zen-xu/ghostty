@@ -31,6 +31,10 @@ cols: usize,
 /// The current scrolling region.
 scrolling_region: ScrollingRegion,
 
+/// Modes
+// TODO: turn into a bitset probably
+mode_origin: bool = false,
+
 /// Screen represents a presentable terminal screen made up of lines and cells.
 const Screen = std.ArrayListUnmanaged(Line);
 const Line = std.ArrayListUnmanaged(Cell);
