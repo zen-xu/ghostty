@@ -10,7 +10,6 @@ const testing = std.testing;
 const Allocator = std.mem.Allocator;
 const ansi = @import("ansi.zig");
 const csi = @import("csi.zig");
-const Parser = @import("Parser.zig");
 const Tabstops = @import("Tabstops.zig");
 const trace = @import("../tracy/tracy.zig").trace;
 
@@ -28,9 +27,6 @@ tabstops: Tabstops,
 /// The size of the terminal.
 rows: usize,
 cols: usize,
-
-/// VT stream parser
-parser: Parser,
 
 /// Screen represents a presentable terminal screen made up of lines and cells.
 const Screen = std.ArrayListUnmanaged(Line);
@@ -68,7 +64,6 @@ pub fn init(alloc: Allocator, cols: usize, rows: usize) !Terminal {
         .screen = .{},
         .cursor = .{ .x = 0, .y = 0 },
         .tabstops = try Tabstops.init(alloc, cols, 8),
-        .parser = Parser.init(),
     };
 }
 
