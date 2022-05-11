@@ -163,17 +163,17 @@ fn csiDispatch(
 
         // HPA - Cursor Horizontal Position Absolute (Alias, see '`')
         'G' => if (action.params.len == 0) {
-            try self.setCursorPosition(self.cursor.y + 1, 1);
+            try self.setCursorPos(self.cursor.y + 1, 1);
         } else {
-            try self.setCursorPosition(self.cursor.y + 1, action.params[0]);
+            try self.setCursorPos(self.cursor.y + 1, action.params[0]);
         },
 
         // CUP - Set Cursor Position.
         'H' => {
             switch (action.params.len) {
-                0 => try self.setCursorPosition(1, 1),
-                1 => try self.setCursorPosition(action.params[0], 1),
-                2 => try self.setCursorPosition(action.params[0], action.params[1]),
+                0 => try self.setCursorPos(1, 1),
+                1 => try self.setCursorPos(action.params[0], 1),
+                2 => try self.setCursorPos(action.params[0], action.params[1]),
                 else => log.warn("unimplemented CSI: {}", .{action}),
             }
         },
@@ -242,16 +242,16 @@ fn csiDispatch(
 
         // HPA - Cursor Horizontal Position Absolute
         '`' => if (action.params.len == 0) {
-            try self.setCursorPosition(self.cursor.y + 1, 1);
+            try self.setCursorPos(self.cursor.y + 1, 1);
         } else {
-            try self.setCursorPosition(self.cursor.y + 1, action.params[0]);
+            try self.setCursorPos(self.cursor.y + 1, action.params[0]);
         },
 
         // VPA - Cursor Vertical Position Absolute
         'd' => if (action.params.len == 0) {
-            try self.setCursorPosition(1, self.cursor.x + 1);
+            try self.setCursorPos(1, self.cursor.x + 1);
         } else {
-            try self.setCursorPosition(action.params[0], self.cursor.x + 1);
+            try self.setCursorPos(action.params[0], self.cursor.x + 1);
         },
 
         // SGR - Select Graphic Rendition
@@ -361,7 +361,7 @@ pub fn reverseIndex(self: *Terminal, alloc: Allocator) !void {
 // the right-most column. If row is 0, it is adjusted to 1. If row is
 // greater than the bottom-most row it is adjusted to the bottom-most
 // row.
-pub fn setCursorPosition(self: *Terminal, row: usize, col: usize) !void {
+pub fn setCursorPos(self: *Terminal, row: usize, col: usize) !void {
     self.cursor.x = @minimum(self.cols, col) -| 1;
     self.cursor.y = @minimum(self.rows, row) -| 1;
 }
@@ -636,7 +636,7 @@ test "Terminal: input with no control characters" {
     defer t.deinit(testing.allocator);
 
     // Basic grid writing
-    try t.append(testing.allocator, "hello");
+    for ("hello") |c| try t.print(testing.allocator, c);
     try testing.expectEqual(@as(usize, 0), t.cursor.y);
     try testing.expectEqual(@as(usize, 5), t.cursor.x);
     {
@@ -646,12 +646,15 @@ test "Terminal: input with no control characters" {
     }
 }
 
-test "Terminal: C0 control LF and CR" {
+test "Terminal: linefeed and carriage return" {
     var t = try init(testing.allocator, 80, 80);
     defer t.deinit(testing.allocator);
 
     // Basic grid writing
-    try t.append(testing.allocator, "hello\r\nworld");
+    for ("hello") |c| try t.print(testing.allocator, c);
+    t.carriageReturn();
+    t.linefeed(testing.allocator);
+    for ("world") |c| try t.print(testing.allocator, c);
     try testing.expectEqual(@as(usize, 1), t.cursor.y);
     try testing.expectEqual(@as(usize, 5), t.cursor.x);
     {
@@ -661,14 +664,15 @@ test "Terminal: C0 control LF and CR" {
     }
 }
 
-test "Terminal: C0 control BS" {
+test "Terminal: backspace" {
+    const alloc = testing.allocator;
     var t = try init(testing.allocator, 80, 80);
     defer t.deinit(testing.allocator);
 
     // BS
-    try t.append(testing.allocator, "hello");
-    try t.appendChar(testing.allocator, @enumToInt(ansi.C0.BS));
-    try t.append(testing.allocator, "y");
+    for ("hello") |c| try t.print(alloc, c);
+    t.backspace();
+    try t.print(alloc, 'y');
     try testing.expectEqual(@as(usize, 0), t.cursor.y);
     try testing.expectEqual(@as(usize, 5), t.cursor.x);
     {
@@ -679,41 +683,18 @@ test "Terminal: C0 control BS" {
 }
 
 test "Terminal: horizontal tabs" {
-    var t = try init(testing.allocator, 80, 5);
-    defer t.deinit(testing.allocator);
+    const alloc = testing.allocator;
+    var t = try init(alloc, 80, 5);
+    defer t.deinit(alloc);
 
     // HT
-    try t.append(testing.allocator, "1\t");
+    try t.print(alloc, '1');
+    try t.horizontalTab(alloc);
     try testing.expectEqual(@as(usize, 8), t.cursor.x);
 
     // HT
-    try t.append(testing.allocator, "\t");
+    try t.horizontalTab(alloc);
     try testing.expectEqual(@as(usize, 16), t.cursor.x);
-}
-
-test "Terminal: CUP (ESC [ H)" {
-    var t = try init(testing.allocator, 80, 80);
-    defer t.deinit(testing.allocator);
-
-    // X, Y both specified
-    try t.append(testing.allocator, "\x1B[5;10H");
-    try testing.expectEqual(@as(usize, 4), t.cursor.y);
-    try testing.expectEqual(@as(usize, 9), t.cursor.x);
-
-    // Y only
-    try t.append(testing.allocator, "\x1B[5H");
-    try testing.expectEqual(@as(usize, 4), t.cursor.y);
-    try testing.expectEqual(@as(usize, 0), t.cursor.x);
-
-    // 0, 0 default
-    try t.append(testing.allocator, "\x1B[H");
-    try testing.expectEqual(@as(usize, 0), t.cursor.y);
-    try testing.expectEqual(@as(usize, 0), t.cursor.x);
-
-    // invalid
-    try t.append(testing.allocator, "\x1B[1;2;3H");
-    try testing.expectEqual(@as(usize, 0), t.cursor.y);
-    try testing.expectEqual(@as(usize, 0), t.cursor.x);
 }
 
 test "Terminal: setCursorPosition" {
@@ -724,12 +705,12 @@ test "Terminal: setCursorPosition" {
     try testing.expectEqual(@as(usize, 0), t.cursor.y);
 
     // Setting it to 0 should keep it zero (1 based)
-    try t.setCursorPosition(0, 0);
+    try t.setCursorPos(0, 0);
     try testing.expectEqual(@as(usize, 0), t.cursor.x);
     try testing.expectEqual(@as(usize, 0), t.cursor.y);
 
     // Should clamp to size
-    try t.setCursorPosition(81, 81);
+    try t.setCursorPos(81, 81);
     try testing.expectEqual(@as(usize, 79), t.cursor.x);
     try testing.expectEqual(@as(usize, 79), t.cursor.y);
 }
