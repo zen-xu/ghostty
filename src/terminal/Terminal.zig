@@ -295,9 +295,34 @@ pub fn cursorRight(self: *Terminal, count: usize) void {
     defer tracy.end();
 
     self.cursor.x += count;
-    if (self.cursor.x == self.cols) {
-        self.cursor.x -= 1;
+    if (self.cursor.x >= self.cols) {
+        self.cursor.x = self.cols - 1;
     }
+}
+
+/// Move the cursor down amount lines. If amount is greater than the maximum
+/// move distance then it is internally adjusted to the maximum. This sequence
+/// will not scroll the screen or scroll region. If amount is 0, adjust it to 1.
+// TODO: test
+pub fn cursorDown(self: *Terminal, count: usize) void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
+    self.cursor.y += count;
+    if (self.cursor.y >= self.rows) {
+        self.cursor.y = self.rows - 1;
+    }
+}
+
+/// Move the cursor up amount lines. If amount is greater than the maximum
+/// move distance then it is internally adjusted to the maximum. If amount is
+/// 0, adjust it to 1.
+// TODO: test
+pub fn cursorUp(self: *Terminal, count: usize) void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
+    self.cursor.y -|= count;
 }
 
 /// Backspace moves the cursor back a column (but not less than 0).

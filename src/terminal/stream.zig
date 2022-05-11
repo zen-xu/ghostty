@@ -94,6 +94,30 @@ pub fn Stream(comptime Handler: type) type {
 
         fn csiDispatch(self: *Self, action: Parser.Action.CSI) !void {
             switch (action.final) {
+                // CUU - Cursor Up
+                'A' => if (@hasDecl(T, "setCursorUp")) try self.handler.setCursorUp(
+                    switch (action.params.len) {
+                        0 => 1,
+                        1 => action.params[0],
+                        else => {
+                            log.warn("invalid cursor up command: {}", .{action});
+                            return;
+                        },
+                    },
+                ) else log.warn("unimplemented CSI callback: {}", .{action}),
+
+                // CUD - Cursor Down
+                'B' => if (@hasDecl(T, "setCursorDown")) try self.handler.setCursorDown(
+                    switch (action.params.len) {
+                        0 => 1,
+                        1 => action.params[0],
+                        else => {
+                            log.warn("invalid cursor down command: {}", .{action});
+                            return;
+                        },
+                    },
+                ) else log.warn("unimplemented CSI callback: {}", .{action}),
+
                 // CUF - Cursor Right
                 'C' => if (@hasDecl(T, "setCursorRight")) try self.handler.setCursorRight(
                     switch (action.params.len) {

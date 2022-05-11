@@ -525,6 +525,14 @@ pub fn setCursorRight(self: *Window, amount: u16) !void {
     self.terminal.cursorRight(amount);
 }
 
+pub fn setCursorDown(self: *Window, amount: u16) !void {
+    self.terminal.cursorDown(amount);
+}
+
+pub fn setCursorUp(self: *Window, amount: u16) !void {
+    self.terminal.cursorUp(amount);
+}
+
 pub fn setCursorCol(self: *Window, col: u16) !void {
     try self.terminal.setCursorPos(self.terminal.cursor.y + 1, col);
 }
