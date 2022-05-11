@@ -230,6 +230,18 @@ pub fn Stream(comptime Handler: type) type {
                     },
                 ) else log.warn("unimplemented CSI callback: {}", .{action}),
 
+                // SM - Set Mode
+                'h' => if (@hasDecl(T, "setMode")) {
+                    for (action.params) |mode|
+                        try self.handler.setMode(@intToEnum(ansi.Mode, mode), true);
+                } else log.warn("unimplemented CSI callback: {}", .{action}),
+
+                // RM - Reset Mode
+                'l' => if (@hasDecl(T, "setMode")) {
+                    for (action.params) |mode|
+                        try self.handler.setMode(@intToEnum(ansi.Mode, mode), false);
+                } else log.warn("unimplemented CSI callback: {}", .{action}),
+
                 // SGR - Select Graphic Rendition
                 'm' => if (@hasDecl(T, "selectGraphicRendition")) {
                     if (action.params.len == 0) {
@@ -309,4 +321,22 @@ test "stream: cursor right (CUF)" {
     s.handler.amount = 0;
     try s.nextSlice("\x1B[5;4C");
     try testing.expectEqual(@as(u16, 0), s.handler.amount);
+}
+
+test "stream: set mode (SM) and reset mode (RM)" {
+    const H = struct {
+        mode: ansi.Mode = @intToEnum(ansi.Mode, 0),
+
+        pub fn setMode(self: *@This(), mode: ansi.Mode, v: bool) !void {
+            self.mode = @intToEnum(ansi.Mode, 0);
+            if (v) self.mode = mode;
+        }
+    };
+
+    var s: Stream(H) = .{ .handler = .{} };
+    try s.nextSlice("\x1B[?6h");
+    try testing.expectEqual(@as(ansi.Mode, .origin), s.handler.mode);
+
+    try s.nextSlice("\x1B[?6l");
+    try testing.expectEqual(@intToEnum(ansi.Mode, 0), s.handler.mode);
 }

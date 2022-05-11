@@ -29,3 +29,16 @@ pub const RenditionAspect = enum(u16) {
     // user-generated.
     _,
 };
+
+/// Modes that can be set with with Set Mode (SM) (ESC [ h). The enum
+/// values correspond to the `?`-prefixed modes, since those are the ones
+/// of primary interest. The enum value is the mode value.
+pub const Mode = enum(u16) {
+    /// If set, the origin of the coordinate system is relative to the
+    /// current scroll region. If set the cursor is moved to the top left of
+    /// the current scroll region.
+    origin = 6,
+
+    // Non-exhaustive so that @intToEnum never fails for unsupported modes.
+    _,
+};
