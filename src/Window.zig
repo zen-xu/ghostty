@@ -584,3 +584,12 @@ pub fn setMode(self: *Window, mode: terminal.Mode, enabled: bool) !void {
         else => if (enabled) log.warn("unimplemented mode: {}", .{mode}),
     }
 }
+
+pub fn setAttribute(self: *Window, attr: terminal.Attribute) !void {
+    switch (attr) {
+        .unknown => |unk| log.warn("unimplemented or unknown attribute: {any}", .{unk}),
+
+        else => self.terminal.setAttribute(attr) catch |err|
+            log.warn("error setting attribute {}: {}", .{ attr, err }),
+    }
+}

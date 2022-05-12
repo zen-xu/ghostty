@@ -10,6 +10,7 @@ const testing = std.testing;
 const Allocator = std.mem.Allocator;
 const ansi = @import("ansi.zig");
 const csi = @import("csi.zig");
+const sgr = @import("sgr.zig");
 const Tabstops = @import("Tabstops.zig");
 const trace = @import("../tracy/tracy.zig").trace;
 
@@ -52,7 +53,9 @@ const Cell = struct {
     /// Each cell contains exactly one character. The character is UTF-8 encoded.
     char: u32,
 
-    // TODO(mitchellh): this is where we'll track fg/bg and other attrs.
+    /// Foreground and background color. null means to use the default.
+    fg: ?RGB = null,
+    bg: ?RGB = null,
 
     /// True if the cell should be skipped for drawing
     pub fn empty(self: Cell) bool {
@@ -66,9 +69,14 @@ const Cursor = struct {
     x: usize,
     y: usize,
 
-    // Bold specifies that text written should be bold
-    // TODO: connect to render
-    bold: bool = false,
+    // pen is the current cell styling to apply to new cells.
+    pen: Cell = .{ .char = 0 },
+};
+
+pub const RGB = struct {
+    r: u8,
+    g: u8,
+    b: u8,
 };
 
 /// Initialize a new terminal.
@@ -125,15 +133,42 @@ pub fn plainString(self: Terminal, alloc: Allocator) ![]const u8 {
     return buffer[0..i];
 }
 
+/// TODO: test
+pub fn setAttribute(self: *Terminal, attr: sgr.Attribute) !void {
+    switch (attr) {
+        .unset => {
+            self.cursor.pen.fg = null;
+            self.cursor.pen.bg = null;
+        },
+
+        .direct_color_fg => |rgb| {
+            self.cursor.pen.fg = .{
+                .r = rgb.r,
+                .g = rgb.g,
+                .b = rgb.g,
+            };
+        },
+
+        .direct_color_bg => |rgb| {
+            self.cursor.pen.bg = .{
+                .r = rgb.r,
+                .g = rgb.g,
+                .b = rgb.g,
+            };
+        },
+
+        else => return error.InvalidAttribute,
+    }
+}
+
 pub fn print(self: *Terminal, alloc: Allocator, c: u8) !void {
     const tracy = trace(@src());
     defer tracy.end();
 
     // Build our cell
     const cell = try self.getOrPutCell(alloc, self.cursor.x, self.cursor.y);
-    cell.* = .{
-        .char = @intCast(u32, c),
-    };
+    cell.* = self.cursor.pen;
+    cell.char = @intCast(u32, c);
 
     // Move the cursor
     self.cursor.x += 1;
@@ -141,18 +176,6 @@ pub fn print(self: *Terminal, alloc: Allocator, c: u8) !void {
     // TODO: wrap
     if (self.cursor.x == self.cols) {
         self.cursor.x -= 1;
-    }
-}
-
-pub fn selectGraphicRendition(self: *Terminal, aspect: ansi.RenditionAspect) !void {
-    switch (aspect) {
-        .default => self.cursor.bold = false,
-        .bold => self.cursor.bold = true,
-        .default_fg => {}, // TODO
-        .default_bg => {}, // TODO
-        else => {
-            //log.warn("invalid or unimplemented rendition aspect: {}", .{aspect});
-        },
     }
 }
 

@@ -3,6 +3,7 @@ const testing = std.testing;
 const Parser = @import("Parser.zig");
 const ansi = @import("ansi.zig");
 const csi = @import("csi.zig");
+const sgr = @import("sgr.zig");
 const trace = @import("../tracy/tracy.zig").trace;
 
 const log = std.log.scoped(.stream);
@@ -251,19 +252,9 @@ pub fn Stream(comptime Handler: type) type {
                 } else log.warn("unimplemented CSI callback: {}", .{action}),
 
                 // SGR - Select Graphic Rendition
-                'm' => if (@hasDecl(T, "selectGraphicRendition")) {
-                    if (action.params.len == 0) {
-                        // No values defaults to code 0
-                        try self.handler.selectGraphicRendition(.default);
-                    } else {
-                        // Each parameter sets a separate aspect
-                        for (action.params) |param| {
-                            try self.handler.selectGraphicRendition(@intToEnum(
-                                ansi.RenditionAspect,
-                                param,
-                            ));
-                        }
-                    }
+                'm' => if (@hasDecl(T, "setAttribute")) {
+                    var p: sgr.Parser = .{ .params = action.params };
+                    while (p.next()) |attr| try self.handler.setAttribute(attr);
                 } else log.warn("unimplemented CSI callback: {}", .{action}),
 
                 // DECSTBM - Set Top and Bottom Margins
