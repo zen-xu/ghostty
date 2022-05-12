@@ -268,7 +268,8 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
     if (term.screen.items.len == 0) return;
     try self.cells.ensureTotalCapacity(
         self.alloc,
-        term.screen.items.len * term.cols,
+        (term.screen.items.len * term.cols * 2) + 1, // * 2 for background modes and cursor
+        // + 1 for cursor
     );
 
     // Build each cell
@@ -281,7 +282,34 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
             // TODO: if we add a glyph, I think we need to rerender the texture.
             const glyph = try self.font_atlas.addGlyph(self.alloc, cell.char);
 
-            // TODO: for background colors, add another cell with mode = 1
+            if (cell.bg) |rgb| {
+                self.cells.appendAssumeCapacity(.{
+                    .mode = 1,
+                    .grid_col = @intCast(u16, x),
+                    .grid_row = @intCast(u16, y),
+                    .glyph_x = glyph.atlas_x,
+                    .glyph_y = glyph.atlas_y,
+                    .glyph_width = glyph.width,
+                    .glyph_height = glyph.height,
+                    .glyph_offset_x = glyph.offset_x,
+                    .glyph_offset_y = glyph.offset_y,
+                    .fg_r = 0,
+                    .fg_g = 0,
+                    .fg_b = 0,
+                    .fg_a = 0,
+                    .bg_r = rgb.r,
+                    .bg_g = rgb.g,
+                    .bg_b = rgb.b,
+                    .bg_a = 0xFF,
+                });
+            }
+
+            const fg = cell.fg orelse Terminal.RGB{
+                .r = 0xFF,
+                .g = 0xA5,
+                .b = 0,
+            };
+
             self.cells.appendAssumeCapacity(.{
                 .mode = 2,
                 .grid_col = @intCast(u16, x),
@@ -292,12 +320,12 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
                 .glyph_height = glyph.height,
                 .glyph_offset_x = glyph.offset_x,
                 .glyph_offset_y = glyph.offset_y,
-                .fg_r = 0xFF,
-                .fg_g = 0xA5,
-                .fg_b = 0,
+                .fg_r = fg.r,
+                .fg_g = fg.g,
+                .fg_b = fg.b,
                 .fg_a = 255,
-                .bg_r = 0x0,
-                .bg_g = 0xA5,
+                .bg_r = 0,
+                .bg_g = 0,
                 .bg_b = 0,
                 .bg_a = 0,
             });
