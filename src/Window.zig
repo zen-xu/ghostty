@@ -550,7 +550,7 @@ pub fn eraseDisplay(self: *Window, mode: terminal.EraseDisplay) !void {
 }
 
 pub fn eraseLine(self: *Window, mode: terminal.EraseLine) !void {
-    try self.terminal.eraseLine(mode);
+    try self.terminal.eraseLine(self.alloc, mode);
 }
 
 pub fn deleteChars(self: *Window, count: usize) !void {

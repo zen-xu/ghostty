@@ -243,30 +243,26 @@ pub fn eraseDisplay(
 /// TODO: test
 pub fn eraseLine(
     self: *Terminal,
+    alloc: Allocator,
     mode: csi.EraseLine,
 ) !void {
     switch (mode) {
         .right => {
-            // If our cursor is outside our screen, we can't erase anything.
-            if (self.cursor.y >= self.screen.items.len) return;
-            var line = &self.screen.items[self.cursor.y];
-
-            // If our cursor is outside our screen, we can't erase anything.
-            if (self.cursor.x >= line.items.len) return;
-
-            for (line.items[self.cursor.x..line.items.len]) |*cell|
+            var x: usize = self.cursor.x;
+            while (x < self.cols) : (x += 1) {
+                const cell = try self.getOrPutCell(alloc, x, self.cursor.y);
+                cell.* = self.cursor.pen;
                 cell.char = 0;
+            }
         },
 
         .left => {
-            // If our cursor is outside our screen, we can't erase anything.
-            if (self.cursor.y >= self.screen.items.len) return;
-            var line = &self.screen.items[self.cursor.y];
-
-            // Clear up to our cursor
-            const end = @minimum(line.items.len, self.cursor.x);
-            for (line.items[0..end]) |*cell|
+            var x: usize = self.cursor.x;
+            while (x >= 0) : (x -= 1) {
+                const cell = try self.getOrPutCell(alloc, x, self.cursor.y);
+                cell.* = self.cursor.pen;
                 cell.char = 0;
+            }
         },
 
         else => {
