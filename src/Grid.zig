@@ -275,24 +275,18 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
     // Build each cell
     for (term.screen.items) |line, y| {
         for (line.items) |cell, x| {
-            // It can be zero if the cell is empty
-            if (cell.empty()) continue;
-
-            // Get our glyph
-            // TODO: if we add a glyph, I think we need to rerender the texture.
-            const glyph = try self.font_atlas.addGlyph(self.alloc, cell.char);
-
+            // If the cell has a background, we always draw it.
             if (cell.bg) |rgb| {
                 self.cells.appendAssumeCapacity(.{
                     .mode = 1,
                     .grid_col = @intCast(u16, x),
                     .grid_row = @intCast(u16, y),
-                    .glyph_x = glyph.atlas_x,
-                    .glyph_y = glyph.atlas_y,
-                    .glyph_width = glyph.width,
-                    .glyph_height = glyph.height,
-                    .glyph_offset_x = glyph.offset_x,
-                    .glyph_offset_y = glyph.offset_y,
+                    .glyph_x = 0,
+                    .glyph_y = 0,
+                    .glyph_width = 0,
+                    .glyph_height = 0,
+                    .glyph_offset_x = 0,
+                    .glyph_offset_y = 0,
                     .fg_r = 0,
                     .fg_g = 0,
                     .fg_b = 0,
@@ -303,6 +297,13 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
                     .bg_a = 0xFF,
                 });
             }
+
+            // If the cell is empty then we draw nothing in the box.
+            if (cell.empty()) continue;
+
+            // Get our glyph
+            // TODO: if we add a glyph, I think we need to rerender the texture.
+            const glyph = try self.font_atlas.addGlyph(self.alloc, cell.char);
 
             const fg = cell.fg orelse Terminal.RGB{
                 .r = 0xFF,
