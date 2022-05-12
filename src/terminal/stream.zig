@@ -194,6 +194,14 @@ pub fn Stream(comptime Handler: type) type {
                     },
                 ) else log.warn("unimplemented CSI callback: {}", .{action}),
 
+                // DL - Delete Lines
+                // TODO: test
+                'M' => if (@hasDecl(T, "deleteLines")) switch (action.params.len) {
+                    0 => try self.handler.deleteLines(1),
+                    1 => try self.handler.deleteLines(action.params[0]),
+                    else => log.warn("invalid DL command: {}", .{action}),
+                } else log.warn("unimplemented CSI callback: {}", .{action}),
+
                 // Delete Character (DCH)
                 'P' => if (@hasDecl(T, "deleteChars")) try self.handler.deleteChars(
                     switch (action.params.len) {

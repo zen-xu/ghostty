@@ -561,6 +561,10 @@ pub fn eraseChars(self: *Window, count: usize) !void {
     try self.terminal.eraseChars(count);
 }
 
+pub fn deleteLines(self: *Window, count: usize) !void {
+    self.terminal.deleteLines(self.alloc, count);
+}
+
 pub fn reverseIndex(self: *Window) !void {
     try self.terminal.reverseIndex(self.alloc);
 }
