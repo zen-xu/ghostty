@@ -47,7 +47,7 @@ pub fn Stream(comptime Handler: type) type {
             //log.debug("char: {}", .{c});
             const actions = self.parser.next(c);
             for (actions) |action_opt| {
-                if (action_opt) |action| log.info("action: {}", .{action});
+                // if (action_opt) |action| log.info("action: {}", .{action});
                 switch (action_opt orelse continue) {
                     .print => |p| if (@hasDecl(T, "print")) try self.handler.print(p),
                     .execute => |code| try self.execute(code),
