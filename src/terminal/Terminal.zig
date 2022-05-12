@@ -394,6 +394,45 @@ pub fn linefeed(self: *Terminal, alloc: Allocator) void {
     self.cursor.y += 1;
 }
 
+/// Removes amount lines from the current cursor row down. The remaining lines
+/// to the bottom margin are shifted up and space from the bottom margin up is
+/// filled with empty lines.
+///
+/// If the current cursor position is outside of the current scroll region it
+/// does nothing. If amount is greater than the remaining number of lines in the
+/// scrolling region it is adjusted down.
+///
+/// In left and right margin mode the margins are respected; lines are only
+/// scrolled in the scroll region.
+///
+/// If the cell movement splits a multi cell character that character cleared,
+/// by replacing it by spaces, keeping its current attributes. All other
+/// cleared space is colored according to the current SGR state.
+///
+/// Moves the cursor to the left margin.
+pub fn deleteLines(self: *Terminal, alloc: Allocator, count: usize) void {
+    // TODO: scroll region bounds
+
+    // Move the cursor to the left margin
+    self.cursor.x = 0;
+
+    // Remaining number of lines in the scrolling region
+    const rem = self.scrolling_region.bottom - self.cursor.y;
+
+    // If the count is more than our remaining lines, we adjust down.
+    const count2 = @minimum(count, rem);
+
+    // Scroll up the count amount.
+    var i: usize = 0;
+    while (i < count2) : (i += 1) {
+        self.scrollUpRegion(
+            alloc,
+            self.cursor.y,
+            self.scrolling_region.bottom,
+        );
+    }
+}
+
 /// Scroll the text up by one row.
 pub fn scrollUp(self: *Terminal, alloc: Allocator) void {
     const tracy = trace(@src());
@@ -412,6 +451,38 @@ pub fn scrollUp(self: *Terminal, alloc: Allocator) void {
         self.screen.items[i] = self.screen.items[i + 1];
     }
     self.screen.items.len -= 1;
+}
+
+/// Scroll the given region up.
+///
+/// Top and bottom are 0-indexed.
+fn scrollUpRegion(
+    self: *Terminal,
+    alloc: Allocator,
+    top: usize,
+    bottom: usize,
+) void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
+    // If we have no items, scrolling does nothing.
+    if (self.screen.items.len <= top) return;
+
+    // Clear the first line
+    self.screen.items[top].deinit(alloc);
+
+    // Only go to the end of the region OR the end of our lines.
+    const end = @minimum(bottom, self.screen.items.len - 1);
+
+    var i: usize = top;
+    while (i < end) : (i += 1) {
+        self.screen.items[i] = self.screen.items[i + 1];
+    }
+
+    // Blank our last line if we have space.
+    if (i < self.screen.items.len) {
+        self.screen.items[i] = .{};
+    }
 }
 
 /// Scroll the text down by one row.
@@ -601,4 +672,35 @@ test "Terminal: setScrollingRegion" {
     t.setScrollingRegion(7, 3);
     try testing.expectEqual(@as(usize, 0), t.scrolling_region.top);
     try testing.expectEqual(@as(usize, t.rows - 1), t.scrolling_region.bottom);
+}
+
+test "Terminal: setScrollingRegion" {
+    const alloc = testing.allocator;
+    var t = try init(alloc, 80, 80);
+    defer t.deinit(alloc);
+
+    // Initial value
+    try t.print(alloc, 'A');
+    t.carriageReturn();
+    t.linefeed(alloc);
+    try t.print(alloc, 'B');
+    t.carriageReturn();
+    t.linefeed(alloc);
+    try t.print(alloc, 'C');
+    t.carriageReturn();
+    t.linefeed(alloc);
+    try t.print(alloc, 'D');
+
+    t.cursorUp(2);
+    t.deleteLines(alloc, 1);
+
+    try t.print(alloc, 'E');
+    t.carriageReturn();
+    t.linefeed(alloc);
+
+    {
+        var str = try t.plainString(testing.allocator);
+        defer testing.allocator.free(str);
+        try testing.expectEqualStrings("A\nE\nD\n", str);
+    }
 }
