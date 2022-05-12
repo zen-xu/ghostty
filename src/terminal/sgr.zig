@@ -24,90 +24,105 @@ pub const Attribute = union(enum) {
     };
 };
 
-/// Parse a set of parameters to a SGR command into an attribute.
-pub fn parse(params: []const u16) Attribute {
-    // No parameters means unset
-    if (params.len == 0) return .{ .unset = {} };
+/// Parser parses the attributes from a list of SGR parameters.
+pub const Parser = struct {
+    params: []const u16,
+    idx: usize = 0,
 
-    switch (params[0]) {
-        0 => if (params.len == 1) return .{ .unset = {} },
+    /// Next returns the next attribute or null if there are no more attributes.
+    pub fn next(self: *Parser) ?Attribute {
+        if (self.idx > self.params.len) return null;
 
-        38 => if ((params.len == 5 or params.len == 6) and params[1] == 2) {
-            // In the 6-len form, ignore the 3rd param.
-            const rgb = params[params.len - 3 .. params.len];
+        // Implicitly means unset
+        if (self.params.len == 0) {
+            self.idx += 1;
+            return Attribute{ .unset = {} };
+        }
 
-            // We use @truncate because the value should be 0 to 255. If
-            // it isn't, the behavior is undefined so we just... truncate it.
-            return .{
-                .direct_color_fg = .{
-                    .r = @truncate(u8, rgb[0]),
-                    .g = @truncate(u8, rgb[1]),
-                    .b = @truncate(u8, rgb[2]),
-                },
-            };
-        },
+        const slice = self.params[self.idx..self.params.len];
+        self.idx += 1;
 
-        48 => if ((params.len == 5 or params.len == 6) and params[1] == 2) {
-            // In the 6-len form, ignore the 3rd param.
-            const rgb = params[params.len - 3 .. params.len];
+        // Our last one will have an idx be the last value.
+        if (slice.len == 0) return null;
 
-            // We use @truncate because the value should be 0 to 255. If
-            // it isn't, the behavior is undefined so we just... truncate it.
-            return .{
-                .direct_color_bg = .{
-                    .r = @truncate(u8, rgb[0]),
-                    .g = @truncate(u8, rgb[1]),
-                    .b = @truncate(u8, rgb[2]),
-                },
-            };
-        },
+        switch (slice[0]) {
+            0 => return Attribute{ .unset = {} },
 
-        else => {},
+            38 => if (slice.len >= 5 and slice[1] == 2) {
+                self.idx += 4;
+
+                // In the 6-len form, ignore the 3rd param.
+                const rgb = slice[2..5];
+
+                // We use @truncate because the value should be 0 to 255. If
+                // it isn't, the behavior is undefined so we just... truncate it.
+                return Attribute{
+                    .direct_color_fg = .{
+                        .r = @truncate(u8, rgb[0]),
+                        .g = @truncate(u8, rgb[1]),
+                        .b = @truncate(u8, rgb[2]),
+                    },
+                };
+            },
+
+            48 => if (slice.len >= 5 and slice[1] == 2) {
+                self.idx += 4;
+
+                // In the 6-len form, ignore the 3rd param.
+                const rgb = slice[2..5];
+
+                // We use @truncate because the value should be 0 to 255. If
+                // it isn't, the behavior is undefined so we just... truncate it.
+                return Attribute{
+                    .direct_color_bg = .{
+                        .r = @truncate(u8, rgb[0]),
+                        .g = @truncate(u8, rgb[1]),
+                        .b = @truncate(u8, rgb[2]),
+                    },
+                };
+            },
+
+            else => {},
+        }
+
+        return Attribute{ .unknown = slice };
     }
+};
 
-    return .{ .unknown = params };
+fn testParse(params: []const u16) Attribute {
+    var p: Parser = .{ .params = params };
+    return p.next().?;
 }
 
-test "sgr: parse" {
-    try testing.expect(parse(&[_]u16{}) == .unset);
-    try testing.expect(parse(&[_]u16{0}) == .unset);
-    try testing.expect(parse(&[_]u16{ 0, 1 }) == .unknown);
+test "sgr: Parser" {
+    try testing.expect(testParse(&[_]u16{}) == .unset);
+    try testing.expect(testParse(&[_]u16{0}) == .unset);
 
     {
-        const v = parse(&[_]u16{ 38, 2, 40, 44, 52 });
+        const v = testParse(&[_]u16{ 38, 2, 40, 44, 52 });
         try testing.expect(v == .direct_color_fg);
         try testing.expectEqual(@as(u8, 40), v.direct_color_fg.r);
         try testing.expectEqual(@as(u8, 44), v.direct_color_fg.g);
         try testing.expectEqual(@as(u8, 52), v.direct_color_fg.b);
     }
 
-    {
-        const v = parse(&[_]u16{ 38, 2, 22, 40, 44, 52 });
-        try testing.expect(v == .direct_color_fg);
-        try testing.expectEqual(@as(u8, 40), v.direct_color_fg.r);
-        try testing.expectEqual(@as(u8, 44), v.direct_color_fg.g);
-        try testing.expectEqual(@as(u8, 52), v.direct_color_fg.b);
-    }
-
-    try testing.expect(parse(&[_]u16{ 38, 2, 44, 52 }) == .unknown);
-    try testing.expect(parse(&[_]u16{ 38, 2, 22, 22, 40, 44, 52 }) == .unknown);
+    try testing.expect(testParse(&[_]u16{ 38, 2, 44, 52 }) == .unknown);
 
     {
-        const v = parse(&[_]u16{ 48, 2, 40, 44, 52 });
+        const v = testParse(&[_]u16{ 48, 2, 40, 44, 52 });
         try testing.expect(v == .direct_color_bg);
         try testing.expectEqual(@as(u8, 40), v.direct_color_bg.r);
         try testing.expectEqual(@as(u8, 44), v.direct_color_bg.g);
         try testing.expectEqual(@as(u8, 52), v.direct_color_bg.b);
     }
 
-    {
-        const v = parse(&[_]u16{ 48, 2, 22, 40, 44, 52 });
-        try testing.expect(v == .direct_color_bg);
-        try testing.expectEqual(@as(u8, 40), v.direct_color_bg.r);
-        try testing.expectEqual(@as(u8, 44), v.direct_color_bg.g);
-        try testing.expectEqual(@as(u8, 52), v.direct_color_bg.b);
-    }
+    try testing.expect(testParse(&[_]u16{ 48, 2, 44, 52 }) == .unknown);
+}
 
-    try testing.expect(parse(&[_]u16{ 48, 2, 44, 52 }) == .unknown);
-    try testing.expect(parse(&[_]u16{ 48, 2, 22, 22, 40, 44, 52 }) == .unknown);
+test "sgr: Parser multiple" {
+    var p: Parser = .{ .params = &[_]u16{ 0, 38, 2, 40, 44, 52 } };
+    try testing.expect(p.next().? == .unset);
+    try testing.expect(p.next().? == .direct_color_fg);
+    try testing.expect(p.next() == null);
+    try testing.expect(p.next() == null);
 }
