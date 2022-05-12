@@ -235,6 +235,7 @@ fn genTable() Table {
         range(&result, 0, 0x17, source, source, .execute);
         range(&result, 0x1C, 0x1F, source, source, .execute);
         range(&result, 0x30, 0x39, source, source, .param);
+        single(&result, 0x3A, source, source, .param);
         single(&result, 0x3B, source, source, .param);
         single(&result, 0x7F, source, source, .ignore);
 
@@ -242,7 +243,6 @@ fn genTable() Table {
         range(&result, 0x40, 0x7E, source, .ground, .csi_dispatch);
 
         // => csi_ignore
-        single(&result, 0x3A, source, .csi_ignore, .none);
         range(&result, 0x3C, 0x3F, source, .csi_ignore, .none);
 
         // => csi_intermediate

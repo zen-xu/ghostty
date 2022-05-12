@@ -88,6 +88,15 @@ pub const Action = union(enum) {
     };
 };
 
+/// Keeps track of the parameter sep used for CSI params. We allow colons
+/// to be used ONLY by the 'm' CSI action.
+const ParamSepState = enum(u8) {
+    none = 0,
+    semicolon = ';',
+    colon = ':',
+    mixed = 1,
+};
+
 /// Maximum number of intermediate characters during parsing.
 const MAX_INTERMEDIATE = 2;
 const MAX_PARAMS = 16;
@@ -102,6 +111,7 @@ intermediates_idx: u8 = 0,
 /// Param tracking, building
 params: [MAX_PARAMS]u16 = undefined,
 params_idx: u8 = 0,
+params_sep: ParamSepState = .none,
 param_acc: u16 = 0,
 param_acc_idx: u8 = 0,
 
@@ -193,9 +203,14 @@ fn doAction(self: *Parser, action: TransitionAction, c: u8) ?Action {
         .param => param: {
             // Semicolon separates parameters. If we encounter a semicolon
             // we need to store and move on to the next parameter.
-            if (c == ';') {
+            if (c == ';' or c == ':') {
                 // Ignore too many parameters
                 if (self.params_idx >= MAX_PARAMS) break :param null;
+
+                // If this is our first time seeing a parameter, we track
+                // the separator used so that we can't mix separators later.
+                if (self.params_idx == 0) self.params_sep = @intToEnum(ParamSepState, c);
+                if (@intToEnum(ParamSepState, c) != self.params_sep) self.params_sep = .mixed;
 
                 // Set param final value
                 self.params[self.params_idx] = self.param_acc;
@@ -226,6 +241,14 @@ fn doAction(self: *Parser, action: TransitionAction, c: u8) ?Action {
             if (self.param_acc_idx > 0) {
                 self.params[self.params_idx] = self.param_acc;
                 self.params_idx += 1;
+            }
+
+            // We only allow the colon separator for the 'm' command.
+            switch (self.params_sep) {
+                .none => {},
+                .semicolon => {},
+                .colon => if (c != 'm') break :csi_dispatch null,
+                .mixed => break :csi_dispatch null,
             }
 
             break :csi_dispatch Action{
@@ -337,6 +360,56 @@ test "csi: ESC [ 1 ; 4 H" {
         try testing.expectEqual(@as(u16, 1), d.params[0]);
         try testing.expectEqual(@as(u16, 4), d.params[1]);
     }
+}
+
+test "csi: SGR ESC [ 38 : 2 m" {
+    var p = init();
+    _ = p.next(0x1B);
+    _ = p.next('[');
+    _ = p.next('3');
+    _ = p.next('8');
+    _ = p.next(':');
+    _ = p.next('2');
+
+    {
+        const a = p.next('m');
+        try testing.expect(p.state == .ground);
+        try testing.expect(a[0] == null);
+        try testing.expect(a[1].? == .csi_dispatch);
+        try testing.expect(a[2] == null);
+
+        const d = a[1].?.csi_dispatch;
+        try testing.expect(d.final == 'm');
+        try testing.expect(d.params.len == 2);
+        try testing.expectEqual(@as(u16, 38), d.params[0]);
+        try testing.expectEqual(@as(u16, 2), d.params[1]);
+    }
+}
+
+test "csi: mixing semicolon/colon" {
+    var p = init();
+    _ = p.next(0x1B);
+    for ("[38:2;4m") |c| {
+        const a = p.next(c);
+        try testing.expect(a[0] == null);
+        try testing.expect(a[1] == null);
+        try testing.expect(a[2] == null);
+    }
+
+    try testing.expect(p.state == .ground);
+}
+
+test "csi: colon for non-m final" {
+    var p = init();
+    _ = p.next(0x1B);
+    for ("[38:2h") |c| {
+        const a = p.next(c);
+        try testing.expect(a[0] == null);
+        try testing.expect(a[1] == null);
+        try testing.expect(a[2] == null);
+    }
+
+    try testing.expect(p.state == .ground);
 }
 
 test "osc: change window title" {
