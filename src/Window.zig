@@ -558,7 +558,7 @@ pub fn deleteChars(self: *Window, count: usize) !void {
 }
 
 pub fn eraseChars(self: *Window, count: usize) !void {
-    try self.terminal.eraseChars(count);
+    try self.terminal.eraseChars(self.alloc, count);
 }
 
 pub fn deleteLines(self: *Window, count: usize) !void {

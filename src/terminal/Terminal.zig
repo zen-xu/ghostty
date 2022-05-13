@@ -312,21 +312,17 @@ pub fn deleteChars(self: *Terminal, count: usize) !void {
 }
 
 // TODO: test, docs
-pub fn eraseChars(self: *Terminal, count: usize) !void {
-    var line = &self.screen.items[self.cursor.y];
-
+pub fn eraseChars(self: *Terminal, alloc: Allocator, count: usize) !void {
     // Our last index is at most the end of the number of chars we have
     // in the current line.
-    const end = @minimum(line.items.len, self.cursor.x + count);
-
-    // Do nothing if we have no values.
-    if (self.cursor.x >= line.items.len) return;
+    const end = @minimum(self.cols, self.cursor.x + count);
 
     // Shift
-    var i: usize = self.cursor.x;
-    while (i < end) : (i += 1) {
-        line.items[i].char = 0;
-        // TODO: retain graphical attributes
+    var x: usize = self.cursor.x;
+    while (x < end) : (x += 1) {
+        const cell = try self.getOrPutCell(alloc, x, self.cursor.y);
+        cell.* = self.cursor.pen;
+        cell.char = 0;
     }
 }
 
