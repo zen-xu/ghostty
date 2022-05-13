@@ -7,6 +7,7 @@ const Terminal = @This();
 const std = @import("std");
 const builtin = @import("builtin");
 const testing = std.testing;
+const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 const ansi = @import("ansi.zig");
 const csi = @import("csi.zig");
@@ -126,7 +127,9 @@ pub fn plainString(self: Terminal, alloc: Allocator) ![]const u8 {
         }
 
         for (line.items) |cell| {
-            i += try std.unicode.utf8Encode(@intCast(u21, cell.char), buffer[i..]);
+            if (cell.char > 0) {
+                i += try std.unicode.utf8Encode(@intCast(u21, cell.char), buffer[i..]);
+            }
         }
     }
 
@@ -414,6 +417,67 @@ pub fn linefeed(self: *Terminal, alloc: Allocator) void {
 
     // Increase cursor by 1
     self.cursor.y += 1;
+}
+
+/// Insert amount lines at the current cursor row. The contents of the line
+/// at the current cursor row and below (to the bottom-most line in the
+/// scrolling region) are shifted down by amount lines. The contents of the
+/// amount bottom-most lines in the scroll region are lost.
+///
+/// This unsets the pending wrap state without wrapping. If the current cursor
+/// position is outside of the current scroll region it does nothing.
+///
+/// If amount is greater than the remaining number of lines in the scrolling
+/// region it is adjusted down (still allowing for scrolling out every remaining
+/// line in the scrolling region)
+///
+/// In left and right margin mode the margins are respected; lines are only
+/// scrolled in the scroll region.
+///
+/// All cleared space is colored according to the current SGR state.
+///
+/// Moves the cursor to the left margin.
+pub fn insertLines(self: *Terminal, alloc: Allocator, count: usize) !void {
+    // TODO: scroll region bounds
+    // TODO: test
+
+    // Move the cursor to the left margin
+    self.cursor.x = 0;
+
+    // Remaining rows from our cursor
+    const rem = self.rows - (self.cursor.y + 1);
+
+    // If we're trying to insert more than the remaining number of rows, we just
+    // erase below and we're done.
+    if (count >= rem) {
+        try self.eraseDisplay(alloc, .below);
+        return;
+    }
+
+    // The the top `scroll_amount` lines need to move to the bottom
+    // scroll area.
+    const scroll_amount = rem - count;
+    var y: usize = self.rows - 1;
+    const top = y - scroll_amount - 1;
+
+    // Ensure we have the lines populated to the end
+    _ = try self.getOrPutCell(alloc, 0, y);
+    while (y > top) : (y -= 1) {
+        self.screen.items[y].deinit(alloc);
+        self.screen.items[y] = self.screen.items[y - count];
+        self.screen.items[y - count] = .{};
+    }
+
+    // Insert count blank lines
+    y = self.cursor.y;
+    while (y < self.cursor.y + count) : (y += 1) {
+        var x: usize = 0;
+        while (x < self.cols) : (x += 1) {
+            const cell = try self.getOrPutCell(alloc, x, y);
+            cell.* = self.cursor.pen;
+            cell.char = 0;
+        }
+    }
 }
 
 /// Removes amount lines from the current cursor row down. The remaining lines
@@ -724,5 +788,71 @@ test "Terminal: setScrollingRegion" {
         var str = try t.plainString(testing.allocator);
         defer testing.allocator.free(str);
         try testing.expectEqualStrings("A\nE\nD\n", str);
+    }
+}
+
+test "Terminal: insertLines" {
+    const alloc = testing.allocator;
+    var t = try init(alloc, 2, 5);
+    defer t.deinit(alloc);
+
+    // Initial value
+    try t.print(alloc, 'A');
+    t.carriageReturn();
+    t.linefeed(alloc);
+    try t.print(alloc, 'B');
+    t.carriageReturn();
+    t.linefeed(alloc);
+    try t.print(alloc, 'C');
+    t.carriageReturn();
+    t.linefeed(alloc);
+    try t.print(alloc, 'D');
+    t.carriageReturn();
+    t.linefeed(alloc);
+    try t.print(alloc, 'E');
+
+    // Move to row 2
+    t.setCursorPos(2, 1);
+
+    // Insert two lines
+    try t.insertLines(alloc, 2);
+
+    {
+        var str = try t.plainString(testing.allocator);
+        defer testing.allocator.free(str);
+        try testing.expectEqualStrings("A\n\n\nB\nC", str);
+    }
+}
+
+test "Terminal: insertLines more than remaining" {
+    const alloc = testing.allocator;
+    var t = try init(alloc, 2, 5);
+    defer t.deinit(alloc);
+
+    // Initial value
+    try t.print(alloc, 'A');
+    t.carriageReturn();
+    t.linefeed(alloc);
+    try t.print(alloc, 'B');
+    t.carriageReturn();
+    t.linefeed(alloc);
+    try t.print(alloc, 'C');
+    t.carriageReturn();
+    t.linefeed(alloc);
+    try t.print(alloc, 'D');
+    t.carriageReturn();
+    t.linefeed(alloc);
+    try t.print(alloc, 'E');
+
+    // Move to row 2
+    t.setCursorPos(2, 1);
+
+    // Insert two lines
+    try t.insertLines(alloc, 10);
+
+    {
+        var str = try t.plainString(testing.allocator);
+        defer testing.allocator.free(str);
+        try testing.expectEqualStrings("A\n\n\n\n", str);
     }
 }
