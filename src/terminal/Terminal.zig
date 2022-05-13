@@ -207,29 +207,36 @@ pub fn eraseDisplay(
 ) !void {
     switch (mode) {
         .complete => {
-            for (self.screen.items) |*line| line.deinit(alloc);
-            self.screen.clearRetainingCapacity();
+            var y: usize = 0;
+            while (y < self.rows) : (y += 1) {
+                var x: usize = 0;
+                while (x < self.cols) : (x += 1) {
+                    const cell = try self.getOrPutCell(alloc, x, y);
+                    cell.* = self.cursor.pen;
+                    cell.char = 0;
+                }
+            }
         },
 
         .below => {
-            // If our cursor is outside our screen, we can't erase anything.
-            if (self.cursor.y >= self.screen.items.len) return;
-            var line = &self.screen.items[self.cursor.y];
+            // All lines to the right (including the cursor)
+            var x: usize = self.cursor.x;
+            while (x < self.cols) : (x += 1) {
+                const cell = try self.getOrPutCell(alloc, x, self.cursor.y);
+                cell.* = self.cursor.pen;
+                cell.char = 0;
+            }
 
-            // Clear this line right (including the cursor)
-            if (self.cursor.x < line.items.len) {
-                for (line.items[self.cursor.x..line.items.len]) |*cell|
+            // All lines below
+            var y: usize = self.cursor.y + 1;
+            while (y < self.rows) : (y += 1) {
+                x = 0;
+                while (x < self.cols) : (x += 1) {
+                    const cell = try self.getOrPutCell(alloc, x, y);
+                    cell.* = self.cursor.pen;
                     cell.char = 0;
+                }
             }
-
-            // Remaining lines are deallocated
-            if (self.cursor.y + 1 < self.screen.items.len) {
-                for (self.screen.items[self.cursor.y + 1 .. self.screen.items.len]) |*below|
-                    below.deinit(alloc);
-            }
-
-            // Shrink
-            self.screen.shrinkRetainingCapacity(self.cursor.y + 1);
         },
 
         else => {
