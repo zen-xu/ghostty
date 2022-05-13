@@ -145,7 +145,7 @@ pub fn setAttribute(self: *Terminal, attr: sgr.Attribute) !void {
             self.cursor.pen.fg = .{
                 .r = rgb.r,
                 .g = rgb.g,
-                .b = rgb.g,
+                .b = rgb.b,
             };
         },
 
@@ -153,7 +153,7 @@ pub fn setAttribute(self: *Terminal, attr: sgr.Attribute) !void {
             self.cursor.pen.bg = .{
                 .r = rgb.r,
                 .g = rgb.g,
-                .b = rgb.g,
+                .b = rgb.b,
             };
         },
 
