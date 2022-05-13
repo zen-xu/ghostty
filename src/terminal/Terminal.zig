@@ -439,7 +439,8 @@ pub fn linefeed(self: *Terminal, alloc: Allocator) void {
 /// Moves the cursor to the left margin.
 pub fn insertLines(self: *Terminal, alloc: Allocator, count: usize) !void {
     // TODO: scroll region bounds
-    // TODO: test
+    if (self.scrolling_region.bottom != self.rows - 1 or
+        self.scrolling_region.top != 0) @panic("unimplemented");
 
     // Move the cursor to the left margin
     self.cursor.x = 0;
