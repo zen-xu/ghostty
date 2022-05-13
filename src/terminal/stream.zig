@@ -195,6 +195,14 @@ pub fn Stream(comptime Handler: type) type {
                     },
                 ) else log.warn("unimplemented CSI callback: {}", .{action}),
 
+                // IL - Insert Lines
+                // TODO: test
+                'L' => if (@hasDecl(T, "insertLines")) switch (action.params.len) {
+                    0 => try self.handler.insertLines(1),
+                    1 => try self.handler.insertLines(action.params[0]),
+                    else => log.warn("invalid IL command: {}", .{action}),
+                } else log.warn("unimplemented CSI callback: {}", .{action}),
+
                 // DL - Delete Lines
                 // TODO: test
                 'M' => if (@hasDecl(T, "deleteLines")) switch (action.params.len) {

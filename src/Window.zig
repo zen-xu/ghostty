@@ -561,6 +561,10 @@ pub fn eraseChars(self: *Window, count: usize) !void {
     try self.terminal.eraseChars(self.alloc, count);
 }
 
+pub fn insertLines(self: *Window, count: usize) !void {
+    try self.terminal.insertLines(self.alloc, count);
+}
+
 pub fn deleteLines(self: *Window, count: usize) !void {
     self.terminal.deleteLines(self.alloc, count);
 }
