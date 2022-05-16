@@ -1,5 +1,17 @@
 //! The primary export of this file is "table", which contains a
 //! comptime-generated state transition table for VT emulation.
+//!
+//! This is based on the vt100.net state machine:
+//! https://vt100.net/emu/dec_ansi_parser
+//! But has some modifications:
+//!
+//!   * utf8 state introduced to detect UTF8-encoded sequences. The
+//!     actual handling back OUT of the utf8 state is done manualy in the
+//!     parser.
+//!
+//!   * csi_param accepts the colon character (':') since the SGR command
+//!     accepts colon as a valid parameter value.
+//!
 
 const std = @import("std");
 const builtin = @import("builtin");
