@@ -100,6 +100,7 @@ pub fn get(self: Tabstops, col: usize) bool {
 }
 
 /// Resize this to support up to cols columns.
+// TODO: needs interval to set new tabstops
 pub fn resize(self: *Tabstops, alloc: Allocator, cols: usize) !void {
     // Set our new value
     self.cols = cols;

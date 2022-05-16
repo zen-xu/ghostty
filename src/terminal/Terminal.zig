@@ -103,10 +103,39 @@ pub fn deinit(self: *Terminal, alloc: Allocator) void {
 }
 
 /// Resize the underlying terminal.
-pub fn resize(self: *Terminal, cols: usize, rows: usize) void {
-    // TODO: actually doing anything for this
+pub fn resize(self: *Terminal, alloc: Allocator, cols: usize, rows: usize) !void {
+    // TODO: test, wrapping, etc.
+
+    // Resize our tabstops
+    // TODO: use resize, but it doesn't set new tabstops
+    if (self.cols != cols) {
+        self.tabstops.deinit(alloc);
+        self.tabstops = try Tabstops.init(alloc, cols, 8);
+    }
+
+    // If we're making the screen smaller, dealloc the unused items.
+    // TODO: we probably want to wrap in the future.
+    if (rows < self.rows and self.screen.items.len > rows) {
+        for (self.screen.items[rows..self.screen.items.len]) |*line|
+            line.deinit(alloc);
+        self.screen.shrinkRetainingCapacity(rows);
+    }
+    if (cols < self.cols) {
+        for (self.screen.items) |*line| {
+            if (line.items.len < cols) continue;
+            line.shrinkRetainingCapacity(cols);
+        }
+    }
+
+    // Set our size
     self.cols = cols;
     self.rows = rows;
+
+    // Reset the scrolling region
+    self.scrolling_region = .{
+        .top = 0,
+        .bottom = rows - 1,
+    };
 }
 
 /// Return the current string value of the terminal. Newlines are

@@ -282,7 +282,8 @@ fn sizeCallback(window: glfw.Window, width: i32, height: i32) void {
     }) catch |err| log.err("error updating grid screen size err={}", .{err});
 
     // Update the size of our terminal state
-    win.terminal.resize(win.grid.size.columns, win.grid.size.rows);
+    win.terminal.resize(win.alloc, win.grid.size.columns, win.grid.size.rows) catch |err|
+        log.err("error updating terminal size: {}", .{err});
 
     // Update the size of our pty
     win.pty.setSize(.{
