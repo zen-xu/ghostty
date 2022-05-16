@@ -225,9 +225,9 @@ fn next_utf8(self: *Parser, c: u8) ?Action {
 
     // We have enough bytes, decode!
     const bytes = self.intermediates[0..len];
-    const rune = std.unicode.utf8Decode(bytes) catch {
+    const rune = std.unicode.utf8Decode(bytes) catch rune: {
         log.warn("invalid UTF-8 sequence: {any}", .{bytes});
-        return null;
+        break :rune 0xFFFD; // �
     };
 
     return Action{ .print = rune };
@@ -534,7 +534,10 @@ test "print: utf8 invalid" {
     for ("\xC3\x28") |c| a = p.next(c);
 
     try testing.expect(p.state == .ground);
-    try testing.expect(a[0] == null);
+    try testing.expect(a[0].? == .print);
     try testing.expect(a[1] == null);
     try testing.expect(a[2] == null);
+
+    const rune = a[0].?.print;
+    try testing.expectEqual(try std.unicode.utf8Decode("�"), rune);
 }
