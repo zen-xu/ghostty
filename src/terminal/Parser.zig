@@ -5,6 +5,7 @@
 const Parser = @This();
 
 const std = @import("std");
+const builtin = @import("builtin");
 const testing = std.testing;
 const table = @import("parse_table.zig").table;
 const osc = @import("osc.zig");
@@ -28,6 +29,9 @@ pub const State = enum {
     dcs_ignore,
     osc_string,
     sos_pm_apc_string,
+
+    // Custom states added that aren't present on vt100.net
+    utf8,
 };
 
 /// Transition action is an action that can be taken during a state
@@ -49,8 +53,8 @@ pub const TransitionAction = enum {
 /// Action is the action that a caller of the parser is expected to
 /// take as a result of some input character.
 pub const Action = union(enum) {
-    /// Draw character to the screen.
-    print: u8,
+    /// Draw character to the screen. This is a unicode codepoint.
+    print: u21,
 
     /// Execute the C0 or C1 function.
     execute: u8,
@@ -97,8 +101,10 @@ const ParamSepState = enum(u8) {
     mixed = 1,
 };
 
-/// Maximum number of intermediate characters during parsing.
-const MAX_INTERMEDIATE = 2;
+/// Maximum number of intermediate characters during parsing. This is
+/// 4 because we also use the intermediates array for UTF8 decoding which
+/// can be at most 4 bytes.
+const MAX_INTERMEDIATE = 4;
 const MAX_PARAMS = 16;
 
 /// Current state of the state machine
@@ -126,6 +132,11 @@ pub fn init() Parser {
 /// Up to 3 actions may need to be exected -- in order -- representing
 /// the state exit, transition, and entry actions.
 pub fn next(self: *Parser, c: u8) [3]?Action {
+    // If we're processing UTF-8, we handle this manually.
+    if (self.state == .utf8) {
+        return .{ self.next_utf8(c), null, null };
+    }
+
     const effect = effect: {
         // First look up the transition in the anywhere table.
         const anywhere = table[c][@enumToInt(State.anywhere)];
@@ -142,6 +153,13 @@ pub fn next(self: *Parser, c: u8) [3]?Action {
 
     // After generating the actions, we set our next state.
     defer self.state = next_state;
+
+    // In debug mode, we log bad state transitions.
+    if (builtin.mode == .Debug) {
+        if (next_state == .anywhere) {
+            log.warn("state transition to 'anywhere', likely bug: {x}", .{c});
+        }
+    }
 
     // When going from one state to another, the actions take place in this order:
     //
@@ -183,21 +201,55 @@ pub fn next(self: *Parser, c: u8) [3]?Action {
     };
 }
 
+/// Processes the next byte in a UTF8 sequence. It is assumed that
+/// intermediates[0] already has the first byte of a UTF8 sequence
+/// (triggered via the state machine).
+fn next_utf8(self: *Parser, c: u8) ?Action {
+    // Collect the byte into the intermediates array
+    self.collect(c);
+
+    // Error is unreachable because the first byte comes from the state machine.
+    // If we get an error here, it is a bug in the state machine that we want
+    // to chase down.
+    const len = std.unicode.utf8ByteSequenceLength(self.intermediates[0]) catch unreachable;
+
+    // We need to collect more
+    if (self.intermediates_idx < len) return null;
+
+    // No matter what happens, we go back to ground since we know we have
+    // enough bytes for the UTF8 sequence.
+    defer {
+        self.state = .ground;
+        self.intermediates_idx = 0;
+    }
+
+    // We have enough bytes, decode!
+    const bytes = self.intermediates[0..len];
+    const rune = std.unicode.utf8Decode(bytes) catch {
+        log.warn("invalid UTF-8 sequence: {any}", .{bytes});
+        return null;
+    };
+
+    return Action{ .print = rune };
+}
+
+fn collect(self: *Parser, c: u8) void {
+    if (self.intermediates_idx >= MAX_INTERMEDIATE) {
+        log.warn("invalid intermediates count", .{});
+        return;
+    }
+
+    self.intermediates[self.intermediates_idx] = c;
+    self.intermediates_idx += 1;
+}
+
 fn doAction(self: *Parser, action: TransitionAction, c: u8) ?Action {
     return switch (action) {
         .none, .ignore => null,
         .print => Action{ .print = c },
         .execute => Action{ .execute = c },
         .collect => collect: {
-            if (self.intermediates_idx >= MAX_INTERMEDIATE) {
-                log.warn("invalid intermediates count", .{});
-                break :collect null;
-            }
-
-            self.intermediates[self.intermediates_idx] = c;
-            self.intermediates_idx += 1;
-
-            // The client is expected to perform no action.
+            self.collect(c);
             break :collect null;
         },
         .param => param: {
@@ -432,4 +484,57 @@ test "osc: change window title" {
         const cmd = a[0].?.osc_dispatch;
         try testing.expect(cmd == .change_window_title);
     }
+}
+
+test "print: utf8 2 byte" {
+    var p = init();
+    var a: [3]?Action = undefined;
+    for ("£") |c| a = p.next(c);
+
+    try testing.expect(p.state == .ground);
+    try testing.expect(a[0].? == .print);
+    try testing.expect(a[1] == null);
+    try testing.expect(a[2] == null);
+
+    const rune = a[0].?.print;
+    try testing.expectEqual(try std.unicode.utf8Decode("£"), rune);
+}
+
+test "print: utf8 3 byte" {
+    var p = init();
+    var a: [3]?Action = undefined;
+    for ("€") |c| a = p.next(c);
+
+    try testing.expect(p.state == .ground);
+    try testing.expect(a[0].? == .print);
+    try testing.expect(a[1] == null);
+    try testing.expect(a[2] == null);
+
+    const rune = a[0].?.print;
+    try testing.expectEqual(try std.unicode.utf8Decode("€"), rune);
+}
+
+test "print: utf8 4 byte" {
+    var p = init();
+    var a: [3]?Action = undefined;
+    for ("𐍈") |c| a = p.next(c);
+
+    try testing.expect(p.state == .ground);
+    try testing.expect(a[0].? == .print);
+    try testing.expect(a[1] == null);
+    try testing.expect(a[2] == null);
+
+    const rune = a[0].?.print;
+    try testing.expectEqual(try std.unicode.utf8Decode("𐍈"), rune);
+}
+
+test "print: utf8 invalid" {
+    var p = init();
+    var a: [3]?Action = undefined;
+    for ("\xC3\x28") |c| a = p.next(c);
+
+    try testing.expect(p.state == .ground);
+    try testing.expect(a[0] == null);
+    try testing.expect(a[1] == null);
+    try testing.expect(a[2] == null);
 }

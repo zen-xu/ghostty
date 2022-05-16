@@ -501,7 +501,7 @@ fn renderTimerCallback(t: *libuv.Timer) void {
 //-------------------------------------------------------------------
 // Stream Callbacks
 
-pub fn print(self: *Window, c: u8) !void {
+pub fn print(self: *Window, c: u21) !void {
     try self.terminal.print(self.alloc, c);
 }
 

@@ -31,7 +31,7 @@ fn genTableType() type {
 
 /// Function to generate the full state transition table for VT emulation.
 fn genTable() Table {
-    @setEvalBranchQuota(15000);
+    @setEvalBranchQuota(20000);
     var result: Table = undefined;
 
     // Initialize everything so every state transition exists
@@ -45,6 +45,8 @@ fn genTable() Table {
 
     // ground
     {
+        const source = State.ground;
+
         // anywhere =>
         single(&result, 0x18, .anywhere, .ground, .execute);
         single(&result, 0x1A, .anywhere, .ground, .execute);
@@ -55,6 +57,11 @@ fn genTable() Table {
         range(&result, 0, 0x17, .ground, .ground, .execute);
         range(&result, 0x1C, 0x1F, .ground, .ground, .execute);
         range(&result, 0x20, 0x7F, .ground, .ground, .print);
+
+        // => utf8
+        range(&result, 0xC2, 0xDF, source, .utf8, .collect);
+        range(&result, 0xE0, 0xEF, source, .utf8, .collect);
+        range(&result, 0xF0, 0xF4, source, .utf8, .collect);
     }
 
     // escape_intermediate

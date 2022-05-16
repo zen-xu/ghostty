@@ -164,7 +164,7 @@ pub fn setAttribute(self: *Terminal, attr: sgr.Attribute) !void {
     }
 }
 
-pub fn print(self: *Terminal, alloc: Allocator, c: u8) !void {
+pub fn print(self: *Terminal, alloc: Allocator, c: u21) !void {
     const tracy = trace(@src());
     defer tracy.end();
 

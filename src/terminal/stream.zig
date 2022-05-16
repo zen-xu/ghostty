@@ -45,7 +45,7 @@ pub fn Stream(comptime Handler: type) type {
             const tracy = trace(@src());
             defer tracy.end();
 
-            //log.debug("char: {}", .{c});
+            //log.debug("char: {x}", .{c});
             const actions = self.parser.next(c);
             for (actions) |action_opt| {
                 // if (action_opt) |action| log.info("action: {}", .{action});
@@ -324,16 +324,16 @@ pub fn Stream(comptime Handler: type) type {
 
 test "stream: print" {
     const H = struct {
-        c: ?u8 = 0,
+        c: ?u21 = 0,
 
-        pub fn print(self: *@This(), c: u8) !void {
+        pub fn print(self: *@This(), c: u21) !void {
             self.c = c;
         }
     };
 
     var s: Stream(H) = .{ .handler = .{} };
     try s.next('x');
-    try testing.expectEqual(@as(u8, 'x'), s.handler.c.?);
+    try testing.expectEqual(@as(u21, 'x'), s.handler.c.?);
 }
 
 test "stream: cursor right (CUF)" {
