@@ -122,10 +122,14 @@ pub fn addGlyph(self: *FontAtlas, alloc: Allocator, v: anytype) !*Glyph {
     if (gop.found_existing) return gop.value_ptr;
     errdefer _ = self.glyphs.remove(utf32);
 
-    const glyph_index = ftc.FT_Get_Char_Index(self.ft_face, utf32);
+    const glyph_index = glyph_index: {
+        const idx = ftc.FT_Get_Char_Index(self.ft_face, utf32);
+        if (idx > 0) break :glyph_index idx;
 
-    // TODO: probably not an error because we want to add a box.
-    if (glyph_index == 0) return error.CodepointNotFound;
+        // Unknown glyph.
+        // TODO: render something more identifiable than a space
+        break :glyph_index ftc.FT_Get_Char_Index(self.ft_face, ' ');
+    };
 
     if (ftc.FT_Load_Glyph(
         self.ft_face,
