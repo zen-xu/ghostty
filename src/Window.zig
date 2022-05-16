@@ -363,14 +363,7 @@ fn keyCallback(
         };
 
         const win = window.getUserPointer(Window) orelse return;
-        const req = win.write_req_pool.get() catch unreachable;
-        const buf = win.write_buf_pool.get() catch unreachable;
-        buf[0] = c;
-        win.pty_stream.write(
-            .{ .req = req },
-            &[1][]u8{buf[0..1]},
-            ttyWrite,
-        ) catch unreachable;
+        win.queueWrite(&[1]u8{c}) catch unreachable;
     }
 }
 
