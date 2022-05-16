@@ -67,8 +67,7 @@ pty_stream: libuv.Tty,
 write_req_pool: SegmentedPool(libuv.WriteReq.T, WRITE_REQ_PREALLOC) = .{},
 
 /// The pool of available buffers for writing to the pty.
-/// TODO: [1]u8 is probably not right.
-write_buf_pool: SegmentedPool([1]u8, WRITE_REQ_PREALLOC) = .{},
+write_buf_pool: SegmentedPool([64]u8, WRITE_REQ_PREALLOC) = .{},
 
 /// Set this to true whenver an event occurs that we may want to wake up
 /// the event loop. Only set this from the main thread.
@@ -246,6 +245,26 @@ pub fn shouldClose(self: Window) bool {
     return self.window.shouldClose();
 }
 
+/// Queue a write to the pty.
+fn queueWrite(self: *Window, data: []const u8) !void {
+    // We go through and chunk the data if necessary to fit into
+    // our cached buffers that we can queue to the stream.
+    var i: usize = 0;
+    while (i < data.len) {
+        const req = try self.write_req_pool.get();
+        const buf = try self.write_buf_pool.get();
+        const end = @minimum(data.len, i + buf.len);
+        std.mem.copy(u8, buf, data[i..end]);
+        try self.pty_stream.write(
+            .{ .req = req },
+            &[1][]u8{buf[0..(end - i)]},
+            ttyWrite,
+        );
+
+        i += end;
+    }
+}
+
 fn sizeCallback(window: glfw.Window, width: i32, height: i32) void {
     const tracy = trace(@src());
     defer tracy.end();
@@ -288,14 +307,7 @@ fn charCallback(window: glfw.Window, codepoint: u21) void {
     const win = window.getUserPointer(Window) orelse return;
 
     // Write the character to the pty
-    const req = win.write_req_pool.get() catch unreachable;
-    const buf = win.write_buf_pool.get() catch unreachable;
-    buf[0] = @intCast(u8, codepoint);
-    win.pty_stream.write(
-        .{ .req = req },
-        &[1][]u8{buf[0..1]},
-        ttyWrite,
-    ) catch unreachable;
+    win.queueWrite(&[1]u8{@intCast(u8, codepoint)}) catch unreachable;
 }
 
 fn keyCallback(
@@ -595,5 +607,19 @@ pub fn setAttribute(self: *Window, attr: terminal.Attribute) !void {
 
         else => self.terminal.setAttribute(attr) catch |err|
             log.warn("error setting attribute {}: {}", .{ attr, err }),
+    }
+}
+
+pub fn deviceAttributes(
+    self: *Window,
+    req: terminal.DeviceAttributeReq,
+    params: []const u16,
+) !void {
+    _ = params;
+
+    switch (req) {
+        .primary => self.queueWrite("\x1B[?6c") catch |err|
+            log.warn("error queueing device attr response: {}", .{err}),
+        else => log.warn("unimplemented device attributes req: {}", .{req}),
     }
 }

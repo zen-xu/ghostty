@@ -235,6 +235,24 @@ pub fn Stream(comptime Handler: type) type {
                     },
                 ) else log.warn("unimplemented CSI callback: {}", .{action}),
 
+                // c - Device Attributes (DA1)
+                'c' => if (@hasDecl(T, "deviceAttributes")) {
+                    const req: ansi.DeviceAttributeReq = switch (action.intermediates.len) {
+                        0 => ansi.DeviceAttributeReq.primary,
+                        1 => switch (action.intermediates[0]) {
+                            '>' => ansi.DeviceAttributeReq.secondary,
+                            '=' => ansi.DeviceAttributeReq.tertiary,
+                            else => null,
+                        },
+                        else => @as(?ansi.DeviceAttributeReq, null),
+                    } orelse {
+                        log.warn("invalid device attributes command: {}", .{action});
+                        return;
+                    };
+
+                    try self.handler.deviceAttributes(req, action.params);
+                } else log.warn("unimplemented CSI callback: {}", .{action}),
+
                 // VPA - Cursor Vertical Position Absolute
                 'd' => if (@hasDecl(T, "setCursorRow")) try self.handler.setCursorRow(
                     switch (action.params.len) {

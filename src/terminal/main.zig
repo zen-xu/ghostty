@@ -6,6 +6,7 @@ const sgr = @import("sgr.zig");
 pub const Terminal = @import("Terminal.zig");
 pub const Parser = @import("Parser.zig");
 pub const Stream = stream.Stream;
+pub const DeviceAttributeReq = ansi.DeviceAttributeReq;
 pub const Mode = ansi.Mode;
 pub const EraseDisplay = csi.EraseDisplay;
 pub const EraseLine = csi.EraseLine;

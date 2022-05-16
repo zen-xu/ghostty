@@ -42,3 +42,10 @@ pub const Mode = enum(u16) {
     // Non-exhaustive so that @intToEnum never fails for unsupported modes.
     _,
 };
+
+/// The device attribute request type (ESC [ c).
+pub const DeviceAttributeReq = enum {
+    primary, // Blank
+    secondary, // >
+    tertiary, // =
+};
