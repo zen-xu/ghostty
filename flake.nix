@@ -3,6 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/release-21.11";
+    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     zig.url = "github:roarkanize/zig-overlay";
 
@@ -19,6 +20,9 @@
         # Other overlays
         (final: prev: {
           zigpkgs = inputs.zig.packages.${prev.system};
+
+          # Latest version of Tracy
+          tracy = inputs.nixpkgs-unstable.legacyPackages.${prev.system}.tracy;
         })
       ];
 
