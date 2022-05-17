@@ -2,7 +2,7 @@
   description = "ghostty";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/release-21.11";
     flake-utils.url = "github:numtide/flake-utils";
     zig.url = "github:roarkanize/zig-overlay";
 
