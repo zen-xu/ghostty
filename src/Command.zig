@@ -30,7 +30,7 @@ const debug = std.debug;
 const testing = std.testing;
 const Allocator = std.mem.Allocator;
 const File = std.fs.File;
-const BufMap = std.BufMap;
+const EnvMap = std.process.EnvMap;
 
 /// Path to the command to run. This must be an absolute path. This
 /// library does not do PATH lookup.
@@ -44,7 +44,7 @@ args: []const []const u8,
 /// Environment variables for the child process. If this is null, inherits
 /// the environment variables from this process. These are the exact
 /// environment variables to set; these are /not/ merged.
-env: ?*const BufMap = null,
+env: ?*const EnvMap = null,
 
 /// The file handle to set for stdin/out/err. If this isn't set, we do
 /// nothing explicitly so it is up to the behavior of the operating system.
@@ -264,7 +264,7 @@ test "expandPath: slash" {
 
 // Copied from Zig. This is a publicly exported function but there is no
 // way to get it from the std package.
-fn createNullDelimitedEnvMap(arena: mem.Allocator, env_map: *const std.BufMap) ![:null]?[*:0]u8 {
+fn createNullDelimitedEnvMap(arena: mem.Allocator, env_map: *const EnvMap) ![:null]?[*:0]u8 {
     const envp_count = env_map.count();
     const envp_buf = try arena.allocSentinel(?[*:0]u8, envp_count, null);
 
@@ -284,7 +284,7 @@ fn createNullDelimitedEnvMap(arena: mem.Allocator, env_map: *const std.BufMap) !
 
 test "createNullDelimitedEnvMap" {
     const allocator = testing.allocator;
-    var envmap = BufMap.init(allocator);
+    var envmap = EnvMap.init(allocator);
     defer envmap.deinit();
 
     try envmap.put("HOME", "/home/ifreund");
@@ -378,7 +378,7 @@ test "Command: custom env vars" {
     var stdout = try td.dir.createFile("stdout.txt", .{ .read = true });
     defer stdout.close();
 
-    var env = std.BufMap.init(testing.allocator);
+    var env = EnvMap.init(testing.allocator);
     defer env.deinit();
     try env.put("VALUE", "hello");
 
