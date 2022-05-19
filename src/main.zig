@@ -16,13 +16,14 @@ pub fn main() !void {
     const alloc = if (!tracy.enabled) gpa else tracy.allocator(gpa, null).allocator();
 
     // Parse the config from the CLI args
-    const config = config: {
+    var config = config: {
         var result: Config = .{};
         var iter = try std.process.argsWithAllocator(alloc);
         defer iter.deinit();
-        try cli_args.parse(Config, &result, &iter);
+        try cli_args.parse(Config, alloc, &result, &iter);
         break :config result;
     };
+    defer config.deinit();
 
     // Initialize glfw
     try glfw.init(.{});

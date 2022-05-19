@@ -1,4 +1,5 @@
 const std = @import("std");
+const ArenaAllocator = std.heap.ArenaAllocator;
 
 pub const Config = struct {
     /// Background color for the window.
@@ -10,6 +11,14 @@ pub const Config = struct {
     /// The command to run, usually a shell. If this is not an absolute path,
     /// it'll be looked up in the PATH.
     command: ?[]const u8 = null,
+
+    /// This is set by the CLI parser for deinit.
+    _arena: ?ArenaAllocator = null,
+
+    pub fn deinit(self: *Config) void {
+        if (self._arena) |arena| arena.deinit();
+        self.* = undefined;
+    }
 };
 
 /// Color represents a color using RGB.
