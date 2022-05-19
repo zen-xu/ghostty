@@ -20,6 +20,7 @@ const frame = @import("tracy/tracy.zig").frame;
 const trace = @import("tracy/tracy.zig").trace;
 const max_timer = @import("max_timer.zig");
 const terminal = @import("terminal/main.zig");
+const Config = @import("config.zig").Config;
 
 const RenderTimer = max_timer.MaxTimer(renderTimerCallback);
 
@@ -73,10 +74,19 @@ write_buf_pool: SegmentedPool([64]u8, WRITE_REQ_PREALLOC) = .{},
 /// the event loop. Only set this from the main thread.
 wakeup: bool = false,
 
+/// The app configuration
+config: *const Config,
+
+/// Window background color
+bg_r: f32,
+bg_g: f32,
+bg_b: f32,
+bg_a: f32,
+
 /// Create a new window. This allocates and returns a pointer because we
 /// need a stable pointer for user data callbacks. Therefore, a stack-only
 /// initialization is not currently possible.
-pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
+pub fn create(alloc: Allocator, loop: libuv.Loop, config: *const Config) !*Window {
     var self = try alloc.create(Window);
     errdefer alloc.destroy(self);
 
@@ -124,6 +134,11 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
     const window_size = try window.getSize();
     var grid = try Grid.init(alloc);
     try grid.setScreenSize(.{ .width = window_size.width, .height = window_size.height });
+    grid.foreground = .{
+        .r = config.foreground.r,
+        .g = config.foreground.g,
+        .b = config.foreground.b,
+    };
 
     // Create our pty
     var pty = try Pty.open(.{
@@ -192,6 +207,11 @@ pub fn create(alloc: Allocator, loop: libuv.Loop) !*Window {
         .cursor_timer = timer,
         .render_timer = try RenderTimer.init(loop, self, 16, 96),
         .pty_stream = stream,
+        .config = config,
+        .bg_r = @intToFloat(f32, config.background.r) / 255.0,
+        .bg_g = @intToFloat(f32, config.background.g) / 255.0,
+        .bg_b = @intToFloat(f32, config.background.b) / 255.0,
+        .bg_a = 1.0,
     };
 
     // Setup our callbacks and user data
@@ -480,7 +500,7 @@ fn renderTimerCallback(t: *libuv.Timer) void {
     win.grid.updateCells(win.terminal) catch unreachable;
 
     // Set our background
-    gl.clearColor(0.2, 0.3, 0.3, 1.0);
+    gl.clearColor(win.bg_r, win.bg_g, win.bg_b, win.bg_a);
     gl.clear(gl.c.GL_COLOR_BUFFER_BIT);
 
     // Render the grid

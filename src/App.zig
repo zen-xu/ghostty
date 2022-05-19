@@ -9,6 +9,7 @@ const glfw = @import("glfw");
 const Window = @import("Window.zig");
 const libuv = @import("libuv/main.zig");
 const tracy = @import("tracy/tracy.zig");
+const Config = @import("config.zig").Config;
 
 const log = std.log.scoped(.app);
 
@@ -24,10 +25,13 @@ window: *Window,
 // so that users of the loop always have an allocator.
 loop: libuv.Loop,
 
+// The configuration for the app.
+config: *const Config,
+
 /// Initialize the main app instance. This creates the main window, sets
 /// up the renderer state, compiles the shaders, etc. This is the primary
 /// "startup" logic.
-pub fn init(alloc: Allocator) !App {
+pub fn init(alloc: Allocator, config: *const Config) !App {
     // Create the event loop
     var loop = try libuv.Loop.init(alloc);
     errdefer loop.deinit(alloc);
@@ -40,13 +44,14 @@ pub fn init(alloc: Allocator) !App {
     loop.setData(allocPtr);
 
     // Create the window
-    var window = try Window.create(alloc, loop);
+    var window = try Window.create(alloc, loop, config);
     errdefer window.destroy();
 
     return App{
         .alloc = alloc,
         .window = window,
         .loop = loop,
+        .config = config,
     };
 }
 

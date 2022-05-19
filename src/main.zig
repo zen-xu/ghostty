@@ -3,7 +3,9 @@ const std = @import("std");
 const glfw = @import("glfw");
 
 const App = @import("App.zig");
+const cli_args = @import("cli_args.zig");
 const tracy = @import("tracy/tracy.zig");
+const Config = @import("config.zig").Config;
 
 pub fn main() !void {
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
@@ -13,12 +15,21 @@ pub fn main() !void {
     // If we're tracing, then wrap memory so we can trace allocations
     const alloc = if (!tracy.enabled) gpa else tracy.allocator(gpa, null).allocator();
 
+    // Parse the config from the CLI args
+    const config = config: {
+        var result: Config = .{};
+        var iter = try std.process.argsWithAllocator(alloc);
+        defer iter.deinit();
+        try cli_args.parse(Config, &result, &iter);
+        break :config result;
+    };
+
     // Initialize glfw
     try glfw.init(.{});
     defer glfw.terminate();
 
     // Run our app
-    var app = try App.init(alloc);
+    var app = try App.init(alloc, &config);
     defer app.deinit();
     try app.run();
 }
@@ -41,4 +52,8 @@ test {
     _ = @import("segmented_pool.zig");
     _ = @import("libuv/main.zig");
     _ = @import("terminal/main.zig");
+
+    // TODO
+    _ = @import("config.zig");
+    _ = @import("cli_args.zig");
 }

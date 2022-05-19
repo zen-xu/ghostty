@@ -40,6 +40,9 @@ font_atlas: FontAtlas,
 cursor_visible: bool,
 cursor_style: CursorStyle,
 
+/// Default foreground color
+foreground: Terminal.RGB,
+
 const CursorStyle = enum(u8) {
     box = 3,
     box_hollow = 4,
@@ -219,6 +222,7 @@ pub fn init(alloc: Allocator) !Grid {
         .font_atlas = font,
         .cursor_visible = true,
         .cursor_style = .box,
+        .foreground = .{ .r = 255, .g = 255, .b = 255 },
     };
 }
 
@@ -305,12 +309,7 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
             // TODO: if we add a glyph, I think we need to rerender the texture.
             const glyph = try self.font_atlas.addGlyph(self.alloc, cell.char);
 
-            const fg = cell.fg orelse Terminal.RGB{
-                .r = 0xFF,
-                .g = 0xA5,
-                .b = 0,
-            };
-
+            const fg = cell.fg orelse self.foreground;
             self.cells.appendAssumeCapacity(.{
                 .mode = 2,
                 .grid_col = @intCast(u16, x),
