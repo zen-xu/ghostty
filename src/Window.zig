@@ -547,6 +547,10 @@ pub fn carriageReturn(self: *Window) !void {
     self.terminal.carriageReturn();
 }
 
+pub fn setCursorLeft(self: *Window, amount: u16) !void {
+    self.terminal.cursorLeft(amount);
+}
+
 pub fn setCursorRight(self: *Window, amount: u16) !void {
     self.terminal.cursorRight(amount);
 }

@@ -358,6 +358,17 @@ pub fn eraseChars(self: *Terminal, alloc: Allocator, count: usize) !void {
     }
 }
 
+/// Move the cursor to the left amount cells. If amount is 0, adjust it to 1.
+/// TODO: test
+pub fn cursorLeft(self: *Terminal, count: usize) void {
+    const tracy = trace(@src());
+    defer tracy.end();
+
+    // TODO: scroll region, wrap
+
+    self.cursor.x -|= if (count == 0) 1 else count;
+}
+
 /// Move the cursor right amount columns. If amount is greater than the
 /// maximum move distance then it is internally adjusted to the maximum.
 /// This sequence will not scroll the screen or scroll region. If amount is

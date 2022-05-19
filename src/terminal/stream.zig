@@ -131,6 +131,18 @@ pub fn Stream(comptime Handler: type) type {
                     },
                 ) else log.warn("unimplemented CSI callback: {}", .{action}),
 
+                // CUB - Cursor Left
+                'D' => if (@hasDecl(T, "setCursorLeft")) try self.handler.setCursorLeft(
+                    switch (action.params.len) {
+                        0 => 1,
+                        1 => action.params[0],
+                        else => {
+                            log.warn("invalid cursor left command: {}", .{action});
+                            return;
+                        },
+                    },
+                ) else log.warn("unimplemented CSI callback: {}", .{action}),
+
                 // HPA - Cursor Horizontal Position Absolute
                 // TODO: test
                 'G', '`' => if (@hasDecl(T, "setCursorCol")) switch (action.params.len) {
