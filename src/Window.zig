@@ -150,7 +150,7 @@ pub fn create(alloc: Allocator, loop: libuv.Loop, config: *const Config) !*Windo
     errdefer pty.deinit();
 
     // Create our child process
-    const path = (try Command.expandPath(alloc, "sh")) orelse
+    const path = (try Command.expandPath(alloc, config.command orelse "sh")) orelse
         return error.CommandNotFound;
     defer alloc.free(path);
 

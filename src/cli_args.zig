@@ -42,7 +42,13 @@ fn parseIntoField(comptime T: type, dst: *T, key: []const u8, value: ?[]const u8
     inline for (info.Struct.fields) |field| {
         if (mem.eql(u8, field.name, key)) {
             @field(dst, field.name) = field: {
-                const Field = field.field_type;
+                // For optional fields, we just treat it as the child type.
+                // This lets optional fields default to null but get set by
+                // the CLI.
+                const Field = switch (@typeInfo(field.field_type)) {
+                    .Optional => |opt| opt.child,
+                    else => field.field_type,
+                };
                 const fieldInfo = @typeInfo(Field);
 
                 // If the type implements a parse function, call that.
@@ -135,6 +141,18 @@ test "parseIntoField: bool" {
     try testing.expectEqual(false, data.a);
     try parseIntoField(@TypeOf(data), &data, "a", "false");
     try testing.expectEqual(false, data.a);
+}
+
+test "parseIntoField: optional field" {
+    const testing = std.testing;
+
+    var data: struct {
+        a: ?bool = null,
+    } = .{};
+
+    // True
+    try parseIntoField(@TypeOf(data), &data, "a", "1");
+    try testing.expectEqual(true, data.a.?);
 }
 
 test "parseIntoField: struct with parse func" {

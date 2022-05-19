@@ -6,6 +6,10 @@ pub const Config = struct {
 
     /// Foreground color for the window.
     foreground: Color = .{ .r = 0xFF, .g = 0xA5, .b = 0 },
+
+    /// The command to run, usually a shell. If this is not an absolute path,
+    /// it'll be looked up in the PATH.
+    command: ?[]const u8 = null,
 };
 
 /// Color represents a color using RGB.
