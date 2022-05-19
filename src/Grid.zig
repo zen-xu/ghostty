@@ -89,7 +89,7 @@ pub fn init(alloc: Allocator) !Grid {
     errdefer atlas.deinit(alloc);
     var font = try FontAtlas.init(atlas);
     errdefer font.deinit(alloc);
-    try font.loadFaceFromMemory(face_ttf, 40);
+    try font.loadFaceFromMemory(face_ttf, 32);
 
     // Load all visible ASCII characters and build our cell width based on
     // the widest character that we see.
