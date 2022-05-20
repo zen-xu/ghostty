@@ -91,7 +91,7 @@ pub const Parser = struct {
             },
 
             40...47 => return Attribute{
-                .@"8_bg" = @intToEnum(color.Name, slice[0] - 32),
+                .@"8_bg" = @intToEnum(color.Name, slice[0] - 40),
             },
 
             48 => if (slice.len >= 5 and slice[1] == 2) {
@@ -178,7 +178,7 @@ test "sgr: 8 color" {
     {
         const v = p.next().?;
         try testing.expect(v == .@"8_bg");
-        try testing.expect(v.@"8_bg" == .bright_yellow);
+        try testing.expect(v.@"8_bg" == .yellow);
     }
 }
 
