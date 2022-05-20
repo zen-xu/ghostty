@@ -39,6 +39,14 @@ pub const Mode = enum(u16) {
     /// the current scroll region.
     origin = 6,
 
+    /// Bracket clipboard paste contents in delimiter sequences.
+    ///
+    /// When pasting from the (e.g. system) clipboard add "ESC [ 2 0 0 ~"
+    /// before the clipboard contents and "ESC [ 2 0 1 ~" after the clipboard
+    /// contents. This allows applications to distinguish clipboard contents
+    /// from manually typed text.
+    bracketed_paste = 2004,
+
     // Non-exhaustive so that @intToEnum never fails for unsupported modes.
     _,
 };

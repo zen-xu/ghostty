@@ -90,6 +90,9 @@ bg_g: f32,
 bg_b: f32,
 bg_a: f32,
 
+/// Bracketed paste mode
+bracketed_paste: bool = false,
+
 /// Create a new window. This allocates and returns a pointer because we
 /// need a stable pointer for user data callbacks. Therefore, a stack-only
 /// initialization is not currently possible.
@@ -390,8 +393,11 @@ fn keyCallback(
 
         if (data.len > 0) {
             const win = window.getUserPointer(Window) orelse return;
+
+            if (win.bracketed_paste) win.queueWrite("\x1B[200~") catch unreachable;
             win.queueWrite(data) catch |err|
                 log.warn("error pasting clipboard: {}", .{err});
+            if (win.bracketed_paste) win.queueWrite("\x1B[201~") catch unreachable;
         }
 
         return;
@@ -676,6 +682,8 @@ pub fn setMode(self: *Window, mode: terminal.Mode, enabled: bool) !void {
             self.terminal.setCursorPos(1, 1);
             unreachable; // TODO: implement
         },
+
+        .bracketed_paste => self.bracketed_paste = true,
 
         else => if (enabled) log.warn("unimplemented mode: {}", .{mode}),
     }
