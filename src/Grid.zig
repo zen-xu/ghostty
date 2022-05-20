@@ -34,6 +34,7 @@ texture: gl.Texture,
 
 /// The font atlas.
 font_atlas: FontAtlas,
+atlas_dirty: bool,
 
 /// Whether the cursor is visible or not. This is used to control cursor
 /// blinking.
@@ -220,6 +221,7 @@ pub fn init(alloc: Allocator) !Grid {
         .vbo = vbo,
         .texture = tex,
         .font_atlas = font,
+        .atlas_dirty = false,
         .cursor_visible = true,
         .cursor_style = .box,
         .foreground = .{ .r = 255, .g = 255, .b = 255 },
@@ -236,27 +238,6 @@ pub fn deinit(self: *Grid) void {
     self.program.destroy();
     self.cells.deinit(self.alloc);
     self.* = undefined;
-}
-
-/// TODO: remove, this is for testing
-pub fn demoCells(self: *Grid) !void {
-    self.cells.clearRetainingCapacity();
-    try self.cells.ensureUnusedCapacity(self.alloc, self.size.columns * self.size.rows);
-
-    var row: u32 = 0;
-    while (row < self.size.rows) : (row += 1) {
-        var col: u32 = 0;
-        while (col < self.size.columns) : (col += 1) {
-            self.cells.appendAssumeCapacity(.{
-                .grid_col = @intCast(u16, col),
-                .grid_row = @intCast(u16, row),
-                .bg_r = @intCast(u8, @mod(col * row, 255)),
-                .bg_g = @intCast(u8, @mod(col, 255)),
-                .bg_b = @intCast(u8, 255 - @mod(col, 255)),
-                .bg_a = 255,
-            });
-        }
-    }
 }
 
 /// updateCells updates our GPU cells from the current terminal view.
@@ -307,7 +288,12 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
 
             // Get our glyph
             // TODO: if we add a glyph, I think we need to rerender the texture.
-            const glyph = try self.font_atlas.addGlyph(self.alloc, cell.char);
+            const glyph = if (self.font_atlas.getGlyph(cell.char)) |glyph|
+                glyph
+            else glyph: {
+                self.atlas_dirty = true;
+                break :glyph try self.font_atlas.addGlyph(self.alloc, cell.char);
+            };
 
             const fg = cell.fg orelse self.foreground;
             self.cells.appendAssumeCapacity(.{
@@ -372,6 +358,26 @@ pub fn setScreenSize(self: *Grid, dim: ScreenSize) !void {
     self.size.update(dim, self.cell_size);
 
     log.debug("screen size screen={} grid={}, cell={}", .{ dim, self.size, self.cell_size });
+}
+
+/// Updates the font texture atlas if it is dirty.
+pub fn flushAtlas(self: *Grid) !void {
+    if (!self.atlas_dirty) return;
+
+    var texbind = try self.texture.bind(.@"2D");
+    defer texbind.unbind();
+    try texbind.subImage2D(
+        0,
+        0,
+        0,
+        @intCast(c_int, self.font_atlas.atlas.size),
+        @intCast(c_int, self.font_atlas.atlas.size),
+        .Red,
+        .UnsignedByte,
+        self.font_atlas.atlas.data.ptr,
+    );
+
+    self.atlas_dirty = false;
 }
 
 pub fn render(self: Grid) !void {

@@ -114,6 +114,30 @@ pub const Binding = struct {
             data,
         );
     }
+
+    pub fn subImage2D(
+        b: Binding,
+        level: c.GLint,
+        xoffset: c.GLint,
+        yoffset: c.GLint,
+        width: c.GLsizei,
+        height: c.GLsizei,
+        format: Format,
+        typ: DataType,
+        data: ?*const anyopaque,
+    ) !void {
+        c.glTexSubImage2D(
+            @enumToInt(b.target),
+            level,
+            xoffset,
+            yoffset,
+            width,
+            height,
+            @enumToInt(format),
+            @enumToInt(typ),
+            data,
+        );
+    }
 };
 
 /// Create a single texture.

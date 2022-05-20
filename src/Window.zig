@@ -499,6 +499,9 @@ fn renderTimerCallback(t: *libuv.Timer) void {
     // Update the cells for drawing
     win.grid.updateCells(win.terminal) catch unreachable;
 
+    // Update our texture if we have to
+    win.grid.flushAtlas() catch unreachable;
+
     // Set our background
     gl.clearColor(win.bg_r, win.bg_g, win.bg_b, win.bg_a);
     gl.clear(gl.c.GL_COLOR_BUFFER_BIT);

@@ -123,10 +123,13 @@ pub fn addGlyph(self: *FontAtlas, alloc: Allocator, v: anytype) !*Glyph {
     errdefer _ = self.glyphs.remove(utf32);
 
     const glyph_index = glyph_index: {
+        // log.warn("glyph load: {x}", .{utf32});
         const idx = ftc.FT_Get_Char_Index(self.ft_face, utf32);
         if (idx > 0) break :glyph_index idx;
 
         // Unknown glyph.
+        log.warn("glyph not found: {x}", .{utf32});
+
         // TODO: render something more identifiable than a space
         break :glyph_index ftc.FT_Get_Char_Index(self.ft_face, ' ');
     };
@@ -178,7 +181,7 @@ pub fn addGlyph(self: *FontAtlas, alloc: Allocator, v: anytype) !*Glyph {
         .advance_x = f26dot6ToFloat(glyph.*.advance.x),
     };
 
-    //log.debug("loaded glyph codepoint={} glyph={}", .{ utf32, gop.value_ptr.* });
+    //log.debug("loaded glyph codepoint=U+{x} glyph={}", .{ utf32, gop.value_ptr.* });
 
     return gop.value_ptr;
 }
