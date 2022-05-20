@@ -14,6 +14,8 @@ const csi = @import("csi.zig");
 const sgr = @import("sgr.zig");
 const Tabstops = @import("Tabstops.zig");
 const trace = @import("../tracy/tracy.zig").trace;
+const color = @import("color.zig");
+const RGB = color.RGB;
 
 const log = std.log.scoped(.terminal);
 
@@ -72,12 +74,6 @@ const Cursor = struct {
 
     // pen is the current cell styling to apply to new cells.
     pen: Cell = .{ .char = 0 },
-};
-
-pub const RGB = struct {
-    r: u8,
-    g: u8,
-    b: u8,
 };
 
 /// Initialize a new terminal.

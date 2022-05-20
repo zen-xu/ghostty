@@ -7,7 +7,8 @@ const testing = std.testing;
 const Allocator = std.mem.Allocator;
 const Atlas = @import("Atlas.zig");
 const FontAtlas = @import("FontAtlas.zig");
-const Terminal = @import("terminal/Terminal.zig");
+const terminal = @import("terminal/main.zig");
+const Terminal = terminal.Terminal;
 const gl = @import("opengl.zig");
 const gb = @import("gb_math.zig");
 const trace = @import("tracy/tracy.zig").trace;
@@ -42,7 +43,7 @@ cursor_visible: bool,
 cursor_style: CursorStyle,
 
 /// Default foreground color
-foreground: Terminal.RGB,
+foreground: terminal.color.RGB,
 
 const CursorStyle = enum(u8) {
     box = 3,

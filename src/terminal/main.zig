@@ -2,6 +2,7 @@ const stream = @import("stream.zig");
 const ansi = @import("ansi.zig");
 const csi = @import("csi.zig");
 const sgr = @import("sgr.zig");
+pub const color = @import("color.zig");
 
 pub const Terminal = @import("Terminal.zig");
 pub const Parser = @import("Parser.zig");
@@ -17,6 +18,7 @@ pub const Attribute = sgr.Attribute;
 
 test {
     _ = ansi;
+    _ = color;
     _ = csi;
     _ = sgr;
     _ = stream;
