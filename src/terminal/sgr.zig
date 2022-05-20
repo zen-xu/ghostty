@@ -2,6 +2,7 @@
 
 const std = @import("std");
 const testing = std.testing;
+const color = @import("color.zig");
 
 /// Attribute type for SGR
 pub const Attribute = union(enum) {
@@ -19,6 +20,10 @@ pub const Attribute = union(enum) {
 
     /// Set background color as RGB values.
     direct_color_bg: RGB,
+
+    /// Set the background/foreground as a named color attribute.
+    @"8_bg": color.Name,
+    @"8_fg": color.Name,
 
     /// Set background color as 256-color palette.
     @"256_bg": u8,
@@ -59,6 +64,10 @@ pub const Parser = struct {
 
             1 => return Attribute{ .bold = {} },
 
+            30...37 => return Attribute{
+                .@"8_fg" = @intToEnum(color.Name, slice[0] - 30),
+            },
+
             38 => if (slice.len >= 5 and slice[1] == 2) {
                 self.idx += 4;
 
@@ -79,6 +88,10 @@ pub const Parser = struct {
                 return Attribute{
                     .@"256_fg" = @truncate(u8, slice[2]),
                 };
+            },
+
+            40...47 => return Attribute{
+                .@"8_bg" = @intToEnum(color.Name, slice[0] - 32),
             },
 
             48 => if (slice.len >= 5 and slice[1] == 2) {
@@ -151,6 +164,22 @@ test "sgr: Parser multiple" {
 test "sgr: bold" {
     const v = testParse(&[_]u16{1});
     try testing.expect(v == .bold);
+}
+
+test "sgr: 8 color" {
+    var p: Parser = .{ .params = &[_]u16{ 31, 43 } };
+
+    {
+        const v = p.next().?;
+        try testing.expect(v == .@"8_fg");
+        try testing.expect(v.@"8_fg" == .red);
+    }
+
+    {
+        const v = p.next().?;
+        try testing.expect(v == .@"8_bg");
+        try testing.expect(v.@"8_bg" == .bright_yellow);
+    }
 }
 
 test "sgr: 256 color" {
