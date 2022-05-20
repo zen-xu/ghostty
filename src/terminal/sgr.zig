@@ -25,6 +25,10 @@ pub const Attribute = union(enum) {
     @"8_bg": color.Name,
     @"8_fg": color.Name,
 
+    /// Set the background/foreground as a named bright color attribute.
+    @"8_bright_bg": color.Name,
+    @"8_bright_fg": color.Name,
+
     /// Set background color as 256-color palette.
     @"256_bg": u8,
 
@@ -116,6 +120,14 @@ pub const Parser = struct {
                 };
             },
 
+            90...97 => return Attribute{
+                .@"8_bright_fg" = @intToEnum(color.Name, slice[0] - 90),
+            },
+
+            100...107 => return Attribute{
+                .@"8_bright_bg" = @intToEnum(color.Name, slice[0] - 92),
+            },
+
             else => {},
         }
 
@@ -167,7 +179,7 @@ test "sgr: bold" {
 }
 
 test "sgr: 8 color" {
-    var p: Parser = .{ .params = &[_]u16{ 31, 43 } };
+    var p: Parser = .{ .params = &[_]u16{ 31, 43, 103 } };
 
     {
         const v = p.next().?;
@@ -179,6 +191,12 @@ test "sgr: 8 color" {
         const v = p.next().?;
         try testing.expect(v == .@"8_bg");
         try testing.expect(v.@"8_bg" == .yellow);
+    }
+
+    {
+        const v = p.next().?;
+        try testing.expect(v == .@"8_bright_bg");
+        try testing.expect(v.@"8_bright_bg" == .bright_yellow);
     }
 }
 
