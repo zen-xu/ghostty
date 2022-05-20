@@ -8,6 +8,7 @@ const uint MODE_BG = 1u;
 const uint MODE_FG = 2u;
 const uint MODE_CURSOR_RECT = 3u;
 const uint MODE_CURSOR_RECT_HOLLOW = 4u;
+const uint MODE_CURSOR_BAR = 5u;
 
 // The grid coordinates (x, y) where x < columns and y < rows
 layout (location = 0) in vec2 grid_coord;
@@ -142,6 +143,17 @@ void main() {
 
         // Same as background since we're taking up the whole cell.
         cell_pos = cell_pos + cell_size * position;
+
+        gl_Position = projection * vec4(cell_pos, 0.0, 1.0);
+        color = bg_color_in / 255.0;
+        break;
+
+    case MODE_CURSOR_BAR:
+        // Make the bar a smaller version of our cell
+        vec2 bar_size = vec2(cell_size.x * 0.2, cell_size.y);
+
+        // Same as background since we're taking up the whole cell.
+        cell_pos = cell_pos + bar_size * position;
 
         gl_Position = projection * vec4(cell_pos, 0.0, 1.0);
         color = bg_color_in / 255.0;

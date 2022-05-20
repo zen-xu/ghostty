@@ -22,11 +22,12 @@ uniform sampler2D text;
 // Dimensions of the cell
 uniform vec2 cell_size;
 
-// See fragment shader
+// See vertex shader
 const uint MODE_BG = 1u;
 const uint MODE_FG = 2u;
 const uint MODE_CURSOR_RECT = 3u;
 const uint MODE_CURSOR_RECT_HOLLOW = 4u;
+const uint MODE_CURSOR_BAR = 5u;
 
 void main() {
     switch (mode) {
@@ -77,6 +78,10 @@ void main() {
             }
         }
 
+        break;
+
+    case MODE_CURSOR_BAR:
+        out_FragColor = color;
         break;
     }
 }

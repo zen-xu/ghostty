@@ -45,9 +45,12 @@ cursor_style: CursorStyle,
 /// Default foreground color
 foreground: terminal.color.RGB,
 
+/// Available cursor styles for drawing. The values represents the mode value
+/// in the shader.
 const CursorStyle = enum(u8) {
     box = 3,
     box_hollow = 4,
+    bar = 5,
 };
 
 /// The raw structure that maps directly to the buffer sent to the vertex shader.
