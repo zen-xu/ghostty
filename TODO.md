@@ -1,3 +1,7 @@
+Bugs:
+
+* Paste puts a "v" at the end of the string
+
 Performance:
 
 * libuv allocates on every read, we should use a read buffer pool
@@ -23,3 +27,4 @@ Major Features:
 * Strikethrough
 * Emoji
 * Ligatures
+
