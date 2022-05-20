@@ -49,3 +49,12 @@ pub const DeviceAttributeReq = enum {
     secondary, // >
     tertiary, // =
 };
+
+/// The device status request type (ESC [ n).
+pub const DeviceStatusReq = enum(u16) {
+    operating_status = 5,
+    cursor_position = 6,
+
+    // Non-exhaustive so that @intToEnum never fails for unsupported modes.
+    _,
+};

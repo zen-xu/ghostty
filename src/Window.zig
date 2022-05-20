@@ -644,3 +644,28 @@ pub fn deviceAttributes(
         else => log.warn("unimplemented device attributes req: {}", .{req}),
     }
 }
+
+pub fn deviceStatusReport(
+    self: *Window,
+    req: terminal.DeviceStatusReq,
+) !void {
+    switch (req) {
+        .operating_status => self.queueWrite("\x1B[0n") catch |err|
+            log.warn("error queueing device attr response: {}", .{err}),
+
+        .cursor_position => {
+            // Response always is at least 4 chars, so this leaves the
+            // remainder for the row/column as base-10 numbers. This
+            // will support a very large terminal.
+            var buf: [32]u8 = undefined;
+            const resp = try std.fmt.bufPrint(&buf, "\x1B[{};{}R", .{
+                self.terminal.cursor.y + 1,
+                self.terminal.cursor.x + 1,
+            });
+
+            try self.queueWrite(resp);
+        },
+
+        else => log.warn("unimplemented device status req: {}", .{req}),
+    }
+}

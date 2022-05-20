@@ -295,12 +295,22 @@ pub fn Stream(comptime Handler: type) type {
                     while (p.next()) |attr| try self.handler.setAttribute(attr);
                 } else log.warn("unimplemented CSI callback: {}", .{action}),
 
+                // CPR - Request Cursor Postion Report
+                // TODO: test
+                'n' => if (@hasDecl(T, "deviceStatusReport")) try self.handler.deviceStatusReport(
+                    switch (action.params.len) {
+                        1 => @intToEnum(ansi.DeviceStatusReq, action.params[0]),
+                        else => {
+                            log.warn("invalid erase characters command: {}", .{action});
+                            return;
+                        },
+                    },
+                ) else log.warn("unimplemented CSI callback: {}", .{action}),
+
                 // DECSTBM - Set Top and Bottom Margins
                 // TODO: test
                 'r' => if (@hasDecl(T, "setTopAndBottomMargin")) switch (action.params.len) {
-                    0 => try self.handler.setTopAndBottomMargin(1, 0),
                     1 => try self.handler.setTopAndBottomMargin(action.params[0], 0),
-                    2 => try self.handler.setTopAndBottomMargin(action.params[0], action.params[1]),
                     else => log.warn("invalid DECSTBM command: {}", .{action}),
                 } else log.warn("unimplemented CSI callback: {}", .{action}),
 
