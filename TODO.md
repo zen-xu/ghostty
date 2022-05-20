@@ -17,7 +17,7 @@ Major Features:
 * History, mouse scrolling
 * Line wrap
 * Selection, highlighting
-* Copy/paste
+* Copy (paste is done)
 * Bold
 * Underline
 * Strikethrough

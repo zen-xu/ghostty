@@ -380,7 +380,22 @@ fn keyCallback(
     defer tracy.end();
 
     _ = scancode;
-    _ = mods;
+
+    // Paste
+    if (action == .press and mods.super and key == .v) {
+        const data = glfw.getClipboardString() catch |err| {
+            log.warn("error reading clipboard: {}", .{err});
+            return;
+        };
+
+        if (data.len > 0) {
+            const win = window.getUserPointer(Window) orelse return;
+            win.queueWrite(data) catch |err|
+                log.warn("error pasting clipboard: {}", .{err});
+        }
+
+        return;
+    }
 
     //log.info("KEY {} {} {} {}", .{ key, scancode, mods, action });
     if (action == .press or action == .repeat) {
