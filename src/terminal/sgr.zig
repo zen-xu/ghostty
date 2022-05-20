@@ -11,11 +11,20 @@ pub const Attribute = union(enum) {
     /// Unknown attribute, the raw CSI command parameters are here.
     unknown: []const u16,
 
+    /// Bold the text.
+    bold: void,
+
     /// Set foreground color as RGB values.
     direct_color_fg: RGB,
 
     /// Set background color as RGB values.
     direct_color_bg: RGB,
+
+    /// Set background color as 256-color palette.
+    @"256_bg": u8,
+
+    /// Set foreground color as 256-color palette.
+    @"256_fg": u8,
 
     pub const RGB = struct {
         r: u8,
@@ -48,6 +57,8 @@ pub const Parser = struct {
         switch (slice[0]) {
             0 => return Attribute{ .unset = {} },
 
+            1 => return Attribute{ .bold = {} },
+
             38 => if (slice.len >= 5 and slice[1] == 2) {
                 self.idx += 4;
 
@@ -62,6 +73,11 @@ pub const Parser = struct {
                         .g = @truncate(u8, rgb[1]),
                         .b = @truncate(u8, rgb[2]),
                     },
+                };
+            } else if (slice.len >= 2 and slice[1] == 5) {
+                self.idx += 2;
+                return Attribute{
+                    .@"256_fg" = @truncate(u8, slice[2]),
                 };
             },
 
@@ -79,6 +95,11 @@ pub const Parser = struct {
                         .g = @truncate(u8, rgb[1]),
                         .b = @truncate(u8, rgb[2]),
                     },
+                };
+            } else if (slice.len >= 2 and slice[1] == 5) {
+                self.idx += 2;
+                return Attribute{
+                    .@"256_bg" = @truncate(u8, slice[2]),
                 };
             },
 
@@ -125,4 +146,15 @@ test "sgr: Parser multiple" {
     try testing.expect(p.next().? == .direct_color_fg);
     try testing.expect(p.next() == null);
     try testing.expect(p.next() == null);
+}
+
+test "sgr: bold" {
+    const v = testParse(&[_]u16{1});
+    try testing.expect(v == .bold);
+}
+
+test "sgr: 256 color" {
+    var p: Parser = .{ .params = &[_]u16{ 38, 5, 161, 48, 5, 236 } };
+    try testing.expect(p.next().? == .@"256_fg");
+    try testing.expect(p.next().? == .@"256_bg");
 }
