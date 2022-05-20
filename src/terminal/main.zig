@@ -7,6 +7,7 @@ pub const color = @import("color.zig");
 pub const Terminal = @import("Terminal.zig");
 pub const Parser = @import("Parser.zig");
 pub const Stream = stream.Stream;
+pub const CursorStyle = ansi.CursorStyle;
 pub const DeviceAttributeReq = ansi.DeviceAttributeReq;
 pub const DeviceStatusReq = ansi.DeviceStatusReq;
 pub const Mode = ansi.Mode;

@@ -669,3 +669,14 @@ pub fn deviceStatusReport(
         else => log.warn("unimplemented device status req: {}", .{req}),
     }
 }
+
+pub fn setCursorStyle(
+    self: *Window,
+    style: terminal.CursorStyle,
+) !void {
+    _ = self;
+
+    switch (style) {
+        else => log.warn("unimplemented cursor style: {}", .{style}),
+    }
+}

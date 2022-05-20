@@ -58,3 +58,17 @@ pub const DeviceStatusReq = enum(u16) {
     // Non-exhaustive so that @intToEnum never fails for unsupported modes.
     _,
 };
+
+/// Possible cursor styles (ESC [ q)
+pub const CursorStyle = enum(u16) {
+    default = 0,
+    blinking_block = 1,
+    steady_block = 2,
+    blinking_underline = 3,
+    steady_underline = 4,
+    blinking_bar = 5,
+    steady_bar = 6,
+
+    // Non-exhaustive so that @intToEnum never fails for unsupported modes.
+    _,
+};

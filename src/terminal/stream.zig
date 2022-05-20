@@ -307,6 +307,19 @@ pub fn Stream(comptime Handler: type) type {
                     },
                 ) else log.warn("unimplemented CSI callback: {}", .{action}),
 
+                // DECSCUSR - Select Cursor Style
+                // TODO: test
+                'q' => if (@hasDecl(T, "setCursorStyle")) try self.handler.setCursorStyle(
+                    switch (action.params.len) {
+                        0 => ansi.CursorStyle.default,
+                        1 => @intToEnum(ansi.CursorStyle, action.params[0]),
+                        else => {
+                            log.warn("invalid set curor style command: {}", .{action});
+                            return;
+                        },
+                    },
+                ) else log.warn("unimplemented CSI callback: {}", .{action}),
+
                 // DECSTBM - Set Top and Bottom Margins
                 // TODO: test
                 'r' => if (@hasDecl(T, "setTopAndBottomMargin")) switch (action.params.len) {
