@@ -71,4 +71,12 @@ pub const CursorStyle = enum(u16) {
 
     // Non-exhaustive so that @intToEnum never fails for unsupported modes.
     _,
+
+    /// True if the cursor should blink.
+    pub fn blinking(self: CursorStyle) bool {
+        return switch (self) {
+            .blinking_block, .blinking_underline, .blinking_bar => true,
+            else => false,
+        };
+    }
 };

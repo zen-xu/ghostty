@@ -47,10 +47,21 @@ foreground: terminal.color.RGB,
 
 /// Available cursor styles for drawing. The values represents the mode value
 /// in the shader.
-const CursorStyle = enum(u8) {
+pub const CursorStyle = enum(u8) {
     box = 3,
     box_hollow = 4,
     bar = 5,
+
+    /// Create a cursor style from the terminal style request.
+    pub fn fromTerminal(style: terminal.CursorStyle) ?CursorStyle {
+        return switch (style) {
+            .blinking_block, .steady_block => .box,
+            .blinking_bar, .steady_bar => .bar,
+            .blinking_underline, .steady_underline => null, // TODO
+            .default => .box,
+            else => null,
+        };
+    }
 };
 
 /// The raw structure that maps directly to the buffer sent to the vertex shader.

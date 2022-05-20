@@ -36,6 +36,9 @@ alloc: Allocator,
 /// The glfw window handle.
 window: glfw.Window,
 
+/// Whether the window is currently focused
+focused: bool,
+
 /// The terminal grid attached to this window.
 grid: Grid,
 
@@ -56,6 +59,7 @@ terminal_stream: terminal.Stream(*Window),
 
 /// Timer that blinks the cursor.
 cursor_timer: libuv.Timer,
+cursor_style: terminal.CursorStyle,
 
 /// Render at least 60fps.
 render_timer: RenderTimer,
@@ -199,12 +203,14 @@ pub fn create(alloc: Allocator, loop: libuv.Loop, config: *const Config) !*Windo
     self.* = .{
         .alloc = alloc,
         .window = window,
+        .focused = false,
         .grid = grid,
         .pty = pty,
         .command = cmd,
         .terminal = term,
         .terminal_stream = .{ .handler = self },
         .cursor_timer = timer,
+        .cursor_style = .blinking_block,
         .render_timer = try RenderTimer.init(loop, self, 16, 96),
         .pty_stream = stream,
         .config = config,
@@ -283,6 +289,25 @@ fn queueWrite(self: *Window, data: []const u8) !void {
 
         i += end;
     }
+}
+
+/// Updates te style of the cursor.
+fn updateCursorStyle(self: *Window, style: Grid.CursorStyle, blink: bool) !void {
+    self.grid.cursor_style = style;
+    self.grid.cursor_visible = !blink;
+
+    if (blink) {
+        try self.cursor_timer.start(
+            cursorTimerCallback,
+            0,
+            self.cursor_timer.getRepeat(),
+        );
+    } else {
+        try self.cursor_timer.stop();
+    }
+
+    // Always schedule a render when we change cursors
+    try self.render_timer.schedule();
 }
 
 fn sizeCallback(window: glfw.Window, width: i32, height: i32) void {
@@ -394,19 +419,25 @@ fn focusCallback(window: glfw.Window, focused: bool) void {
 
     const win = window.getUserPointer(Window) orelse return;
 
+    // If we aren't changing focus state, do nothing. I don't think this
+    // can happen but it costs very little to check.
+    if (win.focused == focused) return;
+
     // We have to schedule a render because no matter what we're changing
     // the cursor.
     win.render_timer.schedule() catch unreachable;
 
+    // Set our focused state on the window.
+    win.focused = focused;
+
     if (focused) {
         win.wakeup = true;
-        win.cursor_timer.start(cursorTimerCallback, 0, win.cursor_timer.getRepeat()) catch unreachable;
-        win.grid.cursor_style = .box;
-        win.grid.cursor_visible = false;
+        win.updateCursorStyle(
+            Grid.CursorStyle.fromTerminal(win.cursor_style) orelse .box,
+            win.cursor_style.blinking(),
+        ) catch unreachable;
     } else {
-        win.grid.cursor_visible = true;
-        win.grid.cursor_style = .box_hollow;
-        win.cursor_timer.stop() catch unreachable;
+        win.updateCursorStyle(.box_hollow, false) catch unreachable;
     }
 }
 
@@ -676,7 +707,17 @@ pub fn setCursorStyle(
 ) !void {
     _ = self;
 
-    switch (style) {
-        else => log.warn("unimplemented cursor style: {}", .{style}),
-    }
+    // Get the style that we use in the renderer
+    const grid_style = Grid.CursorStyle.fromTerminal(style) orelse {
+        log.warn("unimplemented cursor style: {}", .{style});
+        return;
+    };
+
+    // Set our style
+    self.cursor_style = style;
+
+    // If we're currently focused, we update our style, since our unfocused
+    // cursor is manually managed. If we're not focused, we ignore it because
+    // it'll be updated the next time the window comes into focus.
+    if (self.focused) try self.updateCursorStyle(grid_style, style.blinking());
 }
