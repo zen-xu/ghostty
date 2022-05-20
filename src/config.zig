@@ -49,7 +49,7 @@ pub const Color = struct {
         comptime var i: usize = 0;
         inline while (i < 6) : (i += 2) {
             const v: u8 =
-                ((try std.fmt.charToDigit(trimmed[i], 16)) * 10) +
+                ((try std.fmt.charToDigit(trimmed[i], 16)) * 16) +
                 try std.fmt.charToDigit(trimmed[i + 1], 16);
 
             @field(result, switch (i) {
@@ -70,4 +70,5 @@ test "Color.fromHex" {
     try testing.expectEqual(Color{ .r = 0, .g = 0, .b = 0 }, try Color.fromHex("#000000"));
     try testing.expectEqual(Color{ .r = 10, .g = 11, .b = 12 }, try Color.fromHex("#0A0B0C"));
     try testing.expectEqual(Color{ .r = 10, .g = 11, .b = 12 }, try Color.fromHex("0A0B0C"));
+    try testing.expectEqual(Color{ .r = 255, .g = 255, .b = 255 }, try Color.fromHex("FFFFFF"));
 }
