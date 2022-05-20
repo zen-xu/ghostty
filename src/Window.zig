@@ -36,6 +36,9 @@ alloc: Allocator,
 /// The glfw window handle.
 window: glfw.Window,
 
+/// The glfw mouse cursor handle.
+cursor: glfw.Cursor,
+
 /// Whether the window is currently focused
 focused: bool,
 
@@ -200,9 +203,15 @@ pub fn create(alloc: Allocator, loop: libuv.Loop, config: *const Config) !*Windo
     timer.setData(self);
     try timer.start(cursorTimerCallback, 600, 600);
 
+    // Create the cursor
+    const cursor = try glfw.Cursor.createStandard(.ibeam);
+    errdefer cursor.destroy();
+    try window.setCursor(cursor);
+
     self.* = .{
         .alloc = alloc,
         .window = window,
+        .cursor = cursor,
         .focused = false,
         .grid = grid,
         .pty = pty,
@@ -265,6 +274,10 @@ pub fn destroy(self: *Window) void {
             win.alloc.destroy(win);
         }
     }).callback);
+
+    // We can destroy the cursor right away. glfw will just revert any
+    // windows using it to the default.
+    self.cursor.destroy();
 }
 
 pub fn shouldClose(self: Window) bool {
