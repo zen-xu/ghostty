@@ -1,8 +1,8 @@
 Performance:
 
 * libuv allocates on every read, we should use a read buffer pool
-* update cells for drawing should just happen once per frame
 * update cells should only update the changed cells
+* terminal data structure is bad!
 
 Correctness:
 
@@ -11,3 +11,15 @@ Correctness:
 Visual:
 
 * bell
+
+Major Features:
+
+* History, mouse scrolling
+* Line wrap
+* Selection, highlighting
+* Copy/paste
+* Bold
+* Underline
+* Strikethrough
+* Emoji
+* Ligatures
