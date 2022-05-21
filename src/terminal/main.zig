@@ -29,4 +29,7 @@ test {
     _ = @import("osc.zig");
     _ = @import("parse_table.zig");
     _ = @import("Tabstops.zig");
+
+    // TODO
+    _ = @import("Screen.zig");
 }
