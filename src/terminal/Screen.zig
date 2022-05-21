@@ -115,8 +115,15 @@ pub fn scroll(self: *Screen, count: isize) void {
     }
 }
 
+/// Copy row at src to dst.
+pub fn copyRow(self: *Screen, dst: usize, src: usize) void {
+    const src_row = self.getRow(src);
+    const dst_row = self.getRow(dst);
+    std.mem.copy(Cell, dst_row, src_row);
+}
+
 /// Turns the screen into a string.
-fn testString(self: Screen, alloc: Allocator) ![]const u8 {
+pub fn testString(self: Screen, alloc: Allocator) ![]const u8 {
     const buf = try alloc.alloc(u8, self.storage.len + self.rows);
     var i: usize = 0;
     var y: usize = 0;
@@ -205,4 +212,22 @@ test "Screen: scrolling" {
     var contents = try s.testString(alloc);
     defer alloc.free(contents);
     try testing.expectEqualStrings("2EFGH\n3IJKL\n1ABCD", contents);
+}
+
+test "Screen: row copy" {
+    const testing = std.testing;
+    const alloc = testing.allocator;
+
+    var s = try init(alloc, 3, 5);
+    defer s.deinit(alloc);
+    s.testWriteString("1ABCD\n2EFGH\n3IJKL");
+
+    // Copy
+    s.scroll(1);
+    s.copyRow(2, 0);
+
+    // Test our contents
+    var contents = try s.testString(alloc);
+    defer alloc.free(contents);
+    try testing.expectEqualStrings("2EFGH\n3IJKL\n2EFGH", contents);
 }
