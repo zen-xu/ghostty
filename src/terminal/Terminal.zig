@@ -15,7 +15,7 @@ const sgr = @import("sgr.zig");
 const Tabstops = @import("Tabstops.zig");
 const trace = @import("../tracy/tracy.zig").trace;
 const color = @import("color.zig");
-const RGB = color.RGB;
+const Screen = @import("Screen.zig");
 
 const log = std.log.scoped(.terminal);
 
@@ -39,31 +39,12 @@ scrolling_region: ScrollingRegion,
 // TODO: turn into a bitset probably
 mode_origin: bool = false,
 
-/// Screen represents a presentable terminal screen made up of lines and cells.
-const Screen = std.ArrayListUnmanaged(Line);
-const Line = std.ArrayListUnmanaged(Cell);
-
 /// Scrolling region is the area of the screen designated where scrolling
 /// occurs. Wen scrolling the screen, only this viewport is scrolled.
 const ScrollingRegion = struct {
     // Precondition: top < bottom
     top: usize,
     bottom: usize,
-};
-
-/// Cell is a single cell within the terminal.
-const Cell = struct {
-    /// Each cell contains exactly one character. The character is UTF-8 encoded.
-    char: u32,
-
-    /// Foreground and background color. null means to use the default.
-    fg: ?RGB = null,
-    bg: ?RGB = null,
-
-    /// True if the cell should be skipped for drawing
-    pub fn empty(self: Cell) bool {
-        return self.char == 0;
-    }
 };
 
 /// Cursor represents the cursor state.
@@ -73,7 +54,7 @@ const Cursor = struct {
     y: usize,
 
     // pen is the current cell styling to apply to new cells.
-    pen: Cell = .{ .char = 0 },
+    pen: Screen.Cell = .{ .char = 0 },
 };
 
 /// Initialize a new terminal.
@@ -81,7 +62,7 @@ pub fn init(alloc: Allocator, cols: usize, rows: usize) !Terminal {
     return Terminal{
         .cols = cols,
         .rows = rows,
-        .screen = .{},
+        .screen = try Screen.init(alloc, rows, cols),
         .cursor = .{ .x = 0, .y = 0 },
         .tabstops = try Tabstops.init(alloc, cols, 8),
         .scrolling_region = .{
@@ -93,7 +74,6 @@ pub fn init(alloc: Allocator, cols: usize, rows: usize) !Terminal {
 
 pub fn deinit(self: *Terminal, alloc: Allocator) void {
     self.tabstops.deinit(alloc);
-    for (self.screen.items) |*line| line.deinit(alloc);
     self.screen.deinit(alloc);
     self.* = undefined;
 }
@@ -139,26 +119,7 @@ pub fn resize(self: *Terminal, alloc: Allocator, cols: usize, rows: usize) !void
 ///
 /// The caller must free the string.
 pub fn plainString(self: Terminal, alloc: Allocator) ![]const u8 {
-    // Create a buffer that has the number of lines we have times the maximum
-    // width it could possibly be. In all likelihood we aren't using the full
-    // width (of at least the last line) but the error margine here won't be
-    // much.
-    const buffer = try alloc.alloc(u8, self.screen.items.len * self.cols * 4);
-    var i: usize = 0;
-    for (self.screen.items) |line, y| {
-        if (y > 0) {
-            buffer[i] = '\n';
-            i += 1;
-        }
-
-        for (line.items) |cell| {
-            if (cell.char > 0) {
-                i += try std.unicode.utf8Encode(@intCast(u21, cell.char), buffer[i..]);
-            }
-        }
-    }
-
-    return buffer[0..i];
+    return try self.screen.testString(alloc);
 }
 
 /// TODO: test
@@ -502,11 +463,8 @@ pub fn insertLines(self: *Terminal, alloc: Allocator, count: usize) !void {
     const top = y - scroll_amount;
 
     // Ensure we have the lines populated to the end
-    _ = try self.getOrPutCell(alloc, 0, y);
     while (y > top) : (y -= 1) {
-        self.screen.items[y].deinit(alloc);
-        self.screen.items[y] = self.screen.items[y - adjusted_count];
-        self.screen.items[y - adjusted_count] = .{};
+        self.screen.copyRow(y, y - adjusted_count);
     }
 
     // Insert count blank lines
@@ -565,19 +523,8 @@ pub fn scrollUp(self: *Terminal, alloc: Allocator) void {
     const tracy = trace(@src());
     defer tracy.end();
 
-    // TODO: this is horribly expensive. we need to optimize the screen repr
-
-    // If we have no items, scrolling does nothing.
-    if (self.screen.items.len == 0) return;
-
-    // Clear the first line
-    self.screen.items[0].deinit(alloc);
-
-    var i: usize = 0;
-    while (i < self.screen.items.len - 1) : (i += 1) {
-        self.screen.items[i] = self.screen.items[i + 1];
-    }
-    self.screen.items.len -= 1;
+    _ = alloc;
+    self.screen.scroll(-1);
 }
 
 /// Scroll the given region up.
@@ -592,23 +539,20 @@ fn scrollUpRegion(
     const tracy = trace(@src());
     defer tracy.end();
 
-    // If we have no items, scrolling does nothing.
-    if (self.screen.items.len <= top) return;
-
-    // Clear the first line
-    self.screen.items[top].deinit(alloc);
+    _ = alloc;
 
     // Only go to the end of the region OR the end of our lines.
-    const end = @minimum(bottom, self.screen.items.len - 1);
+    const end = @minimum(bottom, self.screen.rows - 1);
 
     var i: usize = top;
     while (i < end) : (i += 1) {
-        self.screen.items[i] = self.screen.items[i + 1];
+        self.screen.copyRow(i, i + 1);
     }
 
     // Blank our last line if we have space.
-    if (i < self.screen.items.len) {
-        self.screen.items[i] = .{};
+    if (i < self.screen.rows) {
+        const row = self.screen.getRow(i);
+        for (row) |*cell| cell.char = 0;
     }
 }
 
@@ -672,23 +616,12 @@ pub fn setScrollingRegion(self: *Terminal, top: usize, bottom: usize) void {
     self.setCursorPos(1, 1);
 }
 
-fn getOrPutCell(self: *Terminal, alloc: Allocator, x: usize, y: usize) !*Cell {
+fn getOrPutCell(self: *Terminal, alloc: Allocator, x: usize, y: usize) !*Screen.Cell {
     const tracy = trace(@src());
     defer tracy.end();
 
-    // If we don't have enough lines to get to y, then add it.
-    if (self.screen.items.len < y + 1) {
-        try self.screen.ensureTotalCapacity(alloc, y + 1);
-        self.screen.appendNTimesAssumeCapacity(.{}, y + 1 - self.screen.items.len);
-    }
-
-    const line = &self.screen.items[y];
-    if (line.items.len < x + 1) {
-        try line.ensureTotalCapacity(alloc, x + 1);
-        line.appendNTimesAssumeCapacity(undefined, x + 1 - line.items.len);
-    }
-
-    return &line.items[x];
+    _ = alloc;
+    return self.screen.getCell(y, x);
 }
 
 test "Terminal: input with no control characters" {
@@ -825,10 +758,14 @@ test "Terminal: setScrollingRegion" {
     t.carriageReturn();
     t.linefeed(alloc);
 
+    // We should be
+    try testing.expectEqual(@as(usize, 0), t.cursor.x);
+    try testing.expectEqual(@as(usize, 2), t.cursor.y);
+
     {
         var str = try t.plainString(testing.allocator);
         defer testing.allocator.free(str);
-        try testing.expectEqualStrings("A\nE\nD\n", str);
+        try testing.expectEqualStrings("A\nE\nD", str);
     }
 }
 
@@ -927,6 +864,6 @@ test "Terminal: insertLines more than remaining" {
     {
         var str = try t.plainString(testing.allocator);
         defer testing.allocator.free(str);
-        try testing.expectEqualStrings("A\n\n\n\n", str);
+        try testing.expectEqualStrings("A", str);
     }
 }
