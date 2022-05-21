@@ -91,17 +91,18 @@ pub fn resize(self: *Terminal, alloc: Allocator, cols: usize, rows: usize) !void
 
     // If we're making the screen smaller, dealloc the unused items.
     // TODO: we probably want to wrap in the future.
-    if (rows < self.rows and self.screen.items.len > rows) {
-        for (self.screen.items[rows..self.screen.items.len]) |*line|
-            line.deinit(alloc);
-        self.screen.shrinkRetainingCapacity(rows);
-    }
-    if (cols < self.cols) {
-        for (self.screen.items) |*line| {
-            if (line.items.len < cols) continue;
-            line.shrinkRetainingCapacity(cols);
-        }
-    }
+    // TODO: new screen
+    // if (rows < self.rows and self.screen.items.len > rows) {
+    //     for (self.screen.items[rows..self.screen.items.len]) |*line|
+    //         line.deinit(alloc);
+    //     self.screen.shrinkRetainingCapacity(rows);
+    // }
+    // if (cols < self.cols) {
+    //     for (self.screen.items) |*line| {
+    //         if (line.items.len < cols) continue;
+    //         line.shrinkRetainingCapacity(cols);
+    //     }
+    // }
 
     // Set our size
     self.cols = cols;
@@ -291,24 +292,18 @@ pub fn eraseLine(
 ///
 /// TODO: test
 pub fn deleteChars(self: *Terminal, count: usize) !void {
-    var line = &self.screen.items[self.cursor.y];
+    const line = self.screen.getRow(self.cursor.y);
 
     // Our last index is at most the end of the number of chars we have
     // in the current line.
-    const end = @minimum(line.items.len, self.cols - count);
-
-    // Do nothing if we have no values.
-    if (self.cursor.x >= line.items.len) return;
+    const end = self.cols - count;
 
     // Shift
     var i: usize = self.cursor.x;
     while (i < end) : (i += 1) {
         const j = i + count;
-        if (j < line.items.len) {
-            line.items[i] = line.items[j];
-        } else {
-            line.items[i].char = 0;
-        }
+        line[i] = line[j];
+        line[j].char = 0;
     }
 }
 
@@ -562,30 +557,10 @@ pub fn scrollDown(self: *Terminal, alloc: Allocator) !void {
     const tracy = trace(@src());
     defer tracy.end();
 
-    // TODO: this is horribly expensive. we need to optimize the screen repr
-
-    // We need space for one more row if we aren't at the max.
-    if (self.screen.capacity < self.rows) {
-        try self.screen.ensureTotalCapacity(alloc, self.screen.items.len + 1);
-    }
-
-    // Add one more item if we aren't at the max
-    if (self.screen.items.len < self.rows) {
-        self.screen.items.len += 1;
-    } else {
-        // We have the max, we need to deinitialize the last row because
-        // we're going to overwrite it.
-        self.screen.items[self.screen.items.len - 1].deinit(alloc);
-    }
-
-    // Shift everything down
-    var i: usize = self.screen.items.len - 1;
-    while (i > 0) : (i -= 1) {
-        self.screen.items[i] = self.screen.items[i - 1];
-    }
-
-    // Clear this row
-    self.screen.items[0] = .{};
+    _ = alloc;
+    self.screen.scroll(1);
+    const top = self.screen.getRow(0);
+    for (top) |*cell| cell.char = 0;
 }
 
 /// Set Top and Bottom Margins If bottom is not specified, 0 or bigger than

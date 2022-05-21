@@ -265,16 +265,21 @@ pub fn updateCells(self: *Grid, term: Terminal) !void {
     // we have plus a full width. This is very likely too much but its
     // the probably close enough while guaranteeing no more allocations.
     self.cells.clearRetainingCapacity();
-    if (term.screen.items.len == 0) return;
     try self.cells.ensureTotalCapacity(
         self.alloc,
-        (term.screen.items.len * term.cols * 2) + 1, // * 2 for background modes and cursor
+
+        // * 2 for background modes and cursor
         // + 1 for cursor
+        (term.screen.rows * term.screen.cols * 2) + 1,
     );
 
     // Build each cell
-    for (term.screen.items) |line, y| {
-        for (line.items) |cell, x| {
+    var rowIter = term.screen.rowIterator();
+    var y: usize = 0;
+    while (rowIter.next()) |line| {
+        defer y += 1;
+
+        for (line) |cell, x| {
             // If the cell has a background, we always draw it.
             if (cell.bg) |rgb| {
                 self.cells.appendAssumeCapacity(.{
