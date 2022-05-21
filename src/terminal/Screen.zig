@@ -88,7 +88,7 @@ pub fn getCell(self: Screen, row: usize, col: usize) *Cell {
     assert(row < self.rows);
     assert(col < self.cols);
     const row_idx = self.rowIndex(row);
-    return self.storage[row_idx + col];
+    return &self.storage[row_idx + col];
 }
 
 /// Returns the index for the given row (0-indexed) into the underlying
@@ -125,6 +125,7 @@ pub fn copyRow(self: *Screen, dst: usize, src: usize) void {
 /// Turns the screen into a string.
 pub fn testString(self: Screen, alloc: Allocator) ![]const u8 {
     const buf = try alloc.alloc(u8, self.storage.len + self.rows);
+
     var i: usize = 0;
     var y: usize = 0;
     var rows = self.rowIterator();
@@ -137,13 +138,16 @@ pub fn testString(self: Screen, alloc: Allocator) ![]const u8 {
         }
 
         for (row) |cell| {
-            // Turn NUL into space.
-            const char = if (cell.char == 0) 0x20 else cell.char;
-            i += try std.unicode.utf8Encode(@intCast(u21, char), buf[i..]);
+            // TODO: handle character after null
+            if (cell.char > 0) {
+                i += try std.unicode.utf8Encode(@intCast(u21, cell.char), buf[i..]);
+            }
         }
     }
 
-    return buf[0..i];
+    // Never render the final newline
+    const str = std.mem.trimRight(u8, buf[0..i], "\n");
+    return try alloc.realloc(buf, str.len);
 }
 
 /// Writes a basic string into the screen for testing. Newlines (\n) separate
