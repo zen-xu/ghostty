@@ -90,19 +90,7 @@ pub fn resize(self: *Terminal, alloc: Allocator, cols: usize, rows: usize) !void
     }
 
     // If we're making the screen smaller, dealloc the unused items.
-    // TODO: we probably want to wrap in the future.
-    // TODO: new screen
-    // if (rows < self.rows and self.screen.items.len > rows) {
-    //     for (self.screen.items[rows..self.screen.items.len]) |*line|
-    //         line.deinit(alloc);
-    //     self.screen.shrinkRetainingCapacity(rows);
-    // }
-    // if (cols < self.cols) {
-    //     for (self.screen.items) |*line| {
-    //         if (line.items.len < cols) continue;
-    //         line.shrinkRetainingCapacity(cols);
-    //     }
-    // }
+    try self.screen.resize(alloc, rows, cols);
 
     // Set our size
     self.cols = cols;
