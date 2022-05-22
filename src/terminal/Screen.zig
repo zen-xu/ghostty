@@ -74,6 +74,11 @@ pub fn rowIterator(self: *const Screen) RowIterator {
     return .{ .screen = self, .index = 0 };
 }
 
+/// Get the visible portion of the screen.
+pub fn getVisible(self: Screen) []Cell {
+    return self.storage;
+}
+
 /// Get a single row by index (0-indexed).
 pub fn getRow(self: Screen, idx: usize) Row {
     // Get the index of the first byte of the the row at index.

@@ -223,15 +223,8 @@ pub fn eraseDisplay(
 ) !void {
     switch (mode) {
         .complete => {
-            var y: usize = 0;
-            while (y < self.rows) : (y += 1) {
-                var x: usize = 0;
-                while (x < self.cols) : (x += 1) {
-                    const cell = try self.getOrPutCell(alloc, x, y);
-                    cell.* = self.cursor.pen;
-                    cell.char = 0;
-                }
-            }
+            const all = self.screen.getVisible();
+            std.mem.set(Screen.Cell, all, self.cursor.pen);
         },
 
         .below => {
