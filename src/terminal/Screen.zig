@@ -100,18 +100,24 @@ pub fn rowIndex(self: Screen, idx: usize) usize {
     return val - self.storage.len;
 }
 
-/// Scroll the screen up (negative) or down (positive). Scrolling direction
-/// is the direction opposite text would move. For example, scrolling down would
-/// move existing text upward. This sounds confusing but is the natural way
-/// that humans scroll a screen.
+/// Scroll the screen up (positive) or down (negiatve). Scrolling direction
+/// is the direction text would move. For example, scrolling down would
+/// move existing text downward.
 pub fn scroll(self: *Screen, count: isize) void {
+    // TODO: this math is super dumb, it doesn't work if count is a
+    // a multiple of rows
     if (count < 0) {
-        self.zero -|= @intCast(usize, -count);
+        const amount = @intCast(usize, -count);
+        if (amount > self.zero) {
+            self.zero = self.rows - amount;
+        } else {
+            self.zero -|= amount;
+        }
     } else {
         self.zero += @intCast(usize, count);
-    }
-    if (self.zero > self.storage.len) {
-        self.zero -= self.storage.len;
+        if (self.zero > self.storage.len) {
+            self.zero -= self.storage.len;
+        }
     }
 }
 
@@ -216,6 +222,26 @@ test "Screen: scrolling" {
     var contents = try s.testString(alloc);
     defer alloc.free(contents);
     try testing.expectEqualStrings("2EFGH\n3IJKL\n1ABCD", contents);
+}
+
+test "Screen: scroll down from 0" {
+    const testing = std.testing;
+    const alloc = testing.allocator;
+
+    var s = try init(alloc, 3, 5);
+    defer s.deinit(alloc);
+    s.testWriteString("1ABCD\n2EFGH\n3IJKL");
+    s.scroll(-1);
+
+    // Test our row index
+    try testing.expectEqual(@as(usize, 10), s.rowIndex(0));
+    try testing.expectEqual(@as(usize, 0), s.rowIndex(1));
+    try testing.expectEqual(@as(usize, 5), s.rowIndex(2));
+
+    // Test our contents rotated
+    var contents = try s.testString(alloc);
+    defer alloc.free(contents);
+    try testing.expectEqualStrings("3IJKL\n1ABCD\n2EFGH", contents);
 }
 
 test "Screen: row copy" {
