@@ -495,18 +495,20 @@ pub fn deleteLines(self: *Terminal, count: usize) void {
     self.cursor.x = 0;
 
     // Remaining number of lines in the scrolling region
-    const rem = self.scrolling_region.bottom - self.cursor.y;
+    const rem = self.scrolling_region.bottom - self.cursor.y + 1;
 
     // If the count is more than our remaining lines, we adjust down.
-    const count2 = @minimum(count, rem);
+    const adjusted_count = @minimum(count, rem);
 
     // Scroll up the count amount.
-    var i: usize = 0;
-    while (i < count2) : (i += 1) {
-        self.scrollUpRegion(
-            self.cursor.y,
-            self.scrolling_region.bottom,
-        );
+    var y: usize = self.cursor.y;
+    while (y <= self.scrolling_region.bottom - adjusted_count) : (y += 1) {
+        self.screen.copyRow(y, y + adjusted_count);
+    }
+
+    while (y <= self.scrolling_region.bottom) : (y += 1) {
+        const row = self.screen.getRow(y);
+        std.mem.set(Screen.Cell, row, self.cursor.pen);
     }
 }
 
@@ -518,30 +520,6 @@ pub fn scrollUp(self: *Terminal) void {
     self.screen.scroll(1);
     const last = self.screen.getRow(self.rows - 1);
     for (last) |*cell| cell.char = 0;
-}
-
-/// Scroll the given region up.
-///
-/// Top and bottom are 0-indexed.
-fn scrollUpRegion(
-    self: *Terminal,
-    top: usize,
-    bottom: usize,
-) void {
-    const tracy = trace(@src());
-    defer tracy.end();
-
-    // Only go to the end of the region OR the end of our lines.
-    const end = @minimum(bottom, self.screen.rows - 1);
-
-    var i: usize = top;
-    while (i < end) : (i += 1) {
-        self.screen.copyRow(i, i + 1);
-    }
-
-    // Blank our last line if we have space.
-    const row = self.screen.getRow(i);
-    for (row) |*cell| cell.char = 0;
 }
 
 /// Scroll the text down by one row.

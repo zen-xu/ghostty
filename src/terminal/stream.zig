@@ -48,11 +48,11 @@ pub fn Stream(comptime Handler: type) type {
             //log.debug("char: {x}", .{c});
             const actions = self.parser.next(c);
             for (actions) |action_opt| {
-                if (action_opt) |action| {
-                    if (action != .print) {
-                        log.info("action: {}", .{action});
-                    }
-                }
+                // if (action_opt) |action| {
+                //     if (action != .print) {
+                //         log.info("action: {}", .{action});
+                //     }
+                // }
                 switch (action_opt orelse continue) {
                     .print => |p| if (@hasDecl(T, "print")) try self.handler.print(p),
                     .execute => |code| try self.execute(code),
@@ -328,6 +328,7 @@ pub fn Stream(comptime Handler: type) type {
                 // TODO: test
                 'r' => if (@hasDecl(T, "setTopAndBottomMargin")) switch (action.params.len) {
                     1 => try self.handler.setTopAndBottomMargin(action.params[0], 0),
+                    2 => try self.handler.setTopAndBottomMargin(action.params[0], action.params[1]),
                     else => log.warn("invalid DECSTBM command: {}", .{action}),
                 } else log.warn("unimplemented CSI callback: {}", .{action}),
 
