@@ -223,7 +223,7 @@ pub fn create(alloc: Allocator, loop: libuv.Loop, config: *const Config) !*Windo
         .terminal_stream = .{ .handler = self },
         .cursor_timer = timer,
         .cursor_style = .blinking_block,
-        .render_timer = try RenderTimer.init(loop, self, 16, 96),
+        .render_timer = try RenderTimer.init(loop, self, 16, 64),
         .pty_stream = stream,
         .config = config,
         .bg_r = @intToFloat(f32, config.background.r) / 255.0,
