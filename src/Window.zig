@@ -591,7 +591,7 @@ fn renderTimerCallback(t: *libuv.Timer) void {
 // Stream Callbacks
 
 pub fn print(self: *Window, c: u21) !void {
-    try self.terminal.print(self.alloc, c);
+    try self.terminal.print(c);
 }
 
 pub fn bell(self: Window) !void {
@@ -604,11 +604,11 @@ pub fn backspace(self: *Window) !void {
 }
 
 pub fn horizontalTab(self: *Window) !void {
-    try self.terminal.horizontalTab(self.alloc);
+    try self.terminal.horizontalTab();
 }
 
 pub fn linefeed(self: *Window) !void {
-    self.terminal.linefeed(self.alloc);
+    self.terminal.linefeed();
 }
 
 pub fn carriageReturn(self: *Window) !void {
@@ -668,7 +668,7 @@ pub fn deleteLines(self: *Window, count: usize) !void {
 }
 
 pub fn reverseIndex(self: *Window) !void {
-    try self.terminal.reverseIndex(self.alloc);
+    try self.terminal.reverseIndex();
 }
 
 pub fn setTopAndBottomMargin(self: *Window, top: u16, bot: u16) !void {

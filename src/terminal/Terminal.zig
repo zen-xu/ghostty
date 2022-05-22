@@ -163,12 +163,12 @@ pub fn setAttribute(self: *Terminal, attr: sgr.Attribute) !void {
     }
 }
 
-pub fn print(self: *Terminal, alloc: Allocator, c: u21) !void {
+pub fn print(self: *Terminal, c: u21) !void {
     const tracy = trace(@src());
     defer tracy.end();
 
     // Build our cell
-    const cell = try self.getOrPutCell(alloc, self.cursor.x, self.cursor.y);
+    const cell = self.screen.getCell(self.cursor.y, self.cursor.x);
     cell.* = self.cursor.pen;
     cell.char = @intCast(u32, c);
 
@@ -181,12 +181,28 @@ pub fn print(self: *Terminal, alloc: Allocator, c: u21) !void {
     }
 }
 
+/// Move the cursor to the previous line in the scrolling region, possibly
+/// scrolling.
+///
+/// If the cursor is outside of the scrolling region, move the cursor one
+/// line up if it is not on the top-most line of the screen.
+///
+/// If the cursor is inside the scrolling region:
+///
+///   * If the cursor is on the top-most line of the scrolling region:
+///     invoke scroll down with amount=1
+///   * If the cursor is not on the top-most line of the scrolling region:
+///     move the cursor one line up
+///
 // TODO: test
-pub fn reverseIndex(self: *Terminal, alloc: Allocator) !void {
-    if (self.cursor.y == 0)
-        try self.scrollDown(alloc)
-    else
+pub fn reverseIndex(self: *Terminal) !void {
+    // TODO: scrolling region
+
+    if (self.cursor.y == 0) {
+        try self.scrollDown();
+    } else {
         self.cursor.y -|= 1;
+    }
 }
 
 // Set Cursor Position. Move cursor to the position indicated
@@ -383,13 +399,13 @@ pub fn backspace(self: *Terminal) void {
 
 /// Horizontal tab moves the cursor to the next tabstop, clearing
 /// the screen to the left the tabstop.
-pub fn horizontalTab(self: *Terminal, alloc: Allocator) !void {
+pub fn horizontalTab(self: *Terminal) !void {
     const tracy = trace(@src());
     defer tracy.end();
 
     while (self.cursor.x < self.cols) {
         // Clear
-        try self.print(alloc, ' ');
+        try self.print(' ');
 
         // If the last cursor position was a tabstop we return. We do
         // "last cursor position" because we want a space to be written
@@ -407,7 +423,7 @@ pub fn carriageReturn(self: *Terminal) void {
 }
 
 /// Linefeed moves the cursor to the next line.
-pub fn linefeed(self: *Terminal, alloc: Allocator) void {
+pub fn linefeed(self: *Terminal) void {
     const tracy = trace(@src());
     defer tracy.end();
 
@@ -415,7 +431,7 @@ pub fn linefeed(self: *Terminal, alloc: Allocator) void {
     // common because most terminals live with a full screen so we do this
     // check first.
     if (self.cursor.y == self.rows - 1) {
-        self.scrollUp(alloc);
+        self.scrollUp();
         return;
     }
 
@@ -514,12 +530,11 @@ pub fn deleteLines(self: *Terminal, alloc: Allocator, count: usize) void {
 }
 
 /// Scroll the text up by one row.
-pub fn scrollUp(self: *Terminal, alloc: Allocator) void {
+pub fn scrollUp(self: *Terminal) void {
     const tracy = trace(@src());
     defer tracy.end();
 
-    _ = alloc;
-    self.screen.scroll(-1);
+    self.screen.scroll(1);
 }
 
 /// Scroll the given region up.
@@ -553,12 +568,11 @@ fn scrollUpRegion(
 
 /// Scroll the text down by one row.
 /// TODO: test
-pub fn scrollDown(self: *Terminal, alloc: Allocator) !void {
+pub fn scrollDown(self: *Terminal) !void {
     const tracy = trace(@src());
     defer tracy.end();
 
-    _ = alloc;
-    self.screen.scroll(1);
+    self.screen.scroll(-1);
     const top = self.screen.getRow(0);
     for (top) |*cell| cell.char = 0;
 }
@@ -604,7 +618,7 @@ test "Terminal: input with no control characters" {
     defer t.deinit(testing.allocator);
 
     // Basic grid writing
-    for ("hello") |c| try t.print(testing.allocator, c);
+    for ("hello") |c| try t.print(c);
     try testing.expectEqual(@as(usize, 0), t.cursor.y);
     try testing.expectEqual(@as(usize, 5), t.cursor.x);
     {
@@ -619,10 +633,10 @@ test "Terminal: linefeed and carriage return" {
     defer t.deinit(testing.allocator);
 
     // Basic grid writing
-    for ("hello") |c| try t.print(testing.allocator, c);
+    for ("hello") |c| try t.print(c);
     t.carriageReturn();
-    t.linefeed(testing.allocator);
-    for ("world") |c| try t.print(testing.allocator, c);
+    t.linefeed();
+    for ("world") |c| try t.print(c);
     try testing.expectEqual(@as(usize, 1), t.cursor.y);
     try testing.expectEqual(@as(usize, 5), t.cursor.x);
     {
@@ -633,14 +647,13 @@ test "Terminal: linefeed and carriage return" {
 }
 
 test "Terminal: backspace" {
-    const alloc = testing.allocator;
     var t = try init(testing.allocator, 80, 80);
     defer t.deinit(testing.allocator);
 
     // BS
-    for ("hello") |c| try t.print(alloc, c);
+    for ("hello") |c| try t.print(c);
     t.backspace();
-    try t.print(alloc, 'y');
+    try t.print('y');
     try testing.expectEqual(@as(usize, 0), t.cursor.y);
     try testing.expectEqual(@as(usize, 5), t.cursor.x);
     {
@@ -656,12 +669,12 @@ test "Terminal: horizontal tabs" {
     defer t.deinit(alloc);
 
     // HT
-    try t.print(alloc, '1');
-    try t.horizontalTab(alloc);
+    try t.print('1');
+    try t.horizontalTab();
     try testing.expectEqual(@as(usize, 8), t.cursor.x);
 
     // HT
-    try t.horizontalTab(alloc);
+    try t.horizontalTab();
     try testing.expectEqual(@as(usize, 16), t.cursor.x);
 }
 
@@ -715,23 +728,23 @@ test "Terminal: setScrollingRegion" {
     defer t.deinit(alloc);
 
     // Initial value
-    try t.print(alloc, 'A');
+    try t.print('A');
     t.carriageReturn();
-    t.linefeed(alloc);
-    try t.print(alloc, 'B');
+    t.linefeed();
+    try t.print('B');
     t.carriageReturn();
-    t.linefeed(alloc);
-    try t.print(alloc, 'C');
+    t.linefeed();
+    try t.print('C');
     t.carriageReturn();
-    t.linefeed(alloc);
-    try t.print(alloc, 'D');
+    t.linefeed();
+    try t.print('D');
 
     t.cursorUp(2);
     t.deleteLines(alloc, 1);
 
-    try t.print(alloc, 'E');
+    try t.print('E');
     t.carriageReturn();
-    t.linefeed(alloc);
+    t.linefeed();
 
     // We should be
     try testing.expectEqual(@as(usize, 0), t.cursor.x);
@@ -750,19 +763,19 @@ test "Terminal: insertLines" {
     defer t.deinit(alloc);
 
     // Initial value
-    try t.print(alloc, 'A');
+    try t.print('A');
     t.carriageReturn();
-    t.linefeed(alloc);
-    try t.print(alloc, 'B');
+    t.linefeed();
+    try t.print('B');
     t.carriageReturn();
-    t.linefeed(alloc);
-    try t.print(alloc, 'C');
+    t.linefeed();
+    try t.print('C');
     t.carriageReturn();
-    t.linefeed(alloc);
-    try t.print(alloc, 'D');
+    t.linefeed();
+    try t.print('D');
     t.carriageReturn();
-    t.linefeed(alloc);
-    try t.print(alloc, 'E');
+    t.linefeed();
+    try t.print('E');
 
     // Move to row 2
     t.setCursorPos(2, 1);
@@ -783,25 +796,25 @@ test "Terminal: insertLines with scroll region" {
     defer t.deinit(alloc);
 
     // Initial value
-    try t.print(alloc, 'A');
+    try t.print('A');
     t.carriageReturn();
-    t.linefeed(alloc);
-    try t.print(alloc, 'B');
+    t.linefeed();
+    try t.print('B');
     t.carriageReturn();
-    t.linefeed(alloc);
-    try t.print(alloc, 'C');
+    t.linefeed();
+    try t.print('C');
     t.carriageReturn();
-    t.linefeed(alloc);
-    try t.print(alloc, 'D');
+    t.linefeed();
+    try t.print('D');
     t.carriageReturn();
-    t.linefeed(alloc);
-    try t.print(alloc, 'E');
+    t.linefeed();
+    try t.print('E');
 
     t.setScrollingRegion(1, 2);
     t.setCursorPos(1, 1);
     try t.insertLines(alloc, 1);
 
-    try t.print(alloc, 'X');
+    try t.print('X');
 
     {
         var str = try t.plainString(testing.allocator);
@@ -816,19 +829,19 @@ test "Terminal: insertLines more than remaining" {
     defer t.deinit(alloc);
 
     // Initial value
-    try t.print(alloc, 'A');
+    try t.print('A');
     t.carriageReturn();
-    t.linefeed(alloc);
-    try t.print(alloc, 'B');
+    t.linefeed();
+    try t.print('B');
     t.carriageReturn();
-    t.linefeed(alloc);
-    try t.print(alloc, 'C');
+    t.linefeed();
+    try t.print('C');
     t.carriageReturn();
-    t.linefeed(alloc);
-    try t.print(alloc, 'D');
+    t.linefeed();
+    try t.print('D');
     t.carriageReturn();
-    t.linefeed(alloc);
-    try t.print(alloc, 'E');
+    t.linefeed();
+    try t.print('E');
 
     // Move to row 2
     t.setCursorPos(2, 1);
@@ -840,5 +853,65 @@ test "Terminal: insertLines more than remaining" {
         var str = try t.plainString(testing.allocator);
         defer testing.allocator.free(str);
         try testing.expectEqualStrings("A", str);
+    }
+}
+
+test "Terminal: reverseIndex" {
+    const alloc = testing.allocator;
+    var t = try init(alloc, 2, 5);
+    defer t.deinit(alloc);
+
+    // Initial value
+    try t.print('A');
+    t.carriageReturn();
+    t.linefeed();
+    try t.print('B');
+    t.carriageReturn();
+    t.linefeed();
+    try t.print('C');
+    try t.reverseIndex();
+    try t.print('D');
+    t.carriageReturn();
+    t.linefeed();
+    t.carriageReturn();
+    t.linefeed();
+
+    {
+        var str = try t.plainString(testing.allocator);
+        defer testing.allocator.free(str);
+        try testing.expectEqualStrings("A\nBD\nC", str);
+    }
+}
+
+test "Terminal: reverseIndex from the top" {
+    const alloc = testing.allocator;
+    var t = try init(alloc, 2, 5);
+    defer t.deinit(alloc);
+
+    try t.print('A');
+    t.carriageReturn();
+    t.linefeed();
+    try t.print('B');
+    t.carriageReturn();
+    t.linefeed();
+    t.carriageReturn();
+    t.linefeed();
+
+    t.setCursorPos(1, 1);
+    try t.reverseIndex();
+    try t.print('D');
+
+    t.carriageReturn();
+    t.linefeed();
+    t.setCursorPos(1, 1);
+    try t.reverseIndex();
+    try t.print('E');
+    t.carriageReturn();
+    t.linefeed();
+
+    {
+        var str = try t.plainString(testing.allocator);
+        defer testing.allocator.free(str);
+        try testing.expectEqualStrings("E\nD\nA\nB", str);
     }
 }

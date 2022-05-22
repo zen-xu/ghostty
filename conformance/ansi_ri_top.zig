@@ -4,10 +4,8 @@ const std = @import("std");
 
 pub fn main() !void {
     const stdout = std.io.getStdOut().writer();
-    try stdout.print("A\nB\n", .{});
+    try stdout.print("A\nB\n\n", .{});
 
-    try stdout.print("\x0D", .{}); // CR
-    try stdout.print("\x0A", .{}); // LF
     try stdout.print("\x1B[H", .{}); // Top-left
     try stdout.print("\x1BM", .{}); // Reverse-Index
     try stdout.print("D", .{});
