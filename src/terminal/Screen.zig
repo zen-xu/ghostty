@@ -128,6 +128,50 @@ pub fn copyRow(self: *Screen, dst: usize, src: usize) void {
     std.mem.copy(Cell, dst_row, src_row);
 }
 
+/// Resize the screen. The rows or cols can be bigger or smaller. Due to
+/// the internal representation of a screen, this usually involves a significant
+/// amount of copying compared to any other operations.
+///
+/// This will trim data if the size is getting smaller. It is expected that
+/// callers will reflow the text prior to calling this.
+pub fn resize(self: *Screen, alloc: Allocator, rows: usize, cols: usize) !void {
+    // Make a copy so we can access the old indexes.
+    const old = self.*;
+
+    // Reallocate the storage
+    self.storage = try alloc.alloc(Cell, rows * cols);
+    self.zero = 0;
+    self.rows = rows;
+    self.cols = cols;
+
+    // If we're increasing height, then copy all rows (start at 0).
+    // Otherwise start at the latest row that includes the bottom row,
+    // aka trip the top.
+    var y: usize = if (rows >= old.rows) 0 else old.rows - rows;
+    const start = y;
+    const col_end = @minimum(old.cols, cols);
+    while (y < old.rows) : (y += 1) {
+        // Copy the old row into the new row, just losing the columsn
+        // if we got thinner.
+        const old_row = old.getRow(y);
+        const new_row = self.getRow(y - start);
+        std.mem.copy(Cell, new_row, old_row[0..col_end]);
+
+        // If our new row is wider, then we copy zeroes into the rest.
+        if (new_row.len > old_row.len) {
+            std.mem.set(Cell, new_row[old_row.len..], .{ .char = 0 });
+        }
+    }
+
+    // If we grew rows, then set the remaining data to zero.
+    if (rows > old.rows) {
+        std.mem.set(Cell, self.storage[self.rowIndex(old.rows)..], .{ .char = 0 });
+    }
+
+    // Free the old data
+    alloc.free(old.storage);
+}
+
 /// Turns the screen into a string.
 pub fn testString(self: Screen, alloc: Allocator) ![]const u8 {
     const buf = try alloc.alloc(u8, self.storage.len + self.rows);
@@ -294,4 +338,73 @@ test "Screen: row copy" {
     var contents = try s.testString(alloc);
     defer alloc.free(contents);
     try testing.expectEqualStrings("2EFGH\n3IJKL\n2EFGH", contents);
+}
+
+test "Screen: resize more rows" {
+    const testing = std.testing;
+    const alloc = testing.allocator;
+
+    var s = try init(alloc, 3, 5);
+    defer s.deinit(alloc);
+    const str = "1ABCD\n2EFGH\n3IJKL";
+    s.testWriteString(str);
+    try s.resize(alloc, 10, 5);
+
+    {
+        var contents = try s.testString(alloc);
+        defer alloc.free(contents);
+        try testing.expectEqualStrings(str, contents);
+    }
+}
+
+test "Screen: resize less rows" {
+    const testing = std.testing;
+    const alloc = testing.allocator;
+
+    var s = try init(alloc, 3, 5);
+    defer s.deinit(alloc);
+    const str = "1ABCD\n2EFGH\n3IJKL";
+    s.testWriteString(str);
+    try s.resize(alloc, 2, 5);
+
+    {
+        var contents = try s.testString(alloc);
+        defer alloc.free(contents);
+        try testing.expectEqualStrings("2EFGH\n3IJKL", contents);
+    }
+}
+
+test "Screen: resize more cols" {
+    const testing = std.testing;
+    const alloc = testing.allocator;
+
+    var s = try init(alloc, 3, 5);
+    defer s.deinit(alloc);
+    const str = "1ABCD\n2EFGH\n3IJKL";
+    s.testWriteString(str);
+    try s.resize(alloc, 3, 10);
+
+    {
+        var contents = try s.testString(alloc);
+        defer alloc.free(contents);
+        try testing.expectEqualStrings(str, contents);
+    }
+}
+
+test "Screen: resize less cols" {
+    const testing = std.testing;
+    const alloc = testing.allocator;
+
+    var s = try init(alloc, 3, 5);
+    defer s.deinit(alloc);
+    const str = "1ABCD\n2EFGH\n3IJKL";
+    s.testWriteString(str);
+    try s.resize(alloc, 3, 4);
+
+    {
+        var contents = try s.testString(alloc);
+        defer alloc.free(contents);
+        const expected = "1ABC\n2EFG\n3IJK";
+        try testing.expectEqualStrings(expected, contents);
+    }
 }
