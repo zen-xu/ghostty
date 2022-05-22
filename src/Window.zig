@@ -664,7 +664,7 @@ pub fn insertLines(self: *Window, count: usize) !void {
 }
 
 pub fn deleteLines(self: *Window, count: usize) !void {
-    self.terminal.deleteLines(self.alloc, count);
+    self.terminal.deleteLines(count);
 }
 
 pub fn reverseIndex(self: *Window) !void {

@@ -488,7 +488,7 @@ pub fn insertLines(self: *Terminal, alloc: Allocator, count: usize) !void {
 /// cleared space is colored according to the current SGR state.
 ///
 /// Moves the cursor to the left margin.
-pub fn deleteLines(self: *Terminal, alloc: Allocator, count: usize) void {
+pub fn deleteLines(self: *Terminal, count: usize) void {
     // TODO: scroll region bounds
 
     // Move the cursor to the left margin
@@ -504,7 +504,6 @@ pub fn deleteLines(self: *Terminal, alloc: Allocator, count: usize) void {
     var i: usize = 0;
     while (i < count2) : (i += 1) {
         self.scrollUpRegion(
-            alloc,
             self.cursor.y,
             self.scrolling_region.bottom,
         );
@@ -526,14 +525,11 @@ pub fn scrollUp(self: *Terminal) void {
 /// Top and bottom are 0-indexed.
 fn scrollUpRegion(
     self: *Terminal,
-    alloc: Allocator,
     top: usize,
     bottom: usize,
 ) void {
     const tracy = trace(@src());
     defer tracy.end();
-
-    _ = alloc;
 
     // Only go to the end of the region OR the end of our lines.
     const end = @minimum(bottom, self.screen.rows - 1);
@@ -544,10 +540,8 @@ fn scrollUpRegion(
     }
 
     // Blank our last line if we have space.
-    if (i < self.screen.rows) {
-        const row = self.screen.getRow(i);
-        for (row) |*cell| cell.char = 0;
-    }
+    const row = self.screen.getRow(i);
+    for (row) |*cell| cell.char = 0;
 }
 
 /// Scroll the text down by one row.
@@ -706,7 +700,7 @@ test "Terminal: setScrollingRegion" {
     try testing.expectEqual(@as(usize, t.rows - 1), t.scrolling_region.bottom);
 }
 
-test "Terminal: setScrollingRegion" {
+test "Terminal: deleteLines" {
     const alloc = testing.allocator;
     var t = try init(alloc, 80, 80);
     defer t.deinit(alloc);
@@ -724,7 +718,7 @@ test "Terminal: setScrollingRegion" {
     try t.print('D');
 
     t.cursorUp(2);
-    t.deleteLines(alloc, 1);
+    t.deleteLines(1);
 
     try t.print('E');
     t.carriageReturn();
@@ -738,6 +732,42 @@ test "Terminal: setScrollingRegion" {
         var str = try t.plainString(testing.allocator);
         defer testing.allocator.free(str);
         try testing.expectEqualStrings("A\nE\nD", str);
+    }
+}
+
+test "Terminal: deleteLines with scroll region" {
+    const alloc = testing.allocator;
+    var t = try init(alloc, 80, 80);
+    defer t.deinit(alloc);
+
+    // Initial value
+    try t.print('A');
+    t.carriageReturn();
+    t.linefeed();
+    try t.print('B');
+    t.carriageReturn();
+    t.linefeed();
+    try t.print('C');
+    t.carriageReturn();
+    t.linefeed();
+    try t.print('D');
+
+    t.setScrollingRegion(1, 3);
+    t.setCursorPos(1, 1);
+    t.deleteLines(1);
+
+    try t.print('E');
+    t.carriageReturn();
+    t.linefeed();
+
+    // We should be
+    // try testing.expectEqual(@as(usize, 0), t.cursor.x);
+    // try testing.expectEqual(@as(usize, 2), t.cursor.y);
+
+    {
+        var str = try t.plainString(testing.allocator);
+        defer testing.allocator.free(str);
+        try testing.expectEqualStrings("E\nC\n\nD", str);
     }
 }
 
