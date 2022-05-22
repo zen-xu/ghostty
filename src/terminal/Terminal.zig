@@ -90,6 +90,7 @@ pub fn resize(self: *Terminal, alloc: Allocator, cols: usize, rows: usize) !void
     }
 
     // If we're making the screen smaller, dealloc the unused items.
+    // TODO: reflow
     try self.screen.resize(alloc, rows, cols);
 
     // Set our size
