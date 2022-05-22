@@ -193,8 +193,6 @@ pub fn print(self: *Terminal, c: u21) !void {
 ///     invoke scroll down with amount=1
 ///   * If the cursor is not on the top-most line of the scrolling region:
 ///     move the cursor one line up
-///
-// TODO: test
 pub fn reverseIndex(self: *Terminal) !void {
     // TODO: scrolling region
 

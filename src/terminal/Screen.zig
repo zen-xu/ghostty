@@ -100,24 +100,19 @@ pub fn rowIndex(self: Screen, idx: usize) usize {
     return val - self.storage.len;
 }
 
-/// Scroll the screen up (positive) or down (negiatve). Scrolling direction
+/// Scroll the screen up (positive) or down (negative). Scrolling direction
 /// is the direction text would move. For example, scrolling down would
 /// move existing text downward.
 pub fn scroll(self: *Screen, count: isize) void {
-    // TODO: this math is super dumb, it doesn't work if count is a
-    // a multiple of rows
     if (count < 0) {
-        const amount = @intCast(usize, -count);
+        const amount = @mod(@intCast(usize, -count), self.rows);
         if (amount > self.zero) {
             self.zero = self.rows - amount;
         } else {
             self.zero -|= amount;
         }
     } else {
-        self.zero += @intCast(usize, count);
-        if (self.zero > self.storage.len) {
-            self.zero -= self.storage.len;
-        }
+        self.zero = @mod(self.zero + @intCast(usize, count), self.rows);
     }
 }
 
@@ -218,10 +213,27 @@ test "Screen: scrolling" {
     try testing.expectEqual(@as(usize, 10), s.rowIndex(1));
     try testing.expectEqual(@as(usize, 0), s.rowIndex(2));
 
-    // Test our contents rotated
-    var contents = try s.testString(alloc);
-    defer alloc.free(contents);
-    try testing.expectEqualStrings("2EFGH\n3IJKL\n1ABCD", contents);
+    {
+        // Test our contents rotated
+        var contents = try s.testString(alloc);
+        defer alloc.free(contents);
+        try testing.expectEqualStrings("2EFGH\n3IJKL\n1ABCD", contents);
+    }
+
+    // Scroll by a multiple
+    s.scroll(@intCast(isize, s.rows) * 4);
+
+    // Test our row index
+    try testing.expectEqual(@as(usize, 5), s.rowIndex(0));
+    try testing.expectEqual(@as(usize, 10), s.rowIndex(1));
+    try testing.expectEqual(@as(usize, 0), s.rowIndex(2));
+
+    {
+        // Test our contents rotated
+        var contents = try s.testString(alloc);
+        defer alloc.free(contents);
+        try testing.expectEqualStrings("2EFGH\n3IJKL\n1ABCD", contents);
+    }
 }
 
 test "Screen: scroll down from 0" {
@@ -238,10 +250,27 @@ test "Screen: scroll down from 0" {
     try testing.expectEqual(@as(usize, 0), s.rowIndex(1));
     try testing.expectEqual(@as(usize, 5), s.rowIndex(2));
 
-    // Test our contents rotated
-    var contents = try s.testString(alloc);
-    defer alloc.free(contents);
-    try testing.expectEqualStrings("3IJKL\n1ABCD\n2EFGH", contents);
+    {
+        // Test our contents rotated
+        var contents = try s.testString(alloc);
+        defer alloc.free(contents);
+        try testing.expectEqualStrings("3IJKL\n1ABCD\n2EFGH", contents);
+    }
+
+    // Scroll by a multiple
+    s.scroll(-4 * @intCast(isize, s.rows));
+
+    // Test our row index
+    try testing.expectEqual(@as(usize, 10), s.rowIndex(0));
+    try testing.expectEqual(@as(usize, 0), s.rowIndex(1));
+    try testing.expectEqual(@as(usize, 5), s.rowIndex(2));
+
+    {
+        // Test our contents rotated
+        var contents = try s.testString(alloc);
+        defer alloc.free(contents);
+        try testing.expectEqualStrings("3IJKL\n1ABCD\n2EFGH", contents);
+    }
 }
 
 test "Screen: row copy" {
