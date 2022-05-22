@@ -517,6 +517,8 @@ pub fn scrollUp(self: *Terminal) void {
     defer tracy.end();
 
     self.screen.scroll(1);
+    const last = self.screen.getRow(self.rows - 1);
+    for (last) |*cell| cell.char = 0;
 }
 
 /// Scroll the given region up.
