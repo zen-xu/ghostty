@@ -259,26 +259,17 @@ pub fn eraseDisplay(
 /// TODO: test
 pub fn eraseLine(
     self: *Terminal,
-    alloc: Allocator,
     mode: csi.EraseLine,
 ) !void {
     switch (mode) {
         .right => {
-            var x: usize = self.cursor.x;
-            while (x < self.cols) : (x += 1) {
-                const cell = try self.getOrPutCell(alloc, x, self.cursor.y);
-                cell.* = self.cursor.pen;
-                cell.char = 0;
-            }
+            const row = self.screen.getRow(self.cursor.y);
+            std.mem.set(Screen.Cell, row[self.cursor.x..], self.cursor.pen);
         },
 
         .left => {
-            var x: usize = self.cursor.x;
-            while (x >= 0) : (x -= 1) {
-                const cell = try self.getOrPutCell(alloc, x, self.cursor.y);
-                cell.* = self.cursor.pen;
-                cell.char = 0;
-            }
+            const row = self.screen.getRow(self.cursor.y);
+            std.mem.set(Screen.Cell, row[0..self.cursor.x], self.cursor.pen);
         },
 
         else => {
