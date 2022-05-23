@@ -102,6 +102,10 @@ pub fn resize(self: *Terminal, alloc: Allocator, cols: usize, rows: usize) !void
         .top = 0,
         .bottom = rows - 1,
     };
+
+    // Move our cursor
+    self.cursor.x = @minimum(self.cursor.x, self.cols - 1);
+    self.cursor.y = @minimum(self.cursor.y, self.rows - 1);
 }
 
 /// Return the current string value of the terminal. Newlines are
