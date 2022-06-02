@@ -29,10 +29,6 @@
     scdoc
     zig
 
-    # Utilities
-    glxinfo
-    vttest
-
     # Testing
     gdb
     tracy
@@ -41,8 +37,6 @@
   buildInputs = [
     # TODO: non-linux
   ] ++ lib.optionals stdenv.isLinux [
-    libGL
-
     libX11
     libXcursor
     libXext
@@ -51,5 +45,5 @@
     libXrandr
   ];
 
-  LD_LIBRARY_PATH = "${vulkan-loader}/lib:${libGL}/lib";
+  LD_LIBRARY_PATH = "${libX11}/lib:${libGL}/lib";
 }

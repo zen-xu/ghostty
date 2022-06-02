@@ -9,8 +9,18 @@ const tracylib = @import("src/tracy/build.zig");
 const system_sdk = @import("vendor/mach/glfw/system_sdk.zig");
 
 pub fn build(b: *std.build.Builder) !void {
-    const target = b.standardTargetOptions(.{});
     const mode = b.standardReleaseOptions();
+    const target = target: {
+        var result = b.standardTargetOptions(.{});
+
+        if (result.isLinux()) {
+            // https://github.com/ziglang/zig/issues/9485
+            result.glibc_version = .{ .major = 2, .minor = 28 };
+        }
+
+        break :target result;
+    };
+
     const tracy = b.option(
         bool,
         "tracy",
@@ -35,7 +45,7 @@ pub fn build(b: *std.build.Builder) !void {
     exe.addPackagePath("glfw", "vendor/mach/glfw/src/main.zig");
     glfw.link(b, exe, .{
         .metal = false,
-        .opengl = true,
+        .opengl = false, // Found at runtime
     });
 
     // Tracy
@@ -80,6 +90,7 @@ pub fn build(b: *std.build.Builder) !void {
     const lib_tests = b.addTest("src/main.zig");
     ftlib.link(lib_tests);
     libuv.link(lib_tests);
+    lib_tests.setTarget(target);
     lib_tests.addIncludeDir("vendor/glad/include/");
     lib_tests.addCSourceFile("vendor/glad/src/gl.c", &.{});
     test_step.dependOn(&lib_tests.step);
