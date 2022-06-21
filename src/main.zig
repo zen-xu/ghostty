@@ -1,3 +1,4 @@
+const builtin = @import("builtin");
 const options = @import("build_options");
 const std = @import("std");
 const glfw = @import("glfw");
@@ -8,9 +9,25 @@ const tracy = @import("tracy/tracy.zig");
 const Config = @import("config.zig").Config;
 
 pub fn main() !void {
-    var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
-    const gpa = general_purpose_allocator.allocator();
-    defer _ = general_purpose_allocator.deinit();
+    const gpa = gpa: {
+        // Use the libc allocator if it is available beacuse it is WAY
+        // faster than GPA. We only do this in release modes so that we
+        // can get easy memory leak detection in debug modes.
+        if (builtin.link_libc) {
+            switch (builtin.mode) {
+                .ReleaseSafe, .ReleaseFast => break :gpa std.heap.c_allocator,
+                else => {},
+            }
+        }
+
+        // We don't ever deinit our GPA because the process cleanup will
+        // clean it up. This defer isn't in the right location anyways because
+        // it'll deinit on return from blk.
+        // defer _ = general_purpose_allocator.deinit();
+
+        var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
+        break :gpa general_purpose_allocator.allocator();
+    };
 
     // If we're tracing, then wrap memory so we can trace allocations
     const alloc = if (!tracy.enabled) gpa else tracy.allocator(gpa, null).allocator();
