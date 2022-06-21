@@ -32,6 +32,17 @@ pub const Command = union(enum) {
     /// or another prompt (OSC "133;P").
     prompt_end: void,
 
+    /// The OSC "133;C" command can be used to explicitly end
+    /// the input area and begin the output area.  However, some applications
+    /// don't provide a convenient way to emit that command.
+    /// That is why we also specify an implicit way to end the input area
+    /// at the end of the line. In the case of  multiple input lines: If the
+    /// cursor is on a fresh (empty) line and we see either OSC "133;P" or
+    /// OSC "133;I" then this is the start of a continuation input line.
+    /// If we see anything else, it is the start of the output area (or end
+    /// of command).
+    end_of_input: void,
+
     /// End of current command.
     ///
     /// The exit-code need not be specified if  if there are no options,
@@ -200,6 +211,12 @@ pub const Parser = struct {
                 'B' => {
                     self.state = .semantic_option_start;
                     self.command = .{ .prompt_end = .{} };
+                    self.complete = true;
+                },
+
+                'C' => {
+                    self.state = .semantic_option_start;
+                    self.command = .{ .end_of_input = .{} };
                     self.complete = true;
                 },
 
@@ -397,6 +414,18 @@ test "OSC: prompt_end" {
 
     const cmd = p.end().?;
     try testing.expect(cmd == .prompt_end);
+}
+
+test "OSC: end_of_input" {
+    const testing = std.testing;
+
+    var p: Parser = .{};
+
+    const input = "133;C";
+    for (input) |ch| p.next(ch);
+
+    const cmd = p.end().?;
+    try testing.expect(cmd == .end_of_input);
 }
 
 test "OSC: reset_cursor_color" {

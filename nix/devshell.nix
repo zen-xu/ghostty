@@ -32,6 +32,7 @@
     # Testing
     gdb
     tracy
+    vttest
   ];
 
   buildInputs = [
