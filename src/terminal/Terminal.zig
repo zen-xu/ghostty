@@ -714,6 +714,11 @@ test "Terminal: setScrollingRegion" {
     t.setScrollingRegion(7, 3);
     try testing.expectEqual(@as(usize, 0), t.scrolling_region.top);
     try testing.expectEqual(@as(usize, t.rows - 1), t.scrolling_region.bottom);
+
+    // Scroll region with zero top and bottom
+    t.setScrollingRegion(0, 0);
+    try testing.expectEqual(@as(usize, 0), t.scrolling_region.top);
+    try testing.expectEqual(@as(usize, t.rows - 1), t.scrolling_region.bottom);
 }
 
 test "Terminal: deleteLines" {
