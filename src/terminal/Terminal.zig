@@ -203,8 +203,30 @@ pub fn reverseIndex(self: *Terminal) !void {
 // greater than the bottom-most row it is adjusted to the bottom-most
 // row.
 pub fn setCursorPos(self: *Terminal, row: usize, col: usize) void {
-    self.cursor.x = @minimum(self.cols, col) -| 1;
-    self.cursor.y = @minimum(self.rows, row) -| 1;
+    // If cursor origin mode is set the cursor row will be moved relative to
+    // the top margin row and adjusted to be above or at bottom-most row in
+    // the current scroll region.
+    //
+    // If origin mode is set and left and right margin mode is set the cursor
+    // will be moved relative to the left margin column and adjusted to be on
+    // or left of the right margin column.
+    const params: struct {
+        x_offset: usize = 0,
+        y_offset: usize = 0,
+        x_max: usize,
+        y_max: usize,
+    } = if (self.mode_origin) .{
+        .x_offset = 0, // TODO: left/right margins
+        .x_max = self.cols, // TODO: left/right margins
+        .y_offset = self.scrolling_region.top + 1,
+        .y_max = self.scrolling_region.bottom + 1, // We need this 1-indexed
+    } else .{
+        .x_max = self.cols,
+        .y_max = self.rows,
+    };
+
+    self.cursor.x = @minimum(params.x_max, col) -| 1;
+    self.cursor.y = @minimum(params.y_max, row + params.y_offset) -| 1;
 }
 
 /// Erase the display.
@@ -643,6 +665,29 @@ test "Terminal: setCursorPosition" {
     t.setCursorPos(81, 81);
     try testing.expectEqual(@as(usize, 79), t.cursor.x);
     try testing.expectEqual(@as(usize, 79), t.cursor.y);
+
+    // Origin mode
+    t.mode_origin = true;
+
+    // No change without a scroll region
+    t.setCursorPos(81, 81);
+    try testing.expectEqual(@as(usize, 79), t.cursor.x);
+    try testing.expectEqual(@as(usize, 79), t.cursor.y);
+
+    // Set the scroll region
+    t.setScrollingRegion(10, t.rows);
+    t.setCursorPos(0, 0);
+    try testing.expectEqual(@as(usize, 0), t.cursor.x);
+    try testing.expectEqual(@as(usize, 9), t.cursor.y);
+
+    t.setCursorPos(100, 0);
+    try testing.expectEqual(@as(usize, 0), t.cursor.x);
+    try testing.expectEqual(@as(usize, 79), t.cursor.y);
+
+    t.setScrollingRegion(10, 11);
+    t.setCursorPos(2, 0);
+    try testing.expectEqual(@as(usize, 0), t.cursor.x);
+    try testing.expectEqual(@as(usize, 10), t.cursor.y);
 }
 
 test "Terminal: setScrollingRegion" {

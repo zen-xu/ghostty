@@ -632,14 +632,17 @@ pub fn setCursorUp(self: *Window, amount: u16) !void {
 }
 
 pub fn setCursorCol(self: *Window, col: u16) !void {
+    if (self.terminal.mode_origin) unreachable; // TODO
     self.terminal.setCursorPos(self.terminal.cursor.y + 1, col);
 }
 
 pub fn setCursorRow(self: *Window, row: u16) !void {
+    if (self.terminal.mode_origin) unreachable; // TODO
     self.terminal.setCursorPos(row, self.terminal.cursor.x + 1);
 }
 
 pub fn setCursorPos(self: *Window, row: u16, col: u16) !void {
+    if (self.terminal.mode_origin) unreachable; // TODO
     self.terminal.setCursorPos(row, col);
 }
 
@@ -680,7 +683,6 @@ pub fn setMode(self: *Window, mode: terminal.Mode, enabled: bool) !void {
         .origin => {
             self.terminal.mode_origin = enabled;
             self.terminal.setCursorPos(1, 1);
-            unreachable; // TODO: implement
         },
 
         .bracketed_paste => self.bracketed_paste = true,
@@ -721,6 +723,8 @@ pub fn deviceStatusReport(
             log.warn("error queueing device attr response: {}", .{err}),
 
         .cursor_position => {
+            if (self.terminal.mode_origin) unreachable; // TODO
+
             // Response always is at least 4 chars, so this leaves the
             // remainder for the row/column as base-10 numbers. This
             // will support a very large terminal.
