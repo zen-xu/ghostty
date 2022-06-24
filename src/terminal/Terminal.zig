@@ -329,6 +329,11 @@ pub fn eraseLine(
             std.mem.set(Screen.Cell, row[0..self.cursor.x], self.cursor.pen);
         },
 
+        .complete => {
+            const row = self.screen.getRow(self.cursor.y);
+            std.mem.set(Screen.Cell, row, self.cursor.pen);
+        },
+
         else => {
             log.err("unimplemented erase line mode: {}", .{mode});
             @panic("unimplemented");

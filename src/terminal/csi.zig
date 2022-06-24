@@ -10,6 +10,10 @@ pub const EraseDisplay = enum(u8) {
 pub const EraseLine = enum(u8) {
     right = 0,
     left = 1,
-    complete = 3,
+    complete = 2,
     right_unless_pending_wrap = 4,
+
+    // Non-exhaustive so that @intToEnum never fails since the inputs are
+    // user-generated.
+    _,
 };
