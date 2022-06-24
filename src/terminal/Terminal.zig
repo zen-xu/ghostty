@@ -174,6 +174,27 @@ pub fn print(self: *Terminal, c: u21) !void {
     }
 }
 
+/// Resets all margins and fills the whole screen with the character 'E'
+///
+/// Sets the cursor to the top left corner.
+pub fn decaln(self: *Terminal) void {
+    // Reset margins, also sets cursor to top-left
+    self.setScrollingRegion(0, 0);
+
+    // Fill with Es, does not move cursor. We reset fg/bg so we can just
+    // optimize here by doing row copies.
+    const filled = self.screen.getRow(0);
+    var col: usize = 0;
+    while (col < self.cols) : (col += 1) {
+        filled[col] = .{ .char = 'E' };
+    }
+
+    var row: usize = 1;
+    while (row < self.rows) : (row += 1) {
+        std.mem.copy(Screen.Cell, self.screen.getRow(row), filled);
+    }
+}
+
 /// Move the cursor to the previous line in the scrolling region, possibly
 /// scrolling.
 ///
@@ -948,5 +969,27 @@ test "Terminal: reverseIndex from the top" {
         var str = try t.plainString(testing.allocator);
         defer testing.allocator.free(str);
         try testing.expectEqualStrings("E\nD\nA\nB", str);
+    }
+}
+
+test "Terminal: DECALN" {
+    const alloc = testing.allocator;
+    var t = try init(alloc, 2, 2);
+    defer t.deinit(alloc);
+
+    // Initial value
+    try t.print('A');
+    t.carriageReturn();
+    t.linefeed();
+    try t.print('B');
+    t.decaln();
+
+    try testing.expectEqual(@as(usize, 0), t.cursor.y);
+    try testing.expectEqual(@as(usize, 0), t.cursor.x);
+
+    {
+        var str = try t.plainString(testing.allocator);
+        defer testing.allocator.free(str);
+        try testing.expectEqualStrings("EE\nEE", str);
     }
 }

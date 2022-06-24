@@ -761,3 +761,7 @@ pub fn setCursorStyle(
     // it'll be updated the next time the window comes into focus.
     if (self.focused) try self.updateCursorStyle(grid_style, style.blinking());
 }
+
+pub fn decaln(self: *Window) !void {
+    self.terminal.decaln();
+}

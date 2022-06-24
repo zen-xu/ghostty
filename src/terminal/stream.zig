@@ -345,6 +345,24 @@ pub fn Stream(comptime Handler: type) type {
             action: Parser.Action.ESC,
         ) !void {
             switch (action.final) {
+                '8' => blk: {
+                    switch (action.intermediates.len) {
+                        1 => switch (action.intermediates[0]) {
+                            // DECALN - Fill Screen with E
+                            '#' => if (@hasDecl(T, "decaln")) {
+                                try self.handler.decaln();
+                                break :blk {};
+                            } else log.warn("unimplemented ESC callback: {}", .{action}),
+
+                            else => {},
+                        },
+
+                        else => {}, // fall through
+                    }
+
+                    log.warn("unimplemented ESC action: {}", .{action});
+                },
+
                 // RI - Reverse Index
                 'M' => if (@hasDecl(T, "reverseIndex")) switch (action.intermediates.len) {
                     0 => try self.handler.reverseIndex(),
