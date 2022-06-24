@@ -281,6 +281,16 @@ pub fn Stream(comptime Handler: type) type {
                     },
                 ) else log.warn("unimplemented CSI callback: {}", .{action}),
 
+                // Alias for set cursor position (H)
+                'f' => {
+                    var alias = action;
+                    alias.final = 'H';
+
+                    // Try would be better here but recursive try on
+                    // inferred error sets are not allowed.
+                    return self.csiDispatch(alias);
+                },
+
                 // SM - Set Mode
                 'h' => if (@hasDecl(T, "setMode")) {
                     for (action.params) |mode|
