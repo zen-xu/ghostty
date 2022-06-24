@@ -284,6 +284,27 @@ pub fn eraseDisplay(
             }
         },
 
+        .above => {
+            // Erase to the left (including the cursor)
+            var x: usize = 0;
+            while (x <= self.cursor.x) : (x += 1) {
+                const cell = try self.getOrPutCell(alloc, x, self.cursor.y);
+                cell.* = self.cursor.pen;
+                cell.char = 0;
+            }
+
+            // All lines above
+            var y: usize = 0;
+            while (y < self.cursor.y) : (y += 1) {
+                x = 0;
+                while (x < self.cols) : (x += 1) {
+                    const cell = try self.getOrPutCell(alloc, x, y);
+                    cell.* = self.cursor.pen;
+                    cell.char = 0;
+                }
+            }
+        },
+
         else => {
             log.err("unimplemented display mode: {}", .{mode});
             @panic("unimplemented");
