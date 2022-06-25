@@ -97,7 +97,19 @@ pub fn Stream(comptime Handler: type) type {
             }
         }
 
-        fn csiDispatch(self: *Self, action: Parser.Action.CSI) !void {
+        fn csiDispatch(self: *Self, input: Parser.Action.CSI) !void {
+            // Handles aliases first
+            const action = switch (input.final) {
+                // Alias for set cursor position
+                'f' => blk: {
+                    var copy = input;
+                    copy.final = 'H';
+                    break :blk copy;
+                },
+
+                else => input,
+            };
+
             switch (action.final) {
                 // CUU - Cursor Up
                 'A' => if (@hasDecl(T, "setCursorUp")) try self.handler.setCursorUp(
@@ -280,16 +292,6 @@ pub fn Stream(comptime Handler: type) type {
                         },
                     },
                 ) else log.warn("unimplemented CSI callback: {}", .{action}),
-
-                // Alias for set cursor position (H)
-                'f' => {
-                    var alias = action;
-                    alias.final = 'H';
-
-                    // Try would be better here but recursive try on
-                    // inferred error sets are not allowed.
-                    return self.csiDispatch(alias);
-                },
 
                 // SM - Set Mode
                 'h' => if (@hasDecl(T, "setMode")) {

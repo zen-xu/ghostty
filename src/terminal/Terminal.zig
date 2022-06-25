@@ -195,6 +195,33 @@ pub fn decaln(self: *Terminal) void {
     }
 }
 
+/// Move the cursor to the next line in the scrolling region, possibly scrolling.
+///
+/// If the cursor is outside of the scrolling region: move the cursor one line
+/// down if it is not on the bottom-most line of the screen.
+///
+/// If the cursor is inside the scrolling region:
+///   If the cursor is on the bottom-most line of the scrolling region:
+///     invoke scroll up with amount=1
+///   If the cursor is not on the bottom-most line of the scrolling region:
+///     move the cursor one line down
+///
+/// This unsets the pending wrap state without wrapping.
+pub fn index(self: *Terminal) void {
+    // TODO: outside of scrolling region
+
+    // If we're at the end of the screen, scroll up. This is surprisingly
+    // common because most terminals live with a full screen so we do this
+    // check first.
+    if (self.cursor.y == self.rows - 1) {
+        self.scrollUp();
+        return;
+    }
+
+    // Increase cursor by 1
+    self.cursor.y += 1;
+}
+
 /// Move the cursor to the previous line in the scrolling region, possibly
 /// scrolling.
 ///
@@ -468,19 +495,7 @@ pub fn carriageReturn(self: *Terminal) void {
 
 /// Linefeed moves the cursor to the next line.
 pub fn linefeed(self: *Terminal) void {
-    const tracy = trace(@src());
-    defer tracy.end();
-
-    // If we're at the end of the screen, scroll up. This is surprisingly
-    // common because most terminals live with a full screen so we do this
-    // check first.
-    if (self.cursor.y == self.rows - 1) {
-        self.scrollUp();
-        return;
-    }
-
-    // Increase cursor by 1
-    self.cursor.y += 1;
+    self.index();
 }
 
 /// Insert amount lines at the current cursor row. The contents of the line
@@ -995,6 +1010,39 @@ test "Terminal: reverseIndex from the top" {
         var str = try t.plainString(testing.allocator);
         defer testing.allocator.free(str);
         try testing.expectEqualStrings("E\nD\nA\nB", str);
+    }
+}
+
+test "Terminal: index" {
+    const alloc = testing.allocator;
+    var t = try init(alloc, 2, 5);
+    defer t.deinit(alloc);
+
+    t.index();
+    try t.print('A');
+
+    {
+        var str = try t.plainString(testing.allocator);
+        defer testing.allocator.free(str);
+        try testing.expectEqualStrings("\nA", str);
+    }
+}
+
+test "Terminal: index from the bottom" {
+    const alloc = testing.allocator;
+    var t = try init(alloc, 2, 5);
+    defer t.deinit(alloc);
+
+    t.setCursorPos(5, 1);
+    try t.print('A');
+    t.index();
+
+    try t.print('B');
+
+    {
+        var str = try t.plainString(testing.allocator);
+        defer testing.allocator.free(str);
+        try testing.expectEqualStrings("\n\n\nA\nB", str);
     }
 }
 
