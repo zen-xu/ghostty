@@ -731,15 +731,25 @@ pub fn deviceStatusReport(
             log.warn("error queueing device attr response: {}", .{err}),
 
         .cursor_position => {
-            if (self.terminal.mode_origin) unreachable; // TODO
+            const pos: struct {
+                x: usize,
+                y: usize,
+            } = if (self.terminal.mode_origin) .{
+                // TODO: what do we do if cursor is outside scrolling region?
+                .x = self.terminal.cursor.x,
+                .y = self.terminal.cursor.y -| self.terminal.scrolling_region.top,
+            } else .{
+                .x = self.terminal.cursor.x,
+                .y = self.terminal.cursor.y,
+            };
 
             // Response always is at least 4 chars, so this leaves the
             // remainder for the row/column as base-10 numbers. This
             // will support a very large terminal.
             var buf: [32]u8 = undefined;
             const resp = try std.fmt.bufPrint(&buf, "\x1B[{};{}R", .{
-                self.terminal.cursor.y + 1,
-                self.terminal.cursor.x + 1,
+                pos.y + 1,
+                pos.x + 1,
             });
 
             try self.queueWrite(resp);
@@ -788,4 +798,8 @@ pub fn saveCursor(self: *Window) !void {
 
 pub fn restoreCursor(self: *Window) !void {
     self.terminal.restoreCursor();
+}
+
+pub fn enquiry(self: *Window) !void {
+    try self.queueWrite("");
 }

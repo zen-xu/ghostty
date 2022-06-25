@@ -5,6 +5,8 @@
 pub const C0 = enum(u7) {
     /// Null
     NUL = 0x00,
+    /// Enquiry
+    ENQ = 0x05,
     /// Bell
     BEL = 0x07,
     /// Backspace

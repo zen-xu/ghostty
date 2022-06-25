@@ -71,6 +71,11 @@ pub fn Stream(comptime Handler: type) type {
             switch (@intToEnum(ansi.C0, c)) {
                 .NUL => {},
 
+                .ENQ => if (@hasDecl(T, "enquiry"))
+                    try self.handler.enquiry()
+                else
+                    log.warn("unimplemented execute: {x}", .{c}),
+
                 .BEL => if (@hasDecl(T, "bell"))
                     try self.handler.bell()
                 else
