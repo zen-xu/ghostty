@@ -17,6 +17,10 @@ pub const C0 = enum(u7) {
     VT = 0x0B,
     /// Carriage return
     CR = 0x0D,
+    /// Shift out
+    SO = 0x0E,
+    /// Shift in
+    SI = 0x0F,
 };
 
 /// The SGR rendition aspects that can be set, sometimes known as attributes.

@@ -67,6 +67,7 @@ pub fn Stream(comptime Handler: type) type {
         }
 
         fn execute(self: *Self, c: u8) !void {
+            // log.warn("C0: {}", .{c});
             switch (@intToEnum(ansi.C0, c)) {
                 .NUL => {},
 
@@ -100,6 +101,9 @@ pub fn Stream(comptime Handler: type) type {
                     try self.handler.carriageReturn()
                 else
                     log.warn("unimplemented execute: {x}", .{c}),
+
+                // TODO
+                .SO, .SI => log.warn("TODO: Shift out/Shift in", .{}),
             }
         }
 
