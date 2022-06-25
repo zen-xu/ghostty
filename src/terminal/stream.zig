@@ -379,8 +379,23 @@ pub fn Stream(comptime Handler: type) type {
             action: Parser.Action.ESC,
         ) !void {
             switch (action.final) {
+                // DECSC - Save Cursor
+                '7' => if (@hasDecl(T, "saveCursor")) switch (action.intermediates.len) {
+                    0 => try self.handler.saveCursor(),
+                    else => {
+                        log.warn("invalid command: {}", .{action});
+                        return;
+                    },
+                } else log.warn("unimplemented ESC callback: {}", .{action}),
+
                 '8' => blk: {
                     switch (action.intermediates.len) {
+                        // DECRC - Restore Cursor
+                        0 => if (@hasDecl(T, "restoreCursor")) {
+                            try self.handler.restoreCursor();
+                            break :blk {};
+                        } else log.warn("unimplemented restore cursor callback: {}", .{action}),
+
                         1 => switch (action.intermediates[0]) {
                             // DECALN - Fill Screen with E
                             '#' => if (@hasDecl(T, "decaln")) {

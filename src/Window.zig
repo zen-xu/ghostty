@@ -781,3 +781,11 @@ pub fn tabClear(self: *Window, cmd: terminal.TabClear) !void {
 pub fn tabSet(self: *Window) !void {
     self.terminal.tabSet();
 }
+
+pub fn saveCursor(self: *Window) !void {
+    self.terminal.saveCursor();
+}
+
+pub fn restoreCursor(self: *Window) !void {
+    self.terminal.restoreCursor();
+}

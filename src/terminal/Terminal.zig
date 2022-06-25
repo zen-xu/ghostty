@@ -28,6 +28,9 @@ screen: Screen,
 /// Cursor position.
 cursor: Cursor,
 
+/// Saved cursor saved with DECSC (ESC 7).
+saved_cursor: Cursor,
+
 /// Where the tabstops are.
 tabstops: Tabstops,
 
@@ -53,8 +56,8 @@ const ScrollingRegion = struct {
 /// Cursor represents the cursor state.
 const Cursor = struct {
     // x, y where the cursor currently exists (0-indexed).
-    x: usize,
-    y: usize,
+    x: usize = 0,
+    y: usize = 0,
 
     // pen is the current cell styling to apply to new cells.
     pen: Screen.Cell = .{ .char = 0 },
@@ -66,7 +69,8 @@ pub fn init(alloc: Allocator, cols: usize, rows: usize) !Terminal {
         .cols = cols,
         .rows = rows,
         .screen = try Screen.init(alloc, rows, cols),
-        .cursor = .{ .x = 0, .y = 0 },
+        .cursor = .{},
+        .saved_cursor = .{},
         .tabstops = try Tabstops.init(alloc, cols, TABSTOP_INTERVAL),
         .scrolling_region = .{
             .top = 0,
@@ -117,6 +121,23 @@ pub fn resize(self: *Terminal, alloc: Allocator, cols: usize, rows: usize) !void
 /// The caller must free the string.
 pub fn plainString(self: Terminal, alloc: Allocator) ![]const u8 {
     return try self.screen.testString(alloc);
+}
+
+/// Save cursor position and further state.
+///
+/// The primary and alternate screen have distinct save state. One saved state
+/// is kept per screen (main / alternative). If for the current screen state
+/// was already saved it is overwritten.
+pub fn saveCursor(self: *Terminal) void {
+    self.saved_cursor = self.cursor;
+}
+
+/// Restore cursor position and other state.
+///
+/// The primary and alternate screen have distinct save state.
+/// If no save was done before values are reset to their initial values.
+pub fn restoreCursor(self: *Terminal) void {
+    self.cursor = self.saved_cursor;
 }
 
 /// TODO: test
