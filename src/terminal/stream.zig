@@ -384,6 +384,15 @@ pub fn Stream(comptime Handler: type) type {
                     },
                 } else log.warn("unimplemented ESC callback: {}", .{action}),
 
+                // NEL - Next Line
+                'E' => if (@hasDecl(T, "nextLine")) switch (action.intermediates.len) {
+                    0 => try self.handler.nextLine(),
+                    else => {
+                        log.warn("invalid next line command: {}", .{action});
+                        return;
+                    },
+                } else log.warn("unimplemented ESC callback: {}", .{action}),
+
                 // RI - Reverse Index
                 'M' => if (@hasDecl(T, "reverseIndex")) switch (action.intermediates.len) {
                     0 => try self.handler.reverseIndex(),

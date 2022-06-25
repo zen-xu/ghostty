@@ -492,6 +492,10 @@ pub fn carriageReturn(self: *Terminal) void {
     const tracy = trace(@src());
     defer tracy.end();
 
+    // TODO: left/right margin mode
+    // TODO: origin mode
+    // TODO: wrap state
+
     self.cursor.x = 0;
 }
 
