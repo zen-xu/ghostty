@@ -13,6 +13,7 @@ pub const DeviceStatusReq = ansi.DeviceStatusReq;
 pub const Mode = ansi.Mode;
 pub const EraseDisplay = csi.EraseDisplay;
 pub const EraseLine = csi.EraseLine;
+pub const TabClear = csi.TabClear;
 pub const Attribute = sgr.Attribute;
 
 // Not exported because they're just used for tests.

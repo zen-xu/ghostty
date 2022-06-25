@@ -773,3 +773,11 @@ pub fn setCursorStyle(
 pub fn decaln(self: *Window) !void {
     self.terminal.decaln();
 }
+
+pub fn tabClear(self: *Window, cmd: terminal.TabClear) !void {
+    self.terminal.tabClear(cmd);
+}
+
+pub fn tabSet(self: *Window) !void {
+    self.terminal.tabSet();
+}

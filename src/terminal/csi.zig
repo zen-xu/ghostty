@@ -17,3 +17,13 @@ pub const EraseLine = enum(u8) {
     // user-generated.
     _,
 };
+
+// Modes for the TBC (tab clear) command.
+pub const TabClear = enum(u8) {
+    current = 0,
+    all = 3,
+
+    // Non-exhaustive so that @intToEnum never fails since the inputs are
+    // user-generated.
+    _,
+};

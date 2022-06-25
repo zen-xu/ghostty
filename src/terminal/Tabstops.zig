@@ -83,6 +83,20 @@ pub fn set(self: *Tabstops, col: usize) void {
     self.dynamic_stops[dynamic_i] |= masks[idx];
 }
 
+/// Unset the tabstop at a certain column. The columns are 0-indexed.
+pub fn unset(self: *Tabstops, col: usize) void {
+    const i = entry(col);
+    const idx = index(col);
+    if (i < prealloc_count) {
+        self.prealloc_stops[i] ^= masks[idx];
+        return;
+    }
+
+    const dynamic_i = i - prealloc_count;
+    assert(dynamic_i < self.dynamic_stops.len);
+    self.dynamic_stops[dynamic_i] ^= masks[idx];
+}
+
 /// Get the value of a tabstop at a specific column. The columns are 0-indexed.
 pub fn get(self: Tabstops, col: usize) bool {
     const i = entry(col);
@@ -159,6 +173,11 @@ test "Tabstops: basic" {
     try testing.expect(!t.get(3));
 
     t.reset(0);
+    try testing.expect(!t.get(4));
+
+    t.set(4);
+    try testing.expect(t.get(4));
+    t.unset(4);
     try testing.expect(!t.get(4));
 }
 

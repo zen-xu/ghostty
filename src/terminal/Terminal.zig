@@ -19,6 +19,9 @@ const Screen = @import("Screen.zig");
 
 const log = std.log.scoped(.terminal);
 
+/// Default tabstop interval
+const TABSTOP_INTERVAL = 8;
+
 /// Screen is the current screen state.
 screen: Screen,
 
@@ -64,7 +67,7 @@ pub fn init(alloc: Allocator, cols: usize, rows: usize) !Terminal {
         .rows = rows,
         .screen = try Screen.init(alloc, rows, cols),
         .cursor = .{ .x = 0, .y = 0 },
-        .tabstops = try Tabstops.init(alloc, cols, 8),
+        .tabstops = try Tabstops.init(alloc, cols, TABSTOP_INTERVAL),
         .scrolling_region = .{
             .top = 0,
             .bottom = rows - 1,
@@ -485,6 +488,22 @@ pub fn horizontalTab(self: *Terminal) !void {
         // at the tabstop unless we're at the end (the while condition).
         if (self.tabstops.get(self.cursor.x - 1)) return;
     }
+}
+
+/// Clear tab stops.
+/// TODO: test
+pub fn tabClear(self: *Terminal, cmd: csi.TabClear) void {
+    switch (cmd) {
+        .current => self.tabstops.unset(self.cursor.x - 1),
+        .all => self.tabstops.reset(0),
+        else => log.warn("invalid or unknown tab clear setting: {}", .{cmd}),
+    }
+}
+
+/// Set a tab stop on the current cursor.
+/// TODO: test
+pub fn tabSet(self: *Terminal) void {
+    self.tabstops.set(self.cursor.x - 1);
 }
 
 /// Carriage return moves the cursor to the first column.

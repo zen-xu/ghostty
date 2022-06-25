@@ -299,6 +299,18 @@ pub fn Stream(comptime Handler: type) type {
                     },
                 ) else log.warn("unimplemented CSI callback: {}", .{action}),
 
+                // TBC - Tab Clear
+                // TODO: test
+                'g' => if (@hasDecl(T, "tabClear")) try self.handler.tabClear(
+                    switch (action.params.len) {
+                        1 => @intToEnum(csi.TabClear, action.params[0]),
+                        else => {
+                            log.warn("invalid tab clear command: {}", .{action});
+                            return;
+                        },
+                    },
+                ) else log.warn("unimplemented CSI callback: {}", .{action}),
+
                 // SM - Set Mode
                 'h' => if (@hasDecl(T, "setMode")) {
                     for (action.params) |mode|
@@ -398,6 +410,12 @@ pub fn Stream(comptime Handler: type) type {
                         return;
                     },
                 } else log.warn("unimplemented ESC callback: {}", .{action}),
+
+                // HTS - Horizontal Tab Set
+                'H' => if (@hasDecl(T, "tabSet"))
+                    try self.handler.tabSet()
+                else
+                    log.warn("unimplemented tab set callback: {}", .{action}),
 
                 // RI - Reverse Index
                 'M' => if (@hasDecl(T, "reverseIndex")) switch (action.intermediates.len) {
