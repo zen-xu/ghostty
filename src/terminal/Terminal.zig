@@ -208,12 +208,14 @@ pub fn decaln(self: *Terminal) void {
 ///
 /// This unsets the pending wrap state without wrapping.
 pub fn index(self: *Terminal) void {
-    // TODO: outside of scrolling region
-
     // If we're at the end of the screen, scroll up. This is surprisingly
     // common because most terminals live with a full screen so we do this
     // check first.
     if (self.cursor.y == self.rows - 1) {
+        // Outside of the scroll region we do nothing.
+        if (self.cursor.y < self.scrolling_region.top or
+            self.cursor.y > self.scrolling_region.bottom) return;
+
         self.scrollUp();
         return;
     }
@@ -1043,6 +1045,35 @@ test "Terminal: index from the bottom" {
         var str = try t.plainString(testing.allocator);
         defer testing.allocator.free(str);
         try testing.expectEqualStrings("\n\n\nA\nB", str);
+    }
+}
+
+test "Terminal: index outside of scrolling region" {
+    const alloc = testing.allocator;
+    var t = try init(alloc, 2, 5);
+    defer t.deinit(alloc);
+
+    try testing.expectEqual(@as(usize, 0), t.cursor.y);
+    t.setScrollingRegion(2, 5);
+    t.index();
+    try testing.expectEqual(@as(usize, 1), t.cursor.y);
+}
+
+test "Terminal: index from the bottom outside of scroll region" {
+    const alloc = testing.allocator;
+    var t = try init(alloc, 2, 5);
+    defer t.deinit(alloc);
+
+    t.setScrollingRegion(1, 2);
+    t.setCursorPos(5, 1);
+    try t.print('A');
+    t.index();
+    try t.print('B');
+
+    {
+        var str = try t.plainString(testing.allocator);
+        defer testing.allocator.free(str);
+        try testing.expectEqualStrings("\n\n\n\nAB", str);
     }
 }
 

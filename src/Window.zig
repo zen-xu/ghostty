@@ -674,6 +674,10 @@ pub fn reverseIndex(self: *Window) !void {
     try self.terminal.reverseIndex();
 }
 
+pub fn index(self: *Window) !void {
+    self.terminal.index();
+}
+
 pub fn setTopAndBottomMargin(self: *Window, top: u16, bot: u16) !void {
     self.terminal.setScrollingRegion(top, bot);
 }

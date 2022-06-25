@@ -375,6 +375,15 @@ pub fn Stream(comptime Handler: type) type {
                     log.warn("unimplemented ESC action: {}", .{action});
                 },
 
+                // IND - Index
+                'D' => if (@hasDecl(T, "index")) switch (action.intermediates.len) {
+                    0 => try self.handler.index(),
+                    else => {
+                        log.warn("invalid index command: {}", .{action});
+                        return;
+                    },
+                } else log.warn("unimplemented ESC callback: {}", .{action}),
+
                 // RI - Reverse Index
                 'M' => if (@hasDecl(T, "reverseIndex")) switch (action.intermediates.len) {
                     0 => try self.handler.reverseIndex(),
