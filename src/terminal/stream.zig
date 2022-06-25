@@ -90,6 +90,12 @@ pub fn Stream(comptime Handler: type) type {
                 else
                     log.warn("unimplemented execute: {x}", .{c}),
 
+                // VT is same as LF
+                .VT => if (@hasDecl(T, "linefeed"))
+                    try self.handler.linefeed()
+                else
+                    log.warn("unimplemented execute: {x}", .{c}),
+
                 .CR => if (@hasDecl(T, "carriageReturn"))
                     try self.handler.carriageReturn()
                 else

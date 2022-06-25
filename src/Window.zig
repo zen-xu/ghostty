@@ -642,7 +642,6 @@ pub fn setCursorRow(self: *Window, row: u16) !void {
 }
 
 pub fn setCursorPos(self: *Window, row: u16, col: u16) !void {
-    if (self.terminal.mode_origin) unreachable; // TODO
     self.terminal.setCursorPos(row, col);
 }
 

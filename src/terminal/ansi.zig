@@ -13,6 +13,8 @@ pub const C0 = enum(u7) {
     HT = 0x09,
     /// Line feed
     LF = 0x0A,
+    /// Vertical Tab
+    VT = 0x0B,
     /// Carriage return
     CR = 0x0D,
 };
