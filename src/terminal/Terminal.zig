@@ -507,7 +507,7 @@ pub fn horizontalTab(self: *Terminal) !void {
         // If the last cursor position was a tabstop we return. We do
         // "last cursor position" because we want a space to be written
         // at the tabstop unless we're at the end (the while condition).
-        if (self.tabstops.get(self.cursor.x - 1)) return;
+        if (self.tabstops.get(self.cursor.x)) return;
     }
 }
 
@@ -515,7 +515,7 @@ pub fn horizontalTab(self: *Terminal) !void {
 /// TODO: test
 pub fn tabClear(self: *Terminal, cmd: csi.TabClear) void {
     switch (cmd) {
-        .current => self.tabstops.unset(self.cursor.x - 1),
+        .current => self.tabstops.unset(self.cursor.x),
         .all => self.tabstops.reset(0),
         else => log.warn("invalid or unknown tab clear setting: {}", .{cmd}),
     }
@@ -524,7 +524,7 @@ pub fn tabClear(self: *Terminal, cmd: csi.TabClear) void {
 /// Set a tab stop on the current cursor.
 /// TODO: test
 pub fn tabSet(self: *Terminal) void {
-    self.tabstops.set(self.cursor.x - 1);
+    self.tabstops.set(self.cursor.x);
 }
 
 /// Carriage return moves the cursor to the first column.
