@@ -12,7 +12,6 @@ jobs:
           x86_64-macos,
 
           aarch64-linux-gnu,
-          i386-linux-gnu,
           x86_64-linux-gnu,
 
           # No windows support currently.
