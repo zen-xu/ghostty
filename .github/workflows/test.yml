@@ -23,6 +23,9 @@ jobs:
         ]
     runs-on: ${{ matrix.os }}
     needs: test
+    env:
+      # Needed for macos SDK
+      AGREE: "true"
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
