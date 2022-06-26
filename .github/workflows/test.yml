@@ -3,6 +3,7 @@ name: Test
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest]
 
@@ -11,11 +12,8 @@ jobs:
           x86_64-macos,
 
           aarch64-linux-gnu,
-          aarch64-linux-musl,
           i386-linux-gnu,
-          i386-linux-musl,
           x86_64-linux-gnu,
-          x86_64-linux-musl,
 
           # No windows support currently.
           # i386-windows,
@@ -40,7 +38,7 @@ jobs:
 
     # Run our go tests within the context of the dev shell from the flake. This
     # will ensure we have all our dependencies.
-    - name: test
+    - name: Test Build
       run: nix develop -c zig build -Dtarget=${{ matrix.target }}
 
   test:
