@@ -132,10 +132,8 @@ class FullScreenHandler {
         // Restore previous presentation options
         NSApp.presentationOptions = []
         
-        // Stop handling any window focus notifications
-        // that we use to manage menu bar visibility
-        NotificationCenter.default.removeObserver(self, name: NSWindow.didBecomeMainNotification, object: window)
-        NotificationCenter.default.removeObserver(self, name: NSWindow.didResignMainNotification, object: window)
+        // Stop handling any kind of notification since we're leaving fullscreen mode
+        NotificationCenter.default.removeObserver(self)
         
         // Restore frame
         window.setFrame(window.frameRect(forContentRect: previousFrame), display: true)
