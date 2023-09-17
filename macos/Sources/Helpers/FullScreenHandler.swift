@@ -10,6 +10,7 @@ class FullScreenHandler {
     // a user goes to fullscreen, changes the config to disable non-native fullscreen
     // and then wants to toggle it off
     var isInNonNativeFullscreen: Bool = false
+    var processingScreenChange: Bool = false
     
     func toggleFullscreen(window: NSWindow, nonNativeFullscreen: ghostty_non_native_fullscreen_e) {
         if isInNonNativeFullscreen {
@@ -85,6 +86,14 @@ class FullScreenHandler {
         let frame = calculateFullscreenFrame(screenFrame: screen.frame, subtractMenu: !hideMenu)
         window.setFrame(frame, display: true)
         
+        // If the window gets moved to another display (via a window manager or the Window menu) then
+        // we may need to update the frame to the size of the new screen and update dock visibility
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(self.windowChangedScreen(notification:)),
+            name: NSWindow.didChangeScreenNotification,
+            object: window)
+        
         // Focus window
         window.makeKeyAndOrderFront(nil)
     }
@@ -103,6 +112,37 @@ class FullScreenHandler {
     
     @objc func unHideDock() {
         NSApp.presentationOptions.remove(.autoHideDock)
+    }
+    
+    @objc func windowChangedScreen(notification: NSNotification) {
+        // This notification can fire spriously and repeatedly in some situations.
+        // It's best if we're only handling one at a time.
+        // IMPORTANT: don't forget to set processingScreenChange to false before any
+        // early returns!
+        if processingScreenChange { return }
+        processingScreenChange = true
+
+        guard let window = notification.object as? NSWindow else {
+            self.processingScreenChange = false
+            return
+        }
+
+        // Window size updates must be done on the main thread. We also do the
+        // frame calculation there because otherwise we get the menu bar size
+        // from the old display rather than the new one.
+        DispatchQueue.main.async(execute: {
+            guard let screen = window.screen else {
+                self.processingScreenChange = false
+                return
+            }
+            let subtractMenu = !NSApp.presentationOptions.contains(.autoHideMenuBar);
+            let frame = self.calculateFullscreenFrame(screenFrame: screen.frame, subtractMenu: subtractMenu)
+            window.setFrame(frame, display: true)
+
+            print("done")
+        })
+        self.processingScreenChange = false
+        // TODO: check whether this retain cycle is an issue
     }
     
     func calculateFullscreenFrame(screenFrame: NSRect, subtractMenu: Bool)->NSRect {
