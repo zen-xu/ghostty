@@ -48,12 +48,12 @@ class FullScreenHandler {
             // Ensure that we always hide the dock bar for this window, but not for non fullscreen ones
             NotificationCenter.default.addObserver(
                 self,
-                selector: #selector(FullScreenHandler.hideDock),
+                selector: #selector(self.hideDock),
                 name: NSWindow.didBecomeMainNotification,
                 object: window)
             NotificationCenter.default.addObserver(
                 self,
-                selector: #selector(FullScreenHandler.unHideDock),
+                selector: #selector(self.unHideDock),
                 name: NSWindow.didResignMainNotification,
                 object: window)
         }
@@ -67,12 +67,12 @@ class FullScreenHandler {
             // handling this there.
             NotificationCenter.default.addObserver(
                 self,
-                selector: #selector(FullScreenHandler.hideMenu),
+                selector: #selector(self.hideMenu),
                 name: NSWindow.didBecomeMainNotification,
                 object: window)
             NotificationCenter.default.addObserver(
                 self,
-                selector: #selector(FullScreenHandler.unHideMenu),
+                selector: #selector(self.unHideMenu),
                 name: NSWindow.didResignMainNotification,
                 object: window)
         }
