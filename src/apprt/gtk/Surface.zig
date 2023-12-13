@@ -339,7 +339,7 @@ pub fn init(self: *Surface, app: *App, opts: Options) !void {
 
     const box = c.gtk_box_new(c.GTK_ORIENTATION_HORIZONTAL, 0);
 
-    const adjustment = c.gtk_adjustment_new(0, 0, 1, 0.1, 0.1, 0.1);
+    const adjustment = c.gtk_adjustment_new(0, 0, 1, 0.0001, 0.1, 1);
 
     const scrollbar = c.gtk_scrollbar_new(c.GTK_ORIENTATION_VERTICAL, adjustment);
     c.gtk_box_append(@ptrCast(box), widget);
@@ -378,6 +378,8 @@ pub fn init(self: *Surface, app: *App, opts: Options) !void {
     _ = c.g_signal_connect_data(gl_area, "destroy", c.G_CALLBACK(&gtkDestroy), self, null, c.G_CONNECT_DEFAULT);
     _ = c.g_signal_connect_data(gl_area, "render", c.G_CALLBACK(&gtkRender), self, null, c.G_CONNECT_DEFAULT);
     _ = c.g_signal_connect_data(gl_area, "resize", c.G_CALLBACK(&gtkResize), self, null, c.G_CONNECT_DEFAULT);
+
+    _ = c.g_signal_connect_data(adjustment, "value-changed", c.G_CALLBACK(&gtkScrollbarValueChanged), self, null, c.G_CONNECT_DEFAULT);
 
     _ = c.g_signal_connect_data(ec_key_press, "key-pressed", c.G_CALLBACK(&gtkKeyPressed), self, null, c.G_CONNECT_DEFAULT);
     _ = c.g_signal_connect_data(ec_key_press, "key-released", c.G_CALLBACK(&gtkKeyReleased), self, null, c.G_CONNECT_DEFAULT);
@@ -713,6 +715,12 @@ pub fn grabFocus(self: *Surface) void {
     self.updateTitleLabels();
     const widget = @as(*c.GtkWidget, @ptrCast(self.gl_area));
     _ = c.gtk_widget_grab_focus(widget);
+}
+
+pub fn updateScrollbar(self: *Surface, pageSize: f64, scrollPercentage: f64) void {
+    log.info("🔥 pageSize={} scrollPercentage={}", .{pageSize, scrollPercentage});
+    c.gtk_adjustment_set_page_size(self.adjustment, pageSize);
+    c.gtk_adjustment_set_value(self.adjustment, scrollPercentage);
 }
 
 fn updateTitleLabels(self: *Surface) void {
@@ -1168,7 +1176,13 @@ fn gtkMouseScroll(
     const self = userdataSelf(ud.?);
     const scaled = self.scaledCoordinates(x, y);
 
-    c.gtk_adjustment_set_value(self.adjustment, 0.5);
+    // const term = self.core_surface.renderer_state.terminal;
+    // const viewport: f64 = @floatFromInt(term.screen.viewport);
+    // const history: f64 = @floatFromInt(term.screen.history);
+
+    // log.info("🔥 setting adjustment to {}", .{viewport / history});
+
+    // c.gtk_adjustment_set_value(self.adjustment, viewport / history);
 
     // GTK doesn't support any of the scroll mods.
     const scroll_mods: input.ScrollMods = .{};
@@ -1179,6 +1193,29 @@ fn gtkMouseScroll(
         scroll_mods,
     ) catch |err| {
         log.err("error in scroll callback err={}", .{err});
+        return;
+    };
+}
+
+fn gtkScrollbarValueChanged(
+    _: *c.GtkAdjustment,
+    ud: ?*anyopaque,
+) callconv(.C) void {
+    const self = userdataSelf(ud.?);
+    const value = c.gtk_adjustment_get_value(self.adjustment);
+
+    log.info("🔥 scrollbar value changed to {}", .{value});
+
+    const term = self.core_surface.renderer_state.terminal;
+    const history: f64 = @floatFromInt(term.screen.history);
+
+    const scrollback: usize = @intFromFloat(history * value);
+
+    log.info("🔥 scrolling to row {}", .{scrollback});
+
+    self.core_surface.renderer_state.terminal.screen.scroll(.{ .row = .{ .history = scrollback } }) catch unreachable;
+    self.core_surface.refreshCallback() catch |err| {
+        log.err("error in refresh callback err={}", .{err});
         return;
     };
 }

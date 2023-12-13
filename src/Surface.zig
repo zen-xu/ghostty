@@ -1553,6 +1553,7 @@ pub fn scrollCallback(
     }
 
     try self.queueRender();
+    self.updateScrollbar();
 }
 
 /// This is called when the content scale of the surface changes. The surface
@@ -2605,6 +2606,31 @@ fn posToViewport(self: Surface, xpos: f64, ypos: f64) terminal.point.Viewport {
 fn scrollToBottom(self: *Surface) !void {
     try self.io.terminal.scrollViewport(.{ .bottom = {} });
     try self.queueRender();
+    self.updateScrollbar();
+}
+
+fn updateScrollbar(self: *Surface) void {
+    if (!@hasDecl(apprt.Surface, "updateScrollbar")) {
+        return;
+    }
+
+    const term = self.io.terminal;
+    const visibleRows: f64 = @floatFromInt(term.screen.rows);
+    const scrollOffset: f64 = @floatFromInt(term.screen.viewport);
+    const history: f64 = @floatFromInt(term.screen.history);
+
+    const pageSize = if (history == 0) 1.0 else visibleRows / history;
+    const scrollPosition = if (history == 0) 0 else (scrollOffset + visibleRows) / history;
+
+    log.info("🔥 visibleRows={} scrollOffset={} history={} pageSize={} scrollPosition={}", .{
+        visibleRows,
+        scrollOffset,
+        history,
+        pageSize,
+        scrollPosition,
+    });
+
+    self.rt_surface.updateScrollbar(pageSize, scrollPosition);
 }
 
 fn hideMouse(self: *Surface) void {
