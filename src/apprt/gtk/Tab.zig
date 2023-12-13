@@ -104,8 +104,8 @@ pub fn init(self: *Tab, window: *Window, parent_: ?*CoreSurface) !void {
     self.elem = .{ .surface = surface };
 
     // Add Surface to the Tab
-    const gl_area_widget = @as(*c.GtkWidget, @ptrCast(surface.gl_area));
-    c.gtk_box_append(self.box, gl_area_widget);
+    const terminal_widget = @as(*c.GtkWidget, @ptrCast(surface.box));
+    c.gtk_box_append(self.box, terminal_widget);
 
     // Add the notebook page (create tab). We create the tab after our
     // current selected tab if we have one.

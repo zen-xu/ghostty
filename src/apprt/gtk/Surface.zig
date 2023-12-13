@@ -70,7 +70,7 @@ pub const Container = union(enum) {
         /// element
         pub fn widget(self: Elem) *c.GtkWidget {
             return switch (self) {
-                .surface => |s| @ptrCast(s.gl_area),
+                .surface => |s| @ptrCast(s.box),
                 .split => |s| @ptrCast(@alignCast(s.paned)),
             };
         }
@@ -224,6 +224,10 @@ app: *App,
 /// Our GTK area
 gl_area: *c.GtkGLArea,
 
+box: *c.GtkBox,
+
+adjustment: *c.GtkAdjustment,
+
 /// Any active cursor we may have
 cursor: ?*c.GdkCursor = null,
 
@@ -333,6 +337,14 @@ pub fn init(self: *Surface, app: *App, opts: Options) !void {
     c.gtk_widget_set_focusable(widget, 1);
     c.gtk_widget_set_focus_on_click(widget, 1);
 
+    const box = c.gtk_box_new(c.GTK_ORIENTATION_HORIZONTAL, 0);
+
+    const adjustment = c.gtk_adjustment_new(0, 0, 1, 0.1, 0.1, 0.1);
+
+    const scrollbar = c.gtk_scrollbar_new(c.GTK_ORIENTATION_VERTICAL, adjustment);
+    c.gtk_box_append(@ptrCast(box), widget);
+    c.gtk_box_append(@ptrCast(box), scrollbar);
+
     // Inherit the parent's font size if we have a parent.
     const font_size: ?font.face.DesiredSize = font_size: {
         if (!app.config.@"window-inherit-font-size") break :font_size null;
@@ -345,6 +357,8 @@ pub fn init(self: *Surface, app: *App, opts: Options) !void {
         .app = app,
         .container = .{ .none = {} },
         .gl_area = gl_area,
+        .box = @ptrCast(box),
+        .adjustment = adjustment,
         .title_text = null,
         .core_surface = undefined,
         .font_size = font_size,
@@ -1153,6 +1167,8 @@ fn gtkMouseScroll(
 ) callconv(.C) void {
     const self = userdataSelf(ud.?);
     const scaled = self.scaledCoordinates(x, y);
+
+    c.gtk_adjustment_set_value(self.adjustment, 0.5);
 
     // GTK doesn't support any of the scroll mods.
     const scroll_mods: input.ScrollMods = .{};
