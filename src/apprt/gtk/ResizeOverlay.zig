@@ -50,6 +50,11 @@ pub fn deinit(self: *ResizeOverlay) void {
     }
 }
 
+/// Ignore the next resize event.
+pub fn ignoreNext(self: *ResizeOverlay) void {
+    self.first = true;
+}
+
 /// If we're configured to do so, update the text in the resize overlay widget
 /// and make it visible. Schedule a timer to hide the widget after the delay
 /// expires.

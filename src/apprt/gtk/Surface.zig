@@ -323,6 +323,10 @@ overlay: *c.GtkOverlay,
 /// Our GTK area
 gl_area: *c.GtkGLArea,
 
+/// The timer used for recycling the GL area. See gtkRecycleTimer
+/// for details on why we have this.
+gl_recycle_timer: ?c.guint = null,
+
 /// If non-null this is the widget on the overlay that shows the URL.
 url_widget: ?URLWidget = null,
 
@@ -374,15 +378,9 @@ pub fn create(alloc: Allocator, app: *App, opts: Options) !*Surface {
 }
 
 pub fn init(self: *Surface, app: *App, opts: Options) !void {
-    const gl_area = c.gtk_gl_area_new();
-
-    // Create an overlay so we can layer the GL area with other widgets.
+    // Create an overlay so we can layer the GL area with
+    // other widgets.
     const overlay = c.gtk_overlay_new();
-    c.gtk_overlay_set_child(@ptrCast(overlay), gl_area);
-
-    // Overlay is not focusable, but the GL area is.
-    c.gtk_widget_set_focusable(@ptrCast(overlay), 0);
-    c.gtk_widget_set_focus_on_click(@ptrCast(overlay), 0);
 
     // We grab the floating reference to the primary widget. This allows the
     // widget tree to be moved around i.e. between a split, a tab, etc.
@@ -394,16 +392,13 @@ pub fn init(self: *Surface, app: *App, opts: Options) !void {
     _ = c.g_object_ref_sink(@ptrCast(overlay));
     errdefer c.g_object_unref(@ptrCast(overlay));
 
-    // We want the gl area to expand to fill the parent container.
-    c.gtk_widget_set_hexpand(gl_area, 1);
-    c.gtk_widget_set_vexpand(gl_area, 1);
+    // Overlay is not focusable, but the GL area is.
+    c.gtk_widget_set_focusable(@ptrCast(overlay), 0);
+    c.gtk_widget_set_focus_on_click(@ptrCast(overlay), 0);
 
-    // Various other GL properties
-    c.gtk_widget_set_cursor_from_name(@ptrCast(gl_area), "text");
-    c.gtk_gl_area_set_required_version(@ptrCast(gl_area), 3, 3);
-    c.gtk_gl_area_set_has_stencil_buffer(@ptrCast(gl_area), 0);
-    c.gtk_gl_area_set_has_depth_buffer(@ptrCast(gl_area), 0);
-    c.gtk_gl_area_set_use_es(@ptrCast(gl_area), 0);
+    // Initialize our GL area
+    const gl_area = self.initGLArea();
+    c.gtk_overlay_set_child(@ptrCast(overlay), @ptrCast(gl_area));
 
     // Key event controller will tell us about raw keypress events.
     const ec_key = c.gtk_event_controller_key_new();
@@ -448,10 +443,6 @@ pub fn init(self: *Surface, app: *App, opts: Options) !void {
     // we call it manually from our own key controller.
     const im_context = c.gtk_im_multicontext_new();
     errdefer c.g_object_unref(im_context);
-
-    // The GL area has to be focusable so that it can receive events
-    c.gtk_widget_set_focusable(gl_area, 1);
-    c.gtk_widget_set_focus_on_click(gl_area, 1);
 
     // Inherit the parent's font size if we have a parent.
     const font_size: ?font.face.DesiredSize = font_size: {
@@ -511,12 +502,20 @@ pub fn init(self: *Surface, app: *App, opts: Options) !void {
     // Set our default mouse shape
     try self.setMouseShape(.text);
 
-    // GL events
-    _ = c.g_signal_connect_data(gl_area, "realize", c.G_CALLBACK(&gtkRealize), self, null, c.G_CONNECT_DEFAULT);
-    _ = c.g_signal_connect_data(gl_area, "unrealize", c.G_CALLBACK(&gtkUnrealize), self, null, c.G_CONNECT_DEFAULT);
-    _ = c.g_signal_connect_data(gl_area, "destroy", c.G_CALLBACK(&gtkDestroy), self, null, c.G_CONNECT_DEFAULT);
-    _ = c.g_signal_connect_data(gl_area, "render", c.G_CALLBACK(&gtkRender), self, null, c.G_CONNECT_DEFAULT);
-    _ = c.g_signal_connect_data(gl_area, "resize", c.G_CALLBACK(&gtkResize), self, null, c.G_CONNECT_DEFAULT);
+    // Setup our timer to recycle our GL area.
+    self.gl_recycle_timer = c.g_timeout_add(
+        // The interval is arbitrary, we should pick a number
+        // that works well for people without unnecessary churn.
+        // Currently: 1 hour.
+        // TODO(mitchellh): for the sake of testing, this is set
+        // to a lower value. Reset if we merge.
+        1000 * 60 * 5,
+        @ptrCast(&gtkRecycleTimer),
+        self,
+    );
+
+    // Overlay events
+    _ = c.g_signal_connect_data(overlay, "destroy", c.G_CALLBACK(&gtkDestroy), self, null, c.G_CONNECT_DEFAULT);
 
     _ = c.g_signal_connect_data(ec_key_press, "key-pressed", c.G_CALLBACK(&gtkKeyPressed), self, null, c.G_CONNECT_DEFAULT);
     _ = c.g_signal_connect_data(ec_key_press, "key-released", c.G_CALLBACK(&gtkKeyReleased), self, null, c.G_CONNECT_DEFAULT);
@@ -530,6 +529,70 @@ pub fn init(self: *Surface, app: *App, opts: Options) !void {
     _ = c.g_signal_connect_data(im_context, "preedit-changed", c.G_CALLBACK(&gtkInputPreeditChanged), self, null, c.G_CONNECT_DEFAULT);
     _ = c.g_signal_connect_data(im_context, "preedit-end", c.G_CALLBACK(&gtkInputPreeditEnd), self, null, c.G_CONNECT_DEFAULT);
     _ = c.g_signal_connect_data(im_context, "commit", c.G_CALLBACK(&gtkInputCommit), self, null, c.G_CONNECT_DEFAULT);
+}
+
+/// Create a new GtkGLArea for this surface. This will create
+/// the GL area, configure it, hook up all the signals, and
+/// return it.
+fn initGLArea(self: *Surface) *c.GtkGLArea {
+    const gl_area = c.gtk_gl_area_new();
+
+    // We want the gl area to expand to fill the parent container.
+    c.gtk_widget_set_hexpand(gl_area, 1);
+    c.gtk_widget_set_vexpand(gl_area, 1);
+
+    // Various other GL properties
+    c.gtk_widget_set_cursor_from_name(@ptrCast(gl_area), "text");
+    c.gtk_gl_area_set_required_version(@ptrCast(gl_area), 3, 3);
+    c.gtk_gl_area_set_has_stencil_buffer(@ptrCast(gl_area), 0);
+    c.gtk_gl_area_set_has_depth_buffer(@ptrCast(gl_area), 0);
+    c.gtk_gl_area_set_use_es(@ptrCast(gl_area), 0);
+
+    // The GL area has to be focusable so that it can receive events
+    c.gtk_widget_set_focusable(gl_area, 1);
+    c.gtk_widget_set_focus_on_click(gl_area, 1);
+
+    // GL events
+    _ = c.g_signal_connect_data(gl_area, "realize", c.G_CALLBACK(&gtkRealize), self, null, c.G_CONNECT_DEFAULT);
+    _ = c.g_signal_connect_data(gl_area, "unrealize", c.G_CALLBACK(&gtkUnrealize), self, null, c.G_CONNECT_DEFAULT);
+    _ = c.g_signal_connect_data(gl_area, "render", c.G_CALLBACK(&gtkRender), self, null, c.G_CONNECT_DEFAULT);
+    _ = c.g_signal_connect_data(gl_area, "resize", c.G_CALLBACK(&gtkResize), self, null, c.G_CONNECT_DEFAULT);
+
+    return @ptrCast(gl_area);
+}
+
+/// This is the callback from the timer set to recycle our GLArea.
+/// This is a nasty hack to workaround some driver-specific memory
+/// leaks that we've seen. The idea is that by creating a new GLArea
+/// we reset a bunch of driver state and free up memory.
+///
+/// This doesn't affect all users, only specific hardware/driver
+/// configurations. It's a workaround until we can figure out if
+/// there is a better solution.
+///
+/// See: https://github.com/ghostty-org/ghostty/issues/2210
+fn gtkRecycleTimer(
+    self: *Surface,
+) callconv(.C) c.gboolean {
+    // Create our new GL area and set it. This will trigger the
+    // destruction of the old one, too.
+    //
+    // NOTE: Our behavior currently depends on gtkUnrealize
+    // being called on the old gl area before gtkRealize is
+    // called on the new one. This seems to always be true
+    // but I don't know if its guaranteed.
+    self.gl_area = self.initGLArea();
+    c.gtk_overlay_set_child(
+        @ptrCast(self.overlay),
+        @ptrCast(self.gl_area),
+    );
+
+    // Ignore the next resize event since it will be for our
+    // new GL area.
+    self.resize_overlay.ignoreNext();
+
+    // Return true to keep the timer running.
+    return 1;
 }
 
 fn realize(self: *Surface) !void {
@@ -579,6 +642,12 @@ fn realize(self: *Surface) !void {
 
 pub fn deinit(self: *Surface) void {
     if (self.title_text) |title| self.app.core_app.alloc.free(title);
+
+    // If we have a timer we need to remove it.
+    if (self.gl_recycle_timer) |timer| {
+        _ = c.g_source_remove(timer);
+        self.gl_recycle_timer = null;
+    }
 
     // We don't allocate anything if we aren't realized.
     if (!self.realized) return;
@@ -1302,10 +1371,11 @@ fn gtkResize(area: *c.GtkGLArea, width: c.gint, height: c.gint, ud: ?*anyopaque)
     }
 }
 
-/// "destroy" signal for surface
+/// "destroy" signal for surface. This is triggered when our
+/// primary widget (the overlay) is destroyed.
 fn gtkDestroy(v: *c.GtkWidget, ud: ?*anyopaque) callconv(.C) void {
     _ = v;
-    log.debug("gl destroy", .{});
+    log.debug("overlay destroy", .{});
 
     const self = userdataSelf(ud.?);
     const alloc = self.app.core_app.alloc;
