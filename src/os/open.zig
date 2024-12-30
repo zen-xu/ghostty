@@ -2,17 +2,31 @@ const std = @import("std");
 const builtin = @import("builtin");
 const Allocator = std.mem.Allocator;
 
+/// The type of the data at the URL to open. This is used as a hint
+/// to potentially open the URL in a different way.
+pub const Type = enum {
+    text,
+    unknown,
+};
+
 /// Open a URL in the default handling application.
 ///
 /// Any output on stderr is logged as a warning in the application logs.
 /// Output on stdout is ignored.
-pub fn open(alloc: Allocator, url: []const u8) !void {
+pub fn open(
+    alloc: Allocator,
+    typ: Type,
+    url: []const u8,
+) !void {
     // Some opener commands terminate after opening (macOS open) and some do not
     // (xdg-open). For those which do not terminate, we do not want to wait for
     // the process to exit to collect stderr.
-    const argv, const wait = switch (builtin.os.tag) {
+    const argv: []const []const u8, const wait: bool = switch (builtin.os.tag) {
         .linux => .{ &.{ "xdg-open", url }, false },
-        .macos => .{ &.{ "open", url }, true },
+        .macos => switch (typ) {
+            .text => .{ &.{ "open", "-t", url }, true },
+            .unknown => .{ &.{ "open", url }, true },
+        },
         .windows => .{ &.{ "rundll32", "url.dll,FileProtocolHandler", url }, false },
         .ios => return error.Unimplemented,
         else => @compileError("unsupported OS"),
